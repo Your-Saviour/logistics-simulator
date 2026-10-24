@@ -16,7 +16,7 @@ final class HandlingUnits {
  }
  static String cell(JsonNode config,String line){int index=0;for(var entry:config.path("lines")){index++;if(entry.path("code").asText().equals(line)){if(index>4)throw new Conflict("Fixed facility has four production cells");return "manufacturing.cell%02d".formatted(index);}}throw new Conflict("Unknown production cell for line");}
  static String free(Connection c,Map<String,Object> run,String prefix)throws SQLException{
-  var occupied=new HashSet<String>();for(var unit:rows(c,"SELECT position FROM production_handling_units WHERE run_id=? AND epoch=? AND position IS NOT NULL",run.get("id"),run.get("epoch")))occupied.add(unit.get("position").toString());
+  var occupied=new HashSet<String>();for(var unit:rows(c,"SELECT position FROM production_handling_units WHERE run_id=? AND epoch=? AND position IS NOT NULL UNION SELECT destination AS position FROM production_custody WHERE run_id=? AND epoch=? AND state='accepted'",run.get("id"),run.get("epoch"),run.get("id"),run.get("epoch")))occupied.add(unit.get("position").toString());
   for(var location:CATALOG.path("locations")){String id=location.path("id").asText();if(id.startsWith(prefix)&&!occupied.contains(id))return id;}return null;
  }
  static void insert(Connection c,Map<String,Object> run,UUID id,String sku,int quantity,String category,String position,Object command,Object batch)throws SQLException{
@@ -40,7 +40,7 @@ final class HandlingUnits {
   for(var entry:body.path("units")){
    String position=entry.path("position").asText();JsonNode location=null;for(var candidate:CATALOG.path("locations"))if(candidate.path("id").asText().equals(position))location=candidate;
    if(location==null||!location.path("owner").asText().equals("manufacturing")||!location.path("kind").asText().equals("cell_input"))throw new Conflict("Legacy raw materials require a compatible production input position");
-   if(one(c,"SELECT 1 FROM production_handling_units WHERE run_id=? AND epoch=? AND position=?",run.get("id"),run.get("epoch"),position)!=null)throw new Conflict("Conversion position capacity exceeded");
+   if(one(c,"SELECT 1 FROM production_handling_units WHERE run_id=? AND epoch=? AND position=? UNION ALL SELECT 1 FROM production_custody WHERE run_id=? AND epoch=? AND destination=? AND state='accepted'",run.get("id"),run.get("epoch"),position,run.get("id"),run.get("epoch"),position)!=null)throw new Conflict("Conversion position capacity exceeded");
    insert(c,run,Policy.uuid(entry.get("id")),sku,entry.path("quantity").asInt(),"raw",position,job.get("id"),null,false);
   }
  }
@@ -53,6 +53,7 @@ final class HandlingUnits {
  static String consume(Connection c,Map<String,Object> run,Map<String,Object> order,JsonNode product,JsonNode config)throws SQLException{
   var selected=new ArrayList<Map<String,Object>>();String cell=cell(config,order.get("line").toString());var fields=product.path("bom").fields();
   while(fields.hasNext()){var field=fields.next();int needed=field.getValue().asInt()*((Number)order.get("quantity")).intValue();var units=exact(c,run,field.getKey(),needed,cell);if(units==null)return "No exact whole-unit inputs at "+cell+": "+field.getKey()+" needs "+needed+"; units cannot be split";selected.addAll(units);}
+  for(var unit:selected)if(((Number)unit.get("version")).intValue()==Integer.MAX_VALUE)return "Handling-unit counter exhausted; reconcile before consumption";
   for(var unit:selected){sql(c,"INSERT INTO production_unit_inputs(batch_id,unit_id,simulation_time) VALUES (?,?,?)",order.get("id"),unit.get("id"),run.get("granted"));sql(c,"UPDATE production_handling_units SET state='consumed',position=NULL,version=version+1 WHERE id=? AND state='available'",unit.get("id"));}return null;
  }
  static String outputPosition(Connection c,Map<String,Object> run,Map<String,Object> order,JsonNode config)throws SQLException{return free(c,run,cell(config,order.get("line").toString())+".output");}
@@ -71,6 +72,6 @@ final class HandlingUnits {
   result.put("lineage",rows(c,"SELECT payload FROM production_unit_lineage WHERE run_id=? AND epoch=? ORDER BY id",run.get("id"),run.get("epoch")).stream().map(row->json(row.get("payload"))).toList());
   result.put("input_allocations",rows(c,"SELECT i.* FROM production_unit_inputs i JOIN production_orders o ON o.id=i.batch_id WHERE o.run_id=? ORDER BY i.batch_id,i.unit_id",run.get("id")));
   result.put("legacy_stock",rows(c,"SELECT m.sku,m.quantity-COALESCE(sum(u.quantity) FILTER(WHERE u.state IN ('available','reserved')),0) AS unplaced_quantity FROM production_materials m LEFT JOIN production_handling_units u ON u.run_id=m.run_id AND u.sku=m.sku AND u.category='raw' WHERE m.run_id=? GROUP BY m.run_id,m.sku,m.quantity HAVING m.quantity<>COALESCE(sum(u.quantity) FILTER(WHERE u.state IN ('available','reserved')),0) ORDER BY m.sku",run.get("id")));
-  result.put("handoffs",List.of());return result;
+  result.put("handoffs",Custody.snapshot(c,run));return result;
  }
 }

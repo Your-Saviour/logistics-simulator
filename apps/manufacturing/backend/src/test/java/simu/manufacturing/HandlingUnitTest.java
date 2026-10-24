@@ -51,4 +51,12 @@ class HandlingUnitTest {
   assertEquals(command.get("id"),Production.command(fixture.store,"legacy-conversion",Json.M.valueToTree(body),audit).get("id"));
   fixture.post("employee-conversion",Map.of("action","convert","sku","COMPONENT","quantity",6,"units",body.get("units")),409);
  }
+ @Test void exhaustedUnitVersionDefersProductionWithoutConsumingStock(){
+  UUID unit=UUID.randomUUID();fixture.command(Map.of("action","supply","sku","COMPONENT","quantity",2,"units",List.of(Map.of("id",unit,"quantity",2))));fixture.advance(2);
+  fixture.store.tx(c->{Store.sql(c,"UPDATE production_handling_units SET version=? WHERE id=?",Integer.MAX_VALUE,unit);return null;});
+  UUID batch=fixture.create(1);fixture.command(Map.of("action","release","reference",batch));fixture.advance(6);fixture.advance(7);
+  assertEquals("ready",fixture.order(batch).path("status").asText());assertTrue(fixture.order(batch).path("blocked_reason").asText().contains("counter"));
+  assertEquals(2,fixture.get().path("materials").get(0).path("quantity").asInt());assertEquals("available",fixture.get().path("handling").path("units").get(0).path("state").asText());
+ }
+
 }

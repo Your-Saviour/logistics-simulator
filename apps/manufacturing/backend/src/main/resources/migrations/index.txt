@@ -8,3 +8,4 @@
 007_manufacturing_workflow_events.sql
 008_control_receipts.sql
 009_handling_units.sql
+010_custody_receiver.sql
