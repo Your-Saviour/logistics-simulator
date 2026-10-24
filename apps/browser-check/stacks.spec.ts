@@ -75,6 +75,9 @@ if(logistics) test('logistics: employee assigns fleet and follows custody throug
  const status=await(await request.get(logistics.url+'/api/status',{headers})).json();
  expect((await request.post(logistics.url+'/api/control/reset',{headers,data:{confirm_run_id:status.run.id}})).ok()).toBe(true);
  expect((await request.post(logistics.url+'/api/control/speed',{headers,data:{speed:5}})).ok()).toBe(true);
+ const intakeRun=await(await request.get(logistics.url+'/api/status',{headers})).json();const unitID=crypto.randomUUID();
+ const intake=await request.post(logistics.url+'/api/transport/commands',{headers:{...headers,'Idempotency-Key':crypto.randomUUID()},data:{run_id:intakeRun.run.id,epoch:intakeRun.run.epoch,due_at:Math.max(intakeRun.run.granted,intakeRun.run.requested)+2*intakeRun.quantum+2*intakeRun.run.speed,action:'intake',sku:'PRODUCT',category:'finished',quantity:8,correlation_id:crypto.randomUUID(),units:[{id:unitID,quantity:8}]}});expect(intake.ok()).toBe(true);const intakeID=(await intake.json()).id;
+ await expect.poll(async()=>{const snapshot=await(await request.get(logistics.url+'/api/transport',{headers})).json();return snapshot.commands.find((c:{id:string})=>c.id===intakeID)?.status;}).toBe('completed');
  await page.goto(logistics.url);await page.getByLabel('Username',{exact:true}).fill(logistics.employee);await page.getByLabel('Password',{exact:true}).fill(logistics.employeePassword);await page.getByRole('button',{name:'Log in',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Fleet availability'})).toBeVisible();
  await page.getByRole('combobox',{name:'Route',exact:true}).selectOption('WAREHOUSE-DISPATCH');await page.getByLabel('Load quantity',{exact:true}).fill('8');await page.getByRole('button',{name:'Request transport',exact:true}).click();

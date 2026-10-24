@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -14,6 +15,9 @@ import (
 // A missing transport endpoint, early physical movement or lost custody fails these real SQL tests.
 func transportRequest(t *testing.T, s *Store, method, path, key string, body row, code int) row {
 	t.Helper()
+	if method == "POST" && path == "/api/transport/commands" && body["action"] == "request" && body["unit_ids"] == nil && (code == 200 || code == 409) {
+		seedTransportFixture(t, s, key, body)
+	}
 	raw, _ := json.Marshal(body)
 	req := httptest.NewRequest(method, path, strings.NewReader(string(raw)))
 	req.SetBasicAuth("employee", "employee")
@@ -28,6 +32,56 @@ func transportRequest(t *testing.T, s *Store, method, path, key string, body row
 		t.Fatal(err)
 	}
 	return v
+}
+
+// Older fleet/clock fixtures now declare pre-existing whole finished pallets.
+// This is fixture provenance (sequence zero), not invented physical history.
+func seedTransportFixture(t *testing.T, s *Store, key string, body row) {
+	t.Helper()
+	ctx := context.Background()
+	unitID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(fmt.Sprint(body["run_id"])+":"+key)).String()
+	body["unit_ids"] = []string{unitID}
+	quantity, ok := body["quantity"].(int)
+	if !ok || quantity < 1 || quantity > 10000 {
+		return
+	}
+	if err := s.transaction(ctx, func(tx pgx.Tx) error {
+		run, err := lockRun(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if run["id"] != body["run_id"] || run["epoch"] != body["epoch"] {
+			return nil
+		}
+		var exists bool
+		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM transport_handling_units WHERE id=$1)", unitID).Scan(&exists); err != nil || exists {
+			return err
+		}
+		if err = ensureTransport(ctx, tx, run); err != nil {
+			return err
+		}
+		origin := "WAREHOUSE"
+		for _, route := range transportConfig(run).Routes {
+			if route.Code == body["route"] {
+				origin = route.Origin
+			}
+		}
+		position, err := freeHandlingPosition(ctx, tx, run, "logistics.outbound.staging", "finished")
+		if err != nil {
+			return err
+		}
+		command := uuid.NewSHA1(uuid.MustParse(unitID), []byte("fixture-provenance")).String()
+		if _, err = tx.Exec(ctx, "INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload,status) VALUES($1,$2,$3,$4,0,0,'{}','completed')", command, run["id"], run["epoch"], "fixture:"+key); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, "INSERT INTO transport_commands(id,run_id,command,status) VALUES($1,$2,'{\"action\":\"fixture\"}','completed')", command, run["id"]); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, "INSERT INTO transport_handling_units(id,barcode,run_id,epoch,sku,quantity,category,logical_location,state,position,command_id) VALUES($1,$2,$3,$4,$5,$6,'finished',$7,'available',$8,$9)", unitID, "HU-"+strings.ToUpper(strings.ReplaceAll(unitID, "-", "")), run["id"], run["epoch"], body["sku"], quantity, origin, position, command)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 }
 func transportSnapshot(t *testing.T, s *Store) row {
 	return transportRequest(t, s, "GET", "/api/transport", "", nil, 200)
@@ -248,7 +302,7 @@ func TestTransportConcurrentAssignmentsAndAuditRollback(t *testing.T) {
 	if assigned != 1 || rejected != 1 {
 		t.Fatalf("reservation conflict: assigned=%d rejected=%d", assigned, rejected)
 	}
-	raw := fmt.Sprintf(`{"run_id":%q,"epoch":%q,"due_at":10,"action":"request","route":"WAREHOUSE-DISPATCH","sku":"PRODUCT","quantity":1,"correlation_id":%q}`, r["id"], r["epoch"], uuid.NewString())
+	raw := fmt.Sprintf(`{"run_id":%q,"epoch":%q,"due_at":10,"action":"request","route":"WAREHOUSE-DISPATCH","sku":"PRODUCT","quantity":1,"unit_ids":["10000000-0000-4000-8000-000000000001"],"correlation_id":%q}`, r["id"], r["epoch"], uuid.NewString())
 	c, e := parseTransport(strings.NewReader(raw))
 	if e != nil {
 		t.Fatal(e)

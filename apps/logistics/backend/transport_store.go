@@ -40,6 +40,11 @@ func (s *Store) Transport(ctx context.Context) (result row, e error) {
 			return err
 		}
 		result = row{"configuration": transportConfig(r)}
+		handling, err := handlingSnapshot(ctx, tx, r)
+		if err != nil {
+			return err
+		}
+		result["handling"] = handling
 		queries := map[string]string{
 			"vehicles":  "SELECT v.*,t.id AS transfer_id FROM transport_vehicles v LEFT JOIN transport_transfers t ON t.run_id=v.run_id AND t.vehicle=v.code AND t.status IN ('assigned','loaded','in_transit','arrived') WHERE v.run_id=$1 ORDER BY v.code",
 			"transfers": "SELECT * FROM transport_transfers WHERE run_id=$1 ORDER BY id",
@@ -163,6 +168,9 @@ func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand
 	if e := ensureTransport(ctx, tx, r); e != nil {
 		return e
 	}
+	if c.Action == "intake" {
+		return intakeHandling(ctx, tx, r, j, c)
+	}
 	id := c.Reference
 	if c.Action == "request" {
 		var route *Route
@@ -187,6 +195,17 @@ func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand
 		id = j["id"].(string)
 		if _, e := tx.Exec(ctx, "INSERT INTO transport_transfers(id,run_id,epoch,correlation_id,external_reference,route,origin,destination,journey_seconds,sku,quantity,status,custody,provider) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'requested','origin',$12)", id, r["id"], r["epoch"], c.CorrelationID, external, route.Code, route.Origin, route.Destination, route.JourneySeconds, c.SKU, c.Quantity, provider); e != nil {
 			return e
+		}
+		transfer, err := object(ctx, tx, "SELECT * FROM transport_transfers WHERE id=$1", id)
+		if err != nil {
+			return err
+		}
+		if err = reserveHandling(ctx, tx, r, transfer, c); err != nil {
+			return err
+		}
+		ids, _ := json.Marshal(c.UnitIDs)
+		if _, err = tx.Exec(ctx, "UPDATE transport_transfers SET unit_ids=$1 WHERE id=$2", ids, id); err != nil {
+			return err
 		}
 	} else {
 		tr, e := object(ctx, tx, "SELECT * FROM transport_transfers WHERE id=$1 AND run_id=$2 FOR UPDATE", id, r["id"])
@@ -224,10 +243,16 @@ func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand
 				return e
 			}
 		case "load":
+			if e = loadHandling(ctx, tx, r, j, tr); e != nil {
+				return e
+			}
 			if _, e = tx.Exec(ctx, "UPDATE transport_transfers SET status='loaded',custody='vehicle',version=version+1 WHERE id=$1", id); e != nil {
 				return e
 			}
 		case "depart":
+			if e = departHandling(ctx, tx, r, tr); e != nil {
+				return e
+			}
 			eta := num(r, "granted") + num(tr, "journey_seconds")
 			if _, e = tx.Exec(ctx, "UPDATE transport_transfers SET status='in_transit',departed_at=$1,planned_eta=$2,version=version+1 WHERE id=$3", r["granted"], eta, id); e != nil {
 				return e
@@ -244,6 +269,9 @@ func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand
 				return e
 			}
 		case "unload":
+			if e = unloadHandling(ctx, tx, r, j, tr); e != nil {
+				return e
+			}
 			if _, e = tx.Exec(ctx, "UPDATE transport_transfers SET status='unloaded',custody='destination',unloaded_at=$1,version=version+1 WHERE id=$2", r["granted"], id); e != nil {
 				return e
 			}
@@ -251,6 +279,9 @@ func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand
 				return e
 			}
 		case "receive":
+			if e = receiveHandling(ctx, tx, tr); e != nil {
+				return e
+			}
 			if _, e = tx.Exec(ctx, "UPDATE transport_transfers SET status='received',received_at=$1,version=version+1 WHERE id=$2", r["granted"], id); e != nil {
 				return e
 			}

@@ -7,10 +7,17 @@ from uuid import uuid4
 import httpx
 import psycopg
 from stack_acceptance import wait_for
+from simulator.handling_contracts import validate_snapshot, validate_movement
 
 parser=argparse.ArgumentParser();parser.add_argument('--phase',default='lifecycle',choices=['lifecycle','prepare-transit','queue','recovered','broker-down','broker-up']);args=parser.parse_args()
 with httpx.Client(base_url='http://logistics-api:8000',auth=(os.environ['APP_USERNAME'],os.environ['APP_PASSWORD']),timeout=10) as c:
     def command(action,**fields):
+        if action=='request' and 'unit_ids' not in fields:
+            # Explicit initial-stock fixture through the real intake job path.
+            unit=str(uuid4());snapshot=c.get('/api/transport').json()
+            route=next(r for r in snapshot['configuration']['routes'] if r['code']==fields['route'])
+            outcome(command('intake',sku=fields['sku'],category='finished',quantity=fields['quantity'],location=route['origin'],correlation_id=fields['correlation_id'],units=[{'id':unit,'quantity':fields['quantity']}]))
+            fields['unit_ids']=[unit]
         status=c.get('/api/status').json();r=status['run'];quantum=status['quantum']
         body=dict(run_id=r['id'],epoch=r['epoch'],due_at=max(r['requested'],r['granted'])+2*quantum+r['speed'],action=action,**fields)
         response=c.post('/api/transport/commands',json=body,headers={'Idempotency-Key':str(uuid4())})
@@ -19,6 +26,10 @@ with httpx.Client(base_url='http://logistics-api:8000',auth=(os.environ['APP_USE
     def outcome(id):
         snap=wait_for(c,'/api/transport',lambda v:any(x['id']==id and x['status']!='pending' for x in v['commands']),timeout=60)
         row=next(x for x in snap['commands'] if x['id']==id);assert row['status']=='completed',row
+        run=c.get('/api/status').json()['run']
+        validate_snapshot(snap['handling']['units'],run['id'],run['epoch'])
+        for movement in snap['handling']['movements']:
+            validate_movement(movement,run['id'],run['epoch'])
         return snap
     if args.phase=='lifecycle':
         current=wait_for(c,'/api/status',lambda v:v['run']['state']=='running')

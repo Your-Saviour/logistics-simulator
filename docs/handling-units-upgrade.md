@@ -82,8 +82,36 @@ authorize material placement or create new barcodes in Manufacturing. The
 cross-database token/acknowledgement protocol must be deployed before enabling
 connected whole-unit operations. Independent reset never imports old-scope stock.
 
+## Logistics
+
+Migration `008_handling_units.sql` adds unit-linked transport manifests, unique
+active allocations, exact truck/staging placement and sequenced physical history.
+It does not backfill identities for old quantity-only transfers. Drain those
+transfers before upgrading; the worker rejects attempts to move unreconciled
+legacy loads rather than inventing barcodes.
+
+Initial stock fixtures use `intake` through the normal transport command endpoint
+with run/epoch, future due time, SKU, raw/finished `category`, exact `quantity`,
+correlation ID and explicit `units` (UUID and quantity). Optional `location` is
+the configured logical route origin; it is separate from the recorded physical
+endpoint. The service assigns compatible finite staging positions. Real custody
+imports must use the handoff protocol, preserving the existing barcode.
+
+`request` requires `unit_ids`. Selected units must be available in this run/epoch,
+at the logical origin, with exactly the requested SKU/quantity. Loading validates
+both vehicle quantity capacity and its eight physical slots, committing every
+unit or none. Departure clears confirmed placement and preserves origin/intended
+destination. Unload and receipt remain separate. An off-site trip retains unknown
+world position until confirmation; it does not acquire an invented scene coordinate.
+
+Quantity-only legacy Storage transfer facts are retained observations and cannot
+create transport stock. Source projection and the website receive unit data plus
+`unit_context` (logical origin/current transfer); logical names are never scene
+coordinates. Cross-database token/acknowledgement integration remains required
+before connected whole-unit cutover.
+
 ## Remaining applications
 
-Logistics, Shipping and Twin upgrade instructions will be added
+Shipping and Twin upgrade instructions will be added
 with their native implementations. The shared protocol is in
 [`contracts/handling/v1/README.md`](../contracts/handling/v1/README.md).

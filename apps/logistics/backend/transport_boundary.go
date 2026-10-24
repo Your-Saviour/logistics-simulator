@@ -109,7 +109,7 @@ func (s *Store) IngestTransport(ctx context.Context, raw []byte, source string) 
 	}
 	body, _ := json.Marshal(command)
 	c, err := parseTransport(bytes.NewReader(body))
-	if err != nil {
+	if err != nil && env.Type != "storage.transfer.completed.v1" {
 		return "", err
 	}
 	e = s.transaction(ctx, func(tx pgx.Tx) error {
@@ -171,6 +171,17 @@ func (s *Store) IngestTransport(ctx context.Context, raw []byte, source string) 
 			if tr["correlation_id"] != env.CorrelationID {
 				return Conflict("Receipt correlation differs from transfer")
 			}
+		}
+		// A legacy quantity-only transfer is an observation, not unit custody.
+		if env.Type == "storage.transfer.completed.v1" {
+			if _, err = tx.Exec(ctx, "INSERT INTO transport_peer_commands(run_id,source,aggregate_id,event_id,body) VALUES($1,$2,$3,$4,$5)", r["id"], env.Source, env.AggregateID, env.EventID, raw); err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, "INSERT INTO inbox(event_id,run_id,epoch) VALUES($1,$2,$3)", env.EventID, r["id"], r["epoch"]); err != nil {
+				return err
+			}
+			result = "observed"
+			return nil
 		}
 		// Native input at the current grant is eligible now, unlike employee scheduling.
 		id := uuid.NewString()

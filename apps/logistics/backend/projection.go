@@ -31,7 +31,21 @@ func (s *Store) Projection(ctx context.Context) (result row, err error) {
 			}
 			snapshot[key] = values
 		}
+		handling, e := handlingSnapshot(ctx, tx, run)
+		if e != nil {
+			return e
+		}
+		snapshot["handling"] = handling
 		events := []row{}
+		for _, movement := range handling["movements"].([]row) {
+			event := row{}
+			for key, value := range movement {
+				event[key] = value
+			}
+			event["id"] = "logistics:unit-movement:" + movement["id"].(string)
+			event["kind"] = "unit_movement"
+			events = append(events, event)
+		}
 		for _, movement := range snapshot["movements"].([]row) {
 			event := row{}
 			for k, v := range movement {

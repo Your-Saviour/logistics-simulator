@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"math"
 )
@@ -43,7 +44,18 @@ func (s *Store) SeedTransport(ctx context.Context) error {
 			if !exists {
 				cfg := transportConfig(r)
 				route := cfg.Routes[(slot-1)%len(cfg.Routes)]
-				_, err = transportJob(ctx, tx, r, key, TransportCommand{RunID: r["id"].(string), Epoch: r["epoch"].(string), DueAt: seedDue, Action: "request", Route: route.Code, SKU: "PRODUCT", Quantity: input["quantity"].(int), CorrelationID: input["input_id"].(string)}, nil, true)
+				unitID := uuid.NewSHA1(uuid.MustParse(input["input_id"].(string)), []byte("whole-unit")).String()
+				intakeKey := "transport:intake:" + input["input_id"].(string)
+				var supplied bool
+				if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM jobs WHERE run_id=$1 AND idempotency_key=$2)", r["id"], intakeKey).Scan(&supplied); err != nil {
+					return err
+				}
+				if !supplied {
+					if _, err = transportJob(ctx, tx, r, intakeKey, TransportCommand{RunID: r["id"].(string), Epoch: r["epoch"].(string), DueAt: seedDue, Action: "intake", SKU: "PRODUCT", Quantity: input["quantity"].(int), Category: "finished", Location: route.Origin, CorrelationID: input["input_id"].(string), Units: []HandlingManifest{{ID: unitID, Quantity: input["quantity"].(int)}}}, nil, true); err != nil {
+						return err
+					}
+				}
+				_, err = transportJob(ctx, tx, r, key, TransportCommand{RunID: r["id"].(string), Epoch: r["epoch"].(string), DueAt: seedDue + s.C.Quantum, Action: "request", Route: route.Code, SKU: "PRODUCT", Quantity: input["quantity"].(int), CorrelationID: input["input_id"].(string), UnitIDs: []string{unitID}}, nil, true)
 				if err != nil {
 					return err
 				}

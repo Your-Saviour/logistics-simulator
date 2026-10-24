@@ -50,7 +50,7 @@ func TestTransportNativePeerDeduplicationAndCustody(t *testing.T) {
 	r, _ := s.Run(ctx)
 	s.C.FederationID = "transport-test"
 	s.C.Peers = map[string]Peer{"transport": {Source: "storage", Endpoint: "storage/events"}}
-	body := row{"schema_version": "1.0", "type": "logistics.request.v1", "event_id": uuid.NewString(), "run_id": r["id"], "epoch": r["epoch"], "federation_id": "transport-test", "aggregate_id": uuid.NewString(), "aggregate_version": 1, "correlation_id": uuid.NewString(), "causation_id": uuid.NewString(), "source": "storage", "destination": "logistics", "boundary": "transport", "effective_time": 1, "wall_time": "2026-10-24T00:00:00Z", "quantity_unit": "item", "payload": row{"route": "WAREHOUSE-DISPATCH", "sku": "PRODUCT", "quantity": 5}}
+	body := row{"schema_version": "1.0", "type": "logistics.request.v1", "event_id": uuid.NewString(), "run_id": r["id"], "epoch": r["epoch"], "federation_id": "transport-test", "aggregate_id": uuid.NewString(), "aggregate_version": 1, "correlation_id": uuid.NewString(), "causation_id": uuid.NewString(), "source": "storage", "destination": "logistics", "boundary": "transport", "effective_time": 1, "wall_time": "2026-10-24T00:00:00Z", "quantity_unit": "item", "payload": row{"route": "WAREHOUSE-DISPATCH", "sku": "PRODUCT", "quantity": 5, "unit_ids": []string{uuid.NewString()}}}
 	raw, _ := json.Marshal(body)
 	// Use the same ingestion entry point that the HTTP adapter poll uses.
 	if _, e := s.IngestTransport(ctx, raw, "storage/events"); e != nil {
@@ -73,7 +73,7 @@ func TestTransportNativePeerDeduplicationAndCustody(t *testing.T) {
 		t.Fatalf("duplicate command %d", count)
 	}
 }
-func TestTransportStorageTransferHandoffPreservesReference(t *testing.T) {
+func TestTransportLegacyTransferObservationPreservesReferenceWithoutStock(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
 	r, _ := s.Run(ctx)
@@ -97,9 +97,17 @@ func TestTransportStorageTransferHandoffPreservesReference(t *testing.T) {
 		}
 	}
 	snap := transportSnapshot(t, s)
-	tr := snap["transfers"].([]any)[0].(map[string]any)
-	if tr["external_reference"] != external || tr["correlation_id"] != correlation {
-		t.Fatal(tr)
+	if len(snap["transfers"].([]any)) != 0 || len(snap["handling"].(map[string]any)["units"].([]any)) != 0 {
+		t.Fatal("quantity-only observation invented transport stock")
+	}
+	var retained []byte
+	if err := s.DB.QueryRow(ctx, "SELECT body FROM transport_peer_commands WHERE event_id=$1", env["event_id"]).Scan(&retained); err != nil {
+		t.Fatal(err)
+	}
+	var observed row
+	json.Unmarshal(retained, &observed)
+	if observed["aggregate_id"] != external || observed["correlation_id"] != correlation {
+		t.Fatal(observed)
 	}
 }
 func TestTransportReceiptRejectsDifferentCorrelation(t *testing.T) {

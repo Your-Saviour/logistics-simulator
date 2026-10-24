@@ -74,18 +74,27 @@ func transportConfig(r row) TransportConfig {
 	return defaultTransport()
 }
 
+type HandlingManifest struct {
+	ID       string `json:"id"`
+	Quantity int    `json:"quantity"`
+}
+
 type TransportCommand struct {
-	RunID             string  `json:"run_id"`
-	Epoch             string  `json:"epoch"`
-	DueAt             float64 `json:"due_at"`
-	Action            string  `json:"action"`
-	Route             string  `json:"route,omitempty"`
-	SKU               string  `json:"sku,omitempty"`
-	Quantity          int     `json:"quantity,omitempty"`
-	CorrelationID     string  `json:"correlation_id,omitempty"`
-	Reference         string  `json:"reference,omitempty"`
-	Vehicle           string  `json:"vehicle,omitempty"`
-	ExternalReference string  `json:"external_reference,omitempty"`
+	UnitIDs           []string           `json:"unit_ids,omitempty"`
+	Units             []HandlingManifest `json:"units,omitempty"`
+	Category          string             `json:"category,omitempty"`
+	Location          string             `json:"location,omitempty"`
+	RunID             string             `json:"run_id"`
+	Epoch             string             `json:"epoch"`
+	DueAt             float64            `json:"due_at"`
+	Action            string             `json:"action"`
+	Route             string             `json:"route,omitempty"`
+	SKU               string             `json:"sku,omitempty"`
+	Quantity          int                `json:"quantity,omitempty"`
+	CorrelationID     string             `json:"correlation_id,omitempty"`
+	Reference         string             `json:"reference,omitempty"`
+	Vehicle           string             `json:"vehicle,omitempty"`
+	ExternalReference string             `json:"external_reference,omitempty"`
 }
 
 func parseTransport(r io.Reader) (TransportCommand, error) {
@@ -104,8 +113,11 @@ func parseTransport(r io.Reader) (TransportCommand, error) {
 	allowed := map[string]bool{"run_id": true, "epoch": true, "due_at": true, "action": true}
 	required := []string{"run_id", "epoch", "due_at", "action"}
 	switch c.Action {
+	case "intake":
+		required = append(required, "sku", "quantity", "category", "correlation_id", "units")
+		allowed["location"] = true
 	case "request":
-		required = append(required, "route", "sku", "quantity", "correlation_id")
+		required = append(required, "route", "sku", "quantity", "correlation_id", "unit_ids")
 		allowed["external_reference"] = true
 	case "assign":
 		required = append(required, "reference", "vehicle")
@@ -133,7 +145,46 @@ func parseTransport(r io.Reader) (TransportCommand, error) {
 	if !finite(c.DueAt) || c.DueAt < 0 {
 		return c, errors.New("finite nonnegative due_at required")
 	}
+	if c.Action == "intake" {
+		if !transportCode.MatchString(c.SKU) || c.Quantity < 1 || c.Quantity > 10000 || (c.Category != "raw" && c.Category != "finished") || len(c.Units) < 1 || len(c.Units) > 256 {
+			return c, errors.New("explicit whole-unit intake manifest, SKU, category and quantity required")
+		}
+		seen := map[string]bool{}
+		total := 0
+		for _, unit := range c.Units {
+			if _, e = uuid.Parse(unit.ID); e != nil {
+				return c, e
+			}
+			if seen[unit.ID] || unit.Quantity < 1 || unit.Quantity > 10000 {
+				return c, errors.New("unique unit identities and positive whole quantities required")
+			}
+			seen[unit.ID] = true
+			total += unit.Quantity
+		}
+		if total != c.Quantity {
+			return c, errors.New("whole-unit manifest must exactly match intake quantity")
+		}
+		if _, e = uuid.Parse(c.CorrelationID); e != nil {
+			return c, e
+		}
+		if c.Location != "" && !transportCode.MatchString(c.Location) {
+			return c, errors.New("invalid logical intake location")
+		}
+	}
 	if c.Action == "request" {
+		if len(c.UnitIDs) < 1 || len(c.UnitIDs) > 256 {
+			return c, errors.New("explicit whole-unit identities required")
+		}
+		seen := map[string]bool{}
+		for _, id := range c.UnitIDs {
+			if _, e = uuid.Parse(id); e != nil {
+				return c, e
+			}
+			if seen[id] {
+				return c, errors.New("duplicate whole-unit identity")
+			}
+			seen[id] = true
+		}
 		if !transportCode.MatchString(c.Route) || !transportCode.MatchString(c.SKU) || c.Quantity < 1 || c.Quantity > 10000 {
 			return c, errors.New("valid route, SKU and integer quantity 1..10000 required")
 		}
@@ -145,7 +196,7 @@ func parseTransport(r io.Reader) (TransportCommand, error) {
 				return c, e
 			}
 		}
-	} else {
+	} else if c.Action != "intake" {
 		if _, e = uuid.Parse(c.Reference); e != nil {
 			return c, e
 		}
