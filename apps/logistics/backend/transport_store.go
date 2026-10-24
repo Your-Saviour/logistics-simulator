@@ -196,11 +196,21 @@ func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand
 		if _, e := tx.Exec(ctx, "INSERT INTO transport_transfers(id,run_id,epoch,correlation_id,external_reference,route,origin,destination,journey_seconds,sku,quantity,status,custody,provider) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'requested','origin',$12)", id, r["id"], r["epoch"], c.CorrelationID, external, route.Code, route.Origin, route.Destination, route.JourneySeconds, c.SKU, c.Quantity, provider); e != nil {
 			return e
 		}
+		if c.CustomerDestination != "" {
+			if _, err := tx.Exec(ctx, "UPDATE transport_transfers SET customer_destination=$1 WHERE id=$2", c.CustomerDestination, id); err != nil {
+				return err
+			}
+		}
 		transfer, err := object(ctx, tx, "SELECT * FROM transport_transfers WHERE id=$1", id)
 		if err != nil {
 			return err
 		}
-		if err = reserveHandling(ctx, tx, r, transfer, c); err != nil {
+		if len(c.ExpectedUnits) > 0 {
+			err = planExpectedUnits(ctx, tx, r, transfer, c)
+		} else {
+			err = reserveHandling(ctx, tx, r, transfer, c)
+		}
+		if err != nil {
 			return err
 		}
 		ids, _ := json.Marshal(c.UnitIDs)
@@ -228,6 +238,21 @@ func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand
 			if e != nil {
 				return e
 			}
+			var expected bool
+			if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM transport_expected_units WHERE transfer_id=$1 AND active)", id).Scan(&expected); err != nil {
+				return err
+			}
+			if expected {
+				physical := false
+				for index, configured := range transportConfig(r).Vehicles {
+					if configured.Code == c.Vehicle && index < 4 {
+						physical = true
+					}
+				}
+				if !physical {
+					return Conflict("Expected custody requires a vehicle with fixed physical truck slots")
+				}
+			}
 			if v["location"] != tr["origin"] || num(v, "capacity") < num(tr, "quantity") {
 				return Conflict("Vehicle is at another location or load exceeds capacity")
 			}
@@ -237,6 +262,9 @@ func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand
 			}
 			if occupied {
 				return Conflict("Vehicle already reserved by another transfer")
+			}
+			if err := reserveExpectedDestinations(ctx, tx, r, tr); err != nil {
+				return err
 			}
 			_, e = tx.Exec(ctx, "UPDATE transport_transfers SET vehicle=$1,status='assigned',version=version+1 WHERE id=$2", c.Vehicle, id)
 			if e != nil {

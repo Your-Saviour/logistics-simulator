@@ -77,12 +77,32 @@ func (s *Store) SeedTransport(ctx context.Context) error {
 					if err != nil {
 						return err
 					}
-					if len(available) > 0 {
-						action = "assign"
-						vehicle = available[0]["code"].(string)
+					var planned bool
+					if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM transport_expected_units WHERE transfer_id=$1 AND active)", tr["id"]).Scan(&planned); err != nil {
+						return err
+					}
+					physical := map[string]bool{}
+					for index, v := range transportConfig(r).Vehicles {
+						if index < 4 {
+							physical[v.Code] = true
+						}
+					}
+					for _, candidate := range available {
+						code := candidate["code"].(string)
+						if !planned || physical[code] {
+							action = "assign"
+							vehicle = code
+							break
+						}
 					}
 				case "assigned":
-					action = "load"
+					var missing bool
+					if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM transport_expected_units WHERE transfer_id=$1 AND active AND state='expected')", tr["id"]).Scan(&missing); err != nil {
+						return err
+					}
+					if !missing {
+						action = "load"
+					}
 				case "loaded":
 					action = "depart"
 				case "arrived":

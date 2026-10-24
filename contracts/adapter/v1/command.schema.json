@@ -3111,6 +3111,38 @@
     "TransportRecord": {
       "additionalProperties": false,
       "properties": {
+        "unit_destinations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "format": "uuid"
+          },
+          "title": "Unit Destinations",
+          "type": "object"
+        },
+        "customer_destination": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Customer Destination"
+        },
+        "unit_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Unit Ids",
+          "type": "array"
+        },
         "id": {
           "format": "uuid",
           "title": "Id",
@@ -3303,6 +3335,19 @@
     "TransportRequest": {
       "additionalProperties": false,
       "properties": {
+        "customer_destination": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Customer Destination"
+        },
         "route": {
           "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
           "title": "Route",
@@ -3331,6 +3376,32 @@
           ],
           "default": null,
           "title": "External Reference"
+        },
+        "unit_ids": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 256,
+          "title": "Unit Ids",
+          "type": "array"
+        },
+        "unit_manifest": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/UnitManifest"
+              },
+              "maxItems": 8,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Manifest"
         }
       },
       "required": [

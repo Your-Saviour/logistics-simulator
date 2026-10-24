@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 from pydantic import BeforeValidator, Field, TypeAdapter, model_validator
 from .contracts import Envelope
+from .logistics_contracts import TransportRequest, LogisticsRequestEnvelope
 from .storage_contracts import (Strict, Code, Quantity, ReceiptEnvelope, RequestEnvelope,
     ArrivalEnvelope, FactEnvelope, legacy_sample_default)
 
@@ -118,22 +119,18 @@ class ProductionDemandEnvelope(Envelope):
     payload: ProductionDemand
 
 
-class CarrierRequest(Strict):
-    route: Code
-    sku: Code
-    quantity: Quantity
-    external_reference: UUID | None = None
+class CarrierRequest(TransportRequest):
+    pass
 
 
-class CarrierRequestEnvelope(Envelope):
-    type: Literal['logistics.request.v1']
-    destination: Literal['logistics']
-    boundary: Literal['transport']
-    aggregate_version: int = Field(strict=True, ge=1, le=1)
+class CarrierRequestEnvelope(LogisticsRequestEnvelope):
     payload: CarrierRequest
 
 
 class CarrierRecord(Strict):
+    unit_destinations: dict[UUID, str] = Field(default_factory=dict)
+    customer_destination: Code | None = None
+    unit_ids: list[UUID] = Field(default_factory=list, max_length=256)
     id: UUID
     run_id: UUID
     epoch: UUID

@@ -61,6 +61,29 @@ func (s *Store) IngestTransport(ctx context.Context, raw []byte, source string) 
 	if payload == nil {
 		return "", errors.New("Transport payload required")
 	}
+	var expected []HandlingManifest
+	var expectedErr error
+	if env.Type == "logistics.request.v1" {
+		expected, expectedErr = parseExpectedManifest(payload, env)
+	}
+	if expectedErr != nil {
+		return "", expectedErr
+	}
+	customerDestination := ""
+	if expected != nil {
+		customerDestination = payload["customer_destination"].(string)
+		delete(payload, "unit_manifest")
+		delete(payload, "customer_destination")
+	} else if env.Type == "logistics.request.v1" {
+		if payload["unit_manifest"] == nil {
+			delete(payload, "unit_manifest")
+		}
+		if payload["customer_destination"] == nil {
+			delete(payload, "customer_destination")
+		} else {
+			return "", Conflict("Customer destination requires an authorized expected manifest")
+		}
+	}
 	command := row{"run_id": env.RunID, "epoch": env.Epoch, "due_at": env.EffectiveTime}
 	switch env.Type {
 	case "storage.transfer.completed.v1":
@@ -68,16 +91,17 @@ func (s *Store) IngestTransport(ctx context.Context, raw []byte, source string) 
 			return "", Conflict("Storage transfer requires storage transport peer")
 		}
 		var tr struct {
-			ID            string `json:"id"`
-			RunID         string `json:"run_id"`
-			ReservationID string `json:"reservation_id"`
-			SKU           string `json:"sku"`
-			Origin        string `json:"origin"`
-			Destination   string `json:"destination"`
-			Quantity      int    `json:"quantity"`
-			CorrelationID string `json:"correlation_id"`
-			Status        string `json:"status"`
-			Version       int    `json:"version"`
+			UnitManifest  []HandlingManifest `json:"unit_manifest"`
+			ID            string             `json:"id"`
+			RunID         string             `json:"run_id"`
+			ReservationID string             `json:"reservation_id"`
+			SKU           string             `json:"sku"`
+			Origin        string             `json:"origin"`
+			Destination   string             `json:"destination"`
+			Quantity      int                `json:"quantity"`
+			CorrelationID string             `json:"correlation_id"`
+			Status        string             `json:"status"`
+			Version       int                `json:"version"`
 		}
 		if e = strictJSON(bytes.NewReader(env.Payload), &tr); e != nil {
 			return
@@ -115,6 +139,11 @@ func (s *Store) IngestTransport(ctx context.Context, raw []byte, source string) 
 	c, err := parseTransport(bytes.NewReader(body))
 	if err != nil && env.Type != "storage.transfer.completed.v1" {
 		return "", err
+	}
+	if expected != nil {
+		c.ExpectedUnits = expected
+		c.ExpectedSource = env.Source
+		c.CustomerDestination = customerDestination
 	}
 	e = s.transaction(ctx, func(tx pgx.Tx) error {
 		r, err := lockRun(ctx, tx)

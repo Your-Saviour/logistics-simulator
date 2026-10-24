@@ -56,6 +56,11 @@ final class HandlingHandoffs
         HandlingUnits::import($u,$r,$command,$h,$correlation);
         $received=[...$h,'state'=>'received','receipt_id'=>Rules::uuid5($h['id'],'shipping-receipt')];$u->execute("UPDATE shipping_handling_handoffs SET state='received',receipt=? WHERE id=?",[$received,$h['id']]);self::publish($u,$r,$s,$received,$correlation);return $received;
     }
+    public static function offerLine(Unit $u,array $r,Settings $s,array $line,string $shipment,string $correlation,array $destinations):void {
+        $missing=[];foreach($line['unit_ids'] as $id)if(!$u->query('SELECT 1 FROM shipping_handling_departures WHERE id=?',[Rules::uuid5($shipment,$id)]))$missing[$id]=true;
+        if(!$missing)return;
+        foreach(HandlingUnits::requireLine($u,$r,$line) as $unit)if(isset($missing[$unit['id']]))self::offer($u,$r,$s,$unit['id'],'logistics',$destinations[$unit['id']],$correlation,$shipment);
+    }
     public static function offer(Unit $u,array $r,Settings $s,string $unitId,string $owner,string $destination,string $correlation,string $command):array {
         $id=Rules::uuid5($command,$unitId);$old=$u->query('SELECT offer FROM shipping_handling_departures WHERE id=?',[$id])[0]??null;
         if($old){$offer=$old['offer'];if($offer['destination_owner']!==$owner||$offer['destination']!==$destination)throw new Conflict('Departure command identity changed');return $offer;}
@@ -76,8 +81,8 @@ final class HandlingHandoffs
         }
         if(!$row['departure']||[...$h,'state'=>'departed','receipt_id'=>null]!=$row['departure'])throw new Conflict('Receipt does not prove this exact source departure');
         $ack=[...$h,'state'=>'acknowledged'];if($row['acknowledgement']){if($row['acknowledgement']!=$ack)throw new Conflict('Receipt identity changed after acknowledgement');return $row['acknowledgement'];}
-        $unit=$u->one('SELECT * FROM shipping_handling_units WHERE id=?',[$h['unit']['id']]);if($unit['state']!=='in_transit'||$unit['handoff_id']!==$h['id']||$unit['custody_generation']!==$h['departure_token']['custody_generation'])throw new Conflict('Late receipt cannot retire newer source custody');
-        HandlingUnits::counterRoom($unit);$u->execute("UPDATE shipping_handling_units SET state='dispatched',version=version+1 WHERE id=?",[$unit['id']]);$u->execute("UPDATE shipping_handling_departures SET state='acknowledged',acknowledgement=? WHERE id=?",[$ack,$h['id']]);self::publish($u,$r,$s,$ack,$correlation);return $ack;
+        $unit=$u->one('SELECT * FROM shipping_handling_units WHERE id=?',[$h['unit']['id']]);if(!in_array($unit['state'],['in_transit','dispatched'],true)||$unit['handoff_id']!==$h['id']||$unit['custody_generation']!==$h['departure_token']['custody_generation'])throw new Conflict('Late receipt cannot retire newer source custody');
+        if($unit['state']==='in_transit'){HandlingUnits::counterRoom($unit);$u->execute("UPDATE shipping_handling_units SET state='dispatched',version=version+1 WHERE id=?",[$unit['id']]);}$u->execute("UPDATE shipping_handling_departures SET state='acknowledged',acknowledgement=? WHERE id=?",[$ack,$h['id']]);self::publish($u,$r,$s,$ack,$correlation);return $ack;
     }
     /** Republish only unresolved protocol stages, with bounded wall-clock retry. */
     public static function recover(Unit $u,array $r):int {

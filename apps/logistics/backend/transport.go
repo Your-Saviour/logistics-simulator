@@ -80,21 +80,24 @@ type HandlingManifest struct {
 }
 
 type TransportCommand struct {
-	UnitIDs           []string           `json:"unit_ids,omitempty"`
-	Units             []HandlingManifest `json:"units,omitempty"`
-	Category          string             `json:"category,omitempty"`
-	Location          string             `json:"location,omitempty"`
-	RunID             string             `json:"run_id"`
-	Epoch             string             `json:"epoch"`
-	DueAt             float64            `json:"due_at"`
-	Action            string             `json:"action"`
-	Route             string             `json:"route,omitempty"`
-	SKU               string             `json:"sku,omitempty"`
-	Quantity          int                `json:"quantity,omitempty"`
-	CorrelationID     string             `json:"correlation_id,omitempty"`
-	Reference         string             `json:"reference,omitempty"`
-	Vehicle           string             `json:"vehicle,omitempty"`
-	ExternalReference string             `json:"external_reference,omitempty"`
+	CustomerDestination string             `json:"customer_destination,omitempty"`
+	ExpectedUnits       []HandlingManifest `json:"expected_units,omitempty"`
+	ExpectedSource      string             `json:"expected_source,omitempty"`
+	UnitIDs             []string           `json:"unit_ids,omitempty"`
+	Units               []HandlingManifest `json:"units,omitempty"`
+	Category            string             `json:"category,omitempty"`
+	Location            string             `json:"location,omitempty"`
+	RunID               string             `json:"run_id"`
+	Epoch               string             `json:"epoch"`
+	DueAt               float64            `json:"due_at"`
+	Action              string             `json:"action"`
+	Route               string             `json:"route,omitempty"`
+	SKU                 string             `json:"sku,omitempty"`
+	Quantity            int                `json:"quantity,omitempty"`
+	CorrelationID       string             `json:"correlation_id,omitempty"`
+	Reference           string             `json:"reference,omitempty"`
+	Vehicle             string             `json:"vehicle,omitempty"`
+	ExternalReference   string             `json:"external_reference,omitempty"`
 }
 
 func parseTransport(r io.Reader) (TransportCommand, error) {

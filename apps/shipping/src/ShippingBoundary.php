@@ -31,7 +31,7 @@ final class ShippingBoundary
         elseif(in_array($kind,['pick','release'],true)){$e['type']='storage.'.$kind.'.v1';$e['payload']=['reference'=>$line['reservation_id']];}
         elseif($kind==='transfer'){$e['type']='storage.transfer.v1';$e['payload']=['reference'=>$line['reservation_id'],'destination'=>Settings::env('SHIPPING_STOCK_DESTINATION','DISPATCH')];}
         elseif($kind==='produce'){$e['type']='manufacturing.demand.v1';$e['payload']=['product'=>$line['sku'],'line'=>Settings::env('SHIPPING_PRODUCTION_LINE','LINE-1'),'quantity'=>$line['quantity']];}
-        elseif($kind==='dispatch'){$e['type']='logistics.request.v1';$e['payload']=['route'=>Settings::env('SHIPPING_CARRIER_ROUTE','DISPATCH-CUSTOMER'),'sku'=>$line['sku'],'quantity'=>$line['quantity'],'external_reference'=>$e['event_id']];}
+        elseif($kind==='dispatch'){$e['type']='logistics.request.v1';$e['payload']=['route'=>Settings::env('SHIPPING_CARRIER_ROUTE','DISPATCH-CUSTOMER'),'sku'=>$line['sku'],'quantity'=>$line['quantity'],'external_reference'=>$e['event_id'],'customer_destination'=>$order['destination'],'unit_ids'=>$line['unit_ids'],'unit_manifest'=>$line['unit_manifest']];}
         return $e;
     }
     public static function fact(Unit $u,array $r,array $e):array {
@@ -71,14 +71,15 @@ final class ShippingBoundary
             if(($p['status']??null)!==$expected)throw new Conflict('Stock fact has wrong physical state');
         }elseif(str_starts_with($type,'logistics.')){
             $dispatch=$u->query("SELECT * FROM shipping_intents WHERE id=? AND run_id=? AND kind='dispatch'",[$p['external_reference']??'',$r['id']])[0]??null;if(!$dispatch)return ['ignore'=>true];
-            $line=$u->one('SELECT * FROM shipping_lines WHERE id=?',[$dispatch['line_id']]);$order=$u->one('SELECT * FROM shipping_orders WHERE id=?',[$dispatch['order_id']]);if(($p['sku']??null)!==$line['sku']||($p['quantity']??null)!==$line['quantity']||($p['destination']??null)!==$order['destination'])throw new Conflict('Carrier cargo or destination mismatch');
+            $line=$u->one('SELECT * FROM shipping_lines WHERE id=?',[$dispatch['line_id']]);$order=$u->one('SELECT * FROM shipping_orders WHERE id=?',[$dispatch['order_id']]);if(($p['sku']??null)!==$line['sku']||($p['quantity']??null)!==$line['quantity']||($p['customer_destination']??$p['destination']??null)!==$order['destination'])throw new Conflict('Carrier cargo or destination mismatch');
             if(($p['id']??null)!==$e['aggregate_id']||($p['run_id']??null)!==$r['id']||($p['epoch']??null)!==$r['epoch']||($p['correlation_id']??null)!==$e['correlation_id']||($p['version']??null)!==$e['aggregate_version'])throw new Conflict('Carrier fact metadata mismatch');
             if($type==='logistics.depart.completed.v1'&&($p['status']??null)==='in_transit'){$i=$dispatch;$result='departed';}
             elseif($type==='logistics.receive.completed.v1'&&($p['status']??null)==='received'&&($p['custody']??null)==='destination'){if(($dispatch['response']['peer_reference']??null)!==($p['id']??null))throw new Conflict('Carrier receipt changed the confirmed journey');$i=$u->query("SELECT * FROM shipping_intents WHERE order_id=? AND line_id=? AND kind='deliver'",[$dispatch['order_id'],$dispatch['line_id']])[0]??throw new Conflict('Carrier receipt preceded confirmed departure');$result='delivered';}
             else {
                 $state=['logistics.request.completed.v1'=>'requested','logistics.assign.completed.v1'=>'assigned','logistics.load.completed.v1'=>'loaded','logistics.arrive.completed.v1'=>'arrived','logistics.unload.completed.v1'=>'unloaded'][$type]??null;
                 if(!$state||($p['status']??null)!==$state)throw new Conflict('Carrier state differs from event type');
-                return ['progress'=>true,'order_id'=>$dispatch['order_id'],'event'=>$type,'detail'=>['owner'=>'logistics','fact_id'=>$e['event_id'],'status'=>$state]];
+                if($state==='assigned'){$ids=$p['unit_ids']??[];$expected=$line['unit_ids'];if(!is_array($ids)||!array_is_list($ids))throw new Conflict('Assigned carrier requires exact whole-unit identities');sort($ids);sort($expected);if($ids!==$expected||!$ids)throw new Conflict('Assigned carrier changed the whole-unit manifest');$destinations=$p['unit_destinations']??[];if(!is_array($destinations))throw new Conflict('Assigned carrier requires exact receiving endpoints');$keys=array_keys($destinations);sort($keys);if($keys!==$expected)throw new Conflict('Assigned receiving endpoints differ from the whole manifest');foreach($destinations as $endpoint){if(!is_string($endpoint)||!str_starts_with($endpoint,'logistics.outbound.staging'))throw new Conflict('Carrier receiving endpoint must be a fixed staging position');HandlingUnits::endpoint($endpoint,'logistics','finished');}if(count(array_unique($destinations))!==count($destinations))throw new Conflict('Assigned units cannot share a receiving endpoint');}
+                return ['progress'=>true,'order_id'=>$dispatch['order_id'],'event'=>$type,'detail'=>['owner'=>'logistics','fact_id'=>$e['event_id'],'status'=>$state,'line_id'=>$line['id'],'dispatch_id'=>$dispatch['id'],'unit_destinations'=>$p['unit_destinations']??[]]];
             }
             $id=$i['id'];
         }else throw new Conflict('Unsupported peer fact');

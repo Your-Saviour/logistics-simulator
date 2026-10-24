@@ -38,7 +38,7 @@ var physicalLocations = func() map[string]physicalLocation {
 }()
 
 func freeHandlingPosition(ctx context.Context, tx pgx.Tx, run row, prefix, category string) (string, error) {
-	occupied, err := objects(ctx, tx, "SELECT position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND position IS NOT NULL UNION SELECT destination AS position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND state='in_transit' UNION SELECT destination AS position FROM transport_custody WHERE run_id=$1 AND epoch=$2 AND state='accepted'", run["id"], run["epoch"])
+	occupied, err := objects(ctx, tx, "SELECT position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND position IS NOT NULL UNION SELECT destination AS position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND state='in_transit' UNION SELECT destination AS position FROM transport_custody WHERE run_id=$1 AND epoch=$2 AND state='accepted' UNION SELECT destination AS position FROM transport_expected_units WHERE run_id=$1 AND epoch=$2 AND active AND destination IS NOT NULL", run["id"], run["epoch"])
 	if err != nil {
 		return "", err
 	}
@@ -265,6 +265,9 @@ func loadHandling(ctx context.Context, tx pgx.Tx, run, job, transfer row) error 
 			return err
 		}
 	}
+	if _, err := tx.Exec(ctx, "UPDATE transport_expected_units SET destination=NULL WHERE transfer_id=$1", transfer["id"]); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -333,6 +336,9 @@ func receiveHandling(ctx context.Context, tx pgx.Tx, transfer row) error {
 		}
 	}
 	if _, err := tx.Exec(ctx, "UPDATE transport_handling_units SET state=CASE WHEN position IS NULL THEN 'dispatched' ELSE 'available' END,transfer_id=NULL,version=version+1 WHERE transfer_id=$1", transfer["id"]); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, "UPDATE transport_expected_units SET active=false WHERE transfer_id=$1", transfer["id"]); err != nil {
 		return err
 	}
 	_, err = tx.Exec(ctx, "UPDATE transport_unit_allocations SET active=false WHERE transfer_id=$1", transfer["id"])

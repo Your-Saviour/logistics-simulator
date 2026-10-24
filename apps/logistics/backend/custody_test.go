@@ -64,6 +64,11 @@ func TestCustodyReceiptRequiresDurableDepartureAndPreservesWholeIdentity(t *test
 			t.Fatalf("worker: %s %v", result, err)
 		}
 	}
+	directTruck := copyCustody(offer)
+	directTruck["destination"] = "logistics.outbound.truck02.slot01"
+	if _, err := s.IngestTransport(ctx, wire(directTruck), "shipping/events"); err == nil {
+		t.Fatal("peer receipt bypassed assigned vehicle loading and capacity checks")
+	}
 	for _, test := range []struct {
 		field string
 		value any

@@ -21,3 +21,18 @@ def test_adapter_transports_logistics_request_and_receipt():
 def test_adapter_rejects_malformed_transport_quantity(quantity):
     event=envelope();event['payload']['quantity']=quantity
     with pytest.raises(ValueError):transport_envelope.validate_python(event)
+
+
+def test_adapter_transports_exact_expected_shipping_manifest():
+    event=envelope();identity=str(uuid4())
+    event['source']='shipping'
+    event['payload'].update(route='DISPATCH-CUSTOMER',customer_destination='CUSTOMER-A',unit_ids=[identity],
+                            unit_manifest=[{'id':identity,'quantity':5}],external_reference=event['aggregate_id'])
+    parsed=transport_envelope.validate_python(event)
+    assert str(parsed.payload.unit_ids[0])==identity
+    assert parsed.payload.unit_manifest[0].quantity==5
+    for invalid in ([{'id':identity,'quantity':4}], [{'id':str(uuid4()),'quantity':5}]):
+        with pytest.raises(ValueError):
+            transport_envelope.validate_python({**event,'payload':{**event['payload'],'unit_manifest':invalid}})
+    with pytest.raises(ValueError):
+        transport_envelope.validate_python({**event,'source':'storage'})

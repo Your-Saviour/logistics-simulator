@@ -101,6 +101,9 @@ func validateCustody(env TransportEnvelope) (row, error) {
 	if !custodyEndpoint(h["origin"], source, category) || !custodyEndpoint(h["destination"], "logistics", category) {
 		return nil, Conflict("Unknown or incompatible physical endpoint")
 	}
+	if physicalLocations[h["destination"].(string)].Kind != "dock" {
+		return nil, Conflict("Custody receipt requires a receiving dock; truck placement requires assigned loading and capacity checks")
+	}
 	if unit["barcode"] != "HU-"+strings.ToUpper(strings.ReplaceAll(id, "-", "")) || unit["run_id"] != h["run_id"] || unit["epoch"] != h["epoch"] || !custodyInteger(unit["version"], 1) || !custodyInteger(unit["custody_generation"], 0) || !custodyInteger(unit["last_sequence"], 0) {
 		return nil, Conflict("Unit identity, scope or version mismatch")
 	}
@@ -302,6 +305,9 @@ func (s *Store) applyCustody(ctx context.Context, tx pgx.Tx, r, j row, env Trans
 			}
 			return nil
 		}
+		if _, err := expectedCustody(ctx, tx, r, h, env.CorrelationID); err != nil {
+			return err
+		}
 		var known bool
 		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM transport_handling_units WHERE id=$1) OR EXISTS(SELECT 1 FROM transport_custody WHERE unit_id=$1 AND state='accepted')", unit["id"]).Scan(&known); err != nil {
 			return err
@@ -309,7 +315,7 @@ func (s *Store) applyCustody(ctx context.Context, tx pgx.Tx, r, j row, env Trans
 		if known {
 			return Conflict("Barcode already known or accepted")
 		}
-		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND (position=$3 OR (state='in_transit' AND destination=$3))) OR EXISTS(SELECT 1 FROM transport_custody WHERE run_id=$1 AND epoch=$2 AND destination=$3 AND state='accepted')", r["id"], r["epoch"], h["destination"]).Scan(&known); err != nil {
+		if err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND (position=$3 OR (state='in_transit' AND destination=$3))) OR EXISTS(SELECT 1 FROM transport_custody WHERE run_id=$1 AND epoch=$2 AND destination=$3 AND state='accepted') OR EXISTS(SELECT 1 FROM transport_expected_units WHERE run_id=$1 AND epoch=$2 AND active AND destination=$3 AND unit_id<>$4)", r["id"], r["epoch"], h["destination"], unit["id"]).Scan(&known); err != nil {
 			return err
 		}
 		if known {
@@ -366,9 +372,28 @@ func (s *Store) applyCustody(ctx context.Context, tx pgx.Tx, r, j row, env Trans
 	if h["source"] == "shipping" {
 		location = "DISPATCH"
 	}
-	receivedUnit, err := object(ctx, tx, "INSERT INTO transport_handling_units(id,barcode,run_id,epoch,sku,quantity,category,logical_location,state,position,version,last_sequence,custody_generation,command_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'available',$9,$10,$11,$12,$13) RETURNING *", unit["id"], unit["barcode"], r["id"], r["epoch"], item["sku"], int(num(item, "quantity")), unit["category"], location, h["destination"], int(num(unit, "version")), int(num(unit, "last_sequence")), int(num(unit, "custody_generation")), j["id"])
+	planned, err := expectedCustody(ctx, tx, r, h, env.CorrelationID)
 	if err != nil {
 		return err
+	}
+	state := "available"
+	var transfer any
+	if planned != nil {
+		state = "reserved"
+		location = planned["origin"].(string)
+		transfer = planned["transfer_id"]
+	}
+	receivedUnit, err := object(ctx, tx, "INSERT INTO transport_handling_units(id,barcode,run_id,epoch,sku,quantity,category,logical_location,state,position,version,last_sequence,custody_generation,command_id,transfer_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$14,$9,$10,$11,$12,$13,$15) RETURNING *", unit["id"], unit["barcode"], r["id"], r["epoch"], item["sku"], int(num(item, "quantity")), unit["category"], location, h["destination"], int(num(unit, "version")), int(num(unit, "last_sequence")), int(num(unit, "custody_generation")), j["id"], state, transfer)
+	if err != nil {
+		return err
+	}
+	if planned != nil {
+		if _, err = tx.Exec(ctx, "INSERT INTO transport_unit_allocations(transfer_id,unit_id) VALUES($1,$2)", transfer, unit["id"]); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, "UPDATE transport_expected_units SET state='received' WHERE transfer_id=$1 AND unit_id=$2", transfer, unit["id"]); err != nil {
+			return err
+		}
 	}
 	if err = handlingMovement(ctx, tx, r, j, receivedUnit, "receive", h["origin"], h["destination"].(string), env.CorrelationID, nil); err != nil {
 		return err

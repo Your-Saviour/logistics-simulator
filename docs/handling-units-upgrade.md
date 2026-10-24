@@ -140,16 +140,11 @@ retirement or movement history. Protocol evidence received after its original
 simulation time runs at the current grant and cannot rewind history.
 
 These PHP protocol components and controlled peer fixtures are not evidence of
-a connected four-department lifecycle. Automatic vehicle-assignment offers,
-whole-unit peer request integration, the other native protocol participants and
-connected failure acceptance remain required before any whole-unit cutover.
+a connected four-department lifecycle. The automatic carrier integration below
+adds real two-department evidence; other native participants and whole-factory
+connected acceptance remain required before any whole-unit cutover.
 Known returning barcodes currently require explicit reconciliation rather than
 automatic re-import.
-
-## Twin instructions pending
-
-Twin upgrade instructions will be added with its native implementation. The shared protocol is in
-[`contracts/handling/v1/README.md`](../contracts/handling/v1/README.md).
 
 ## Logistics custody receiver
 
@@ -167,6 +162,48 @@ relays only to an explicitly matching recipient/boundary route. Counter bounds
 reserve PostgreSQL integer headroom for source departure and destination receipt;
 exhausted local counters reject before mutation rather than failing SQL arithmetic.
 
-These receiver components use existing configured peer endpoints. Logistics
-source handoffs, provisional manifest requests and assigned-vehicle coupling,
-explicit multi-peer routing and connected native acceptance remain required.
+These receiver components use existing configured peer endpoints. The next
+section covers provisional requests and vehicle coupling. Onward Logistics
+source handoffs, explicit multi-peer routing and full-factory connected
+acceptance remain required.
+
+## Automatic Shipping-to-Logistics dispatch
+
+Logistics migrations `011`–`014` add expected memberships, a separate customer
+address and run/epoch-scoped receiving-slot reservations. A configured Shipping
+peer sends `unit_ids`, an exact `unit_manifest` and `customer_destination` with
+its carrier request. These are expectations, not stock. Public Logistics commands
+still require owned units and cannot create peer-only expectations.
+
+Assignment reserves every staging endpoint for the complete manifest in one
+transaction, alongside vehicle capacity. Its `unit_destinations` mapping triggers
+Shipping's worker to offer those exact units to those exact endpoints. Shipping
+keeps its placements until acceptance. Logistics binds received units to the
+expected transfer, waits for every receipt before loading, and releases staging
+reservations after the atomic truck load. Peer receipts cannot bypass vehicle
+loading by placing stock directly into truck slots. The wire supports at most
+eight whole units per line; Shipping rejects an unsupported dispatch before
+creating a shipment or outbox entry. No unit or quantity is split or clamped.
+
+The route's existing `destination` remains its logical stop. The additive
+`customer_destination` preserves the order address for carrier confirmations.
+Shipping's journey reference uses the actual confirmed carrier transfer ID.
+A late custody receipt can acknowledge the same generation after confirmed
+delivery already retired it, without another retirement; newer generations fence
+that receipt.
+
+Run `make handling-carrier-check` for a disposable real PHP/Go/native HELICS pair
+with Twin absent. It uses configured synthetic goods and customer providers,
+then verifies the actual carrier request, reserved endpoints, same barcode and
+contents in both databases, receipt/load history, customer delivery and custody
+acknowledgement. Transport-only fault gates suppress receipts until after delivery
+and suppress the first acknowledgements; durable retries must converge without
+extra source retirement. The gate never changes stock or business records.
+Artifacts are under `.superpowers/sdd/2026-10-25-simu64-implementation/carrier-native`.
+This is outbound-pair evidence, not Storage/Manufacturing or whole-factory
+acceptance.
+
+## Twin instructions pending
+
+Twin upgrade instructions will be added with its native implementation. The shared protocol is in
+[`contracts/handling/v1/README.md`](../contracts/handling/v1/README.md).
