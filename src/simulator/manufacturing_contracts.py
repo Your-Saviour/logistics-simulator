@@ -1,4 +1,5 @@
 """Transport-only manufacturing messages; Java owns all production execution."""
+from .handling_wire import HandlingEnvelope
 from typing import Annotated, Literal
 from pydantic import Field, TypeAdapter
 from .contracts import Envelope
@@ -21,7 +22,7 @@ class DemandEnvelope(Envelope):
 
 
 TransportEnvelope = Annotated[
-    Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | FactEnvelope | DemandEnvelope,
+    Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | FactEnvelope | DemandEnvelope | HandlingEnvelope,
     Field(discriminator='type')]
 # Preserve omitted legacy sample type, without modifying the published storage schema.
 from pydantic import BeforeValidator

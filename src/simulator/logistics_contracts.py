@@ -1,4 +1,5 @@
 """Wire validation only; all transport business effects belong to Go."""
+from .handling_wire import HandlingEnvelope
 from typing import Annotated, Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
@@ -63,5 +64,5 @@ class LogisticsFactEnvelope(Envelope):
     source: Literal['logistics']
     payload: TransportRecord
 
-LogisticsEnvelope = Annotated[LogisticsRequestEnvelope | LogisticsReceiptEnvelope | LogisticsFactEnvelope, Field(discriminator='type')]
+LogisticsEnvelope = Annotated[LogisticsRequestEnvelope | LogisticsReceiptEnvelope | LogisticsFactEnvelope | HandlingEnvelope, Field(discriminator='type')]
 logistics_envelope = TypeAdapter(LogisticsEnvelope)

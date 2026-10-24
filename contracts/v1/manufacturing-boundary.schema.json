@@ -497,6 +497,585 @@
       "title": "FactEnvelope",
       "type": "object"
     },
+    "HandlingEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "handling.offered.v1",
+            "handling.accepted.v1",
+            "handling.departed.v1",
+            "handling.received.v1",
+            "handling.acknowledged.v1",
+            "handling.quarantined.v1"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "minLength": 1,
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "minLength": 1,
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$id": "urn:simulator:handling:handoff:1",
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "enum": [
+                      "departed",
+                      "received",
+                      "acknowledged"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "departure_token": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "handoff_id": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "unit_id": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "run_id": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "epoch": {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      "custody_generation": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "last_sequence": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "unit_version": {
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "handoff_id",
+                      "unit_id",
+                      "run_id",
+                      "epoch",
+                      "custody_generation",
+                      "last_sequence",
+                      "unit_version"
+                    ],
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "enum": [
+                      "received",
+                      "acknowledged"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "receipt_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "quarantined"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "reason": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          ],
+          "properties": {
+            "id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "run_id": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "epoch": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "source": {
+              "enum": [
+                "storage",
+                "manufacturing",
+                "logistics",
+                "shipping"
+              ]
+            },
+            "destination_owner": {
+              "enum": [
+                "storage",
+                "manufacturing",
+                "logistics",
+                "shipping"
+              ]
+            },
+            "origin": {
+              "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+              "type": "string"
+            },
+            "destination": {
+              "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+              "type": "string"
+            },
+            "state": {
+              "enum": [
+                "offered",
+                "accepted",
+                "departed",
+                "received",
+                "acknowledged",
+                "quarantined"
+              ]
+            },
+            "unit": {
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "available",
+                          "reserved"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "position": {
+                        "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                        "type": "string"
+                      },
+                      "handoff_id": {
+                        "type": "null"
+                      },
+                      "origin": {
+                        "type": "null"
+                      },
+                      "destination": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "const": "in_transit"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "position": {
+                        "type": "null"
+                      },
+                      "origin": {
+                        "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                        "type": "string"
+                      },
+                      "destination": {
+                        "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                        "type": "string"
+                      },
+                      "handoff_id": {
+                        "format": "uuid",
+                        "type": "string"
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "state": {
+                        "enum": [
+                          "consumed",
+                          "dispatched",
+                          "legacy_unplaced"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "position": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              ],
+              "properties": {
+                "version": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "barcode": {
+                  "pattern": "^HU-[0-9A-F]{32}$",
+                  "type": "string"
+                },
+                "run_id": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "epoch": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "contents": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "sku": {
+                        "maxLength": 128,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "maximum": 10000,
+                        "minimum": 1,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "sku",
+                      "quantity"
+                    ],
+                    "type": "object"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "category": {
+                  "enum": [
+                    "raw",
+                    "finished"
+                  ]
+                },
+                "state": {
+                  "enum": [
+                    "available",
+                    "reserved",
+                    "in_transit",
+                    "consumed",
+                    "dispatched",
+                    "legacy_unplaced"
+                  ]
+                },
+                "owner": {
+                  "enum": [
+                    "storage",
+                    "manufacturing",
+                    "logistics",
+                    "shipping"
+                  ]
+                },
+                "custody_generation": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "last_sequence": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "position": {
+                  "anyOf": [
+                    {
+                      "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "origin": {
+                  "anyOf": [
+                    {
+                      "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "destination": {
+                  "anyOf": [
+                    {
+                      "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "handoff_id": {
+                  "anyOf": [
+                    {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "version",
+                "id",
+                "barcode",
+                "run_id",
+                "epoch",
+                "contents",
+                "category",
+                "state",
+                "owner",
+                "custody_generation",
+                "last_sequence",
+                "position",
+                "origin",
+                "destination",
+                "handoff_id"
+              ],
+              "type": "object"
+            },
+            "departure_token": {
+              "anyOf": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "handoff_id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "unit_id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "run_id": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "epoch": {
+                      "format": "uuid",
+                      "type": "string"
+                    },
+                    "custody_generation": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "last_sequence": {
+                      "minimum": 1,
+                      "type": "integer"
+                    },
+                    "unit_version": {
+                      "minimum": 1,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "handoff_id",
+                    "unit_id",
+                    "run_id",
+                    "epoch",
+                    "custody_generation",
+                    "last_sequence",
+                    "unit_version"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "receipt_id": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "run_id",
+            "epoch",
+            "source",
+            "destination_owner",
+            "origin",
+            "destination",
+            "state",
+            "unit",
+            "departure_token",
+            "receipt_id",
+            "reason"
+          ],
+          "title": "Payload",
+          "type": "object"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "HandlingEnvelope",
+      "type": "object"
+    },
     "ReceiptEnvelope": {
       "additionalProperties": false,
       "properties": {
@@ -1053,6 +1632,12 @@
   },
   "discriminator": {
     "mapping": {
+      "handling.accepted.v1": "#/$defs/HandlingEnvelope",
+      "handling.acknowledged.v1": "#/$defs/HandlingEnvelope",
+      "handling.departed.v1": "#/$defs/HandlingEnvelope",
+      "handling.offered.v1": "#/$defs/HandlingEnvelope",
+      "handling.quarantined.v1": "#/$defs/HandlingEnvelope",
+      "handling.received.v1": "#/$defs/HandlingEnvelope",
       "manufacturing.demand.v1": "#/$defs/DemandEnvelope",
       "sample.completed.v1": "#/$defs/Envelope",
       "storage.arrive.completed.v1": "#/$defs/FactEnvelope",
@@ -1087,6 +1672,9 @@
     },
     {
       "$ref": "#/$defs/DemandEnvelope"
+    },
+    {
+      "$ref": "#/$defs/HandlingEnvelope"
     }
   ]
 }

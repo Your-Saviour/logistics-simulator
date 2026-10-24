@@ -269,3 +269,48 @@ def test_legacy_sample_type_default_remains_valid_on_publish_and_receive(setup):
     received=post(command('poll'))
     assert received.status_code==200,received.json
     assert received.json['result']['messages'][0]['envelope']['type']=='sample.completed.v1'
+
+
+def custody_offer(setup):
+    event=envelope(setup)
+    identity=str(uuid4())
+    unit=dict(id=identity,barcode='HU-'+identity.replace('-','').upper(),
+              run_id=event['run_id'],epoch=event['epoch'],contents=[{'sku':'PRODUCT','quantity':3}],
+              category='finished',state='reserved',owner='storage',version=1,
+              custody_generation=0,last_sequence=1,position='storage.dispatch.dock01',
+              origin=None,destination=None,handoff_id=None)
+    handoff=dict(id=event['aggregate_id'],run_id=event['run_id'],epoch=event['epoch'],
+                 source='storage',destination_owner='shipping',origin=unit['position'],
+                 destination='shipping.outbound.dock01',state='offered',unit=unit,
+                 departure_token=None,receipt_id=None,reason=None)
+    return {**event,'type':'handling.offered.v1','causation_id':handoff['id'],'payload':handoff}
+
+
+def test_durable_custody_retry_preserves_evidence_after_native_time_advances(setup):
+    execute(setup)
+    _,native,_,command,post,_=setup
+    assert post(command('request_time',{'target':2,'committed':0,'pending_work':0,'pending_outputs':0})).status_code==200
+    native.next_grant=2
+    assert post(command('poll')).status_code==200
+    event=custody_offer(setup)
+    response=post(command('publish',{'endpoint':'shipping/events','envelope':event}))
+    assert response.status_code==200,response.json
+    assert native.sent[0][0]['event_id']==event['event_id']
+    accepted={**event,'type':'handling.accepted.v1','source':'shipping','destination':'storage',
+              'boundary':'requests','payload':{**event['payload'],'state':'accepted'}}
+    native.incoming=[('shipping/events',accepted)]
+    response=post(command('poll'))
+    assert response.status_code==200,response.json
+    assert response.json['result']['messages'][0]['envelope']['payload']['unit']==event['payload']['unit']
+    # Ordinary business facts still cannot be published late.
+    assert post(command('publish',{'endpoint':'shipping/events','envelope':envelope(setup)})).status_code==409
+
+
+def test_adapter_rejects_forged_custody_envelope_or_manifest(setup):
+    execute(setup)
+    _,_,_,command,post,_=setup
+    event=custody_offer(setup)
+    for bad in ({**event,'aggregate_id':str(uuid4())},
+                {**event,'type':'handling.received.v1'},
+                {**event,'payload':{**event['payload'],'unit':{**event['payload']['unit'],'barcode':'HU-'+'0'*32}}}):
+        assert post(command('publish',{'endpoint':'shipping/events','envelope':bad})).status_code==422

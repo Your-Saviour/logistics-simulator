@@ -18,6 +18,7 @@ from flask import Flask, jsonify, request
 from pydantic import ValidationError
 from .adapter_protocol import Command, PAYLOADS
 from .wire_contracts import transport_envelope
+from .handling_wire import HandlingEnvelope
 
 
 class ProtocolConflict(Exception): pass
@@ -139,7 +140,7 @@ class Adapter:
             e=payload.envelope
             if (str(e.run_id),str(e.epoch),e.federation_id,e.source)!=(self.run_id,self.epoch,self.federation_id,self.application):
                 raise ProtocolConflict('Publication identity does not match this adapter')
-            if e.effective_time < self.granted+1:
+            if e.effective_time < self.granted+1 and not isinstance(e, HandlingEnvelope):
                 raise ProtocolConflict('Boundary publication requires a positive handoff quantum')
             if not any(r['endpoint']==payload.endpoint and r['destination']==e.destination and r['boundary']==e.boundary for r in self.outputs):
                 raise ProtocolConflict('Publication route is not configured')
@@ -168,7 +169,7 @@ class Adapter:
                         e=transport_envelope.validate_python(raw)
                         if (str(e.run_id),str(e.epoch),e.federation_id,e.destination)!=(self.run_id,self.epoch,self.federation_id,self.application):
                             raise ValueError('Native input identity mismatch')
-                        if e.effective_time<self.granted:
+                        if e.effective_time<self.granted and not isinstance(e, HandlingEnvelope):
                             raise ValueError('Late native input cannot rewrite committed history')
                         message={'source':source,'envelope':e.model_dump(mode='json')}
                         existing=self.messages.get(str(e.event_id))

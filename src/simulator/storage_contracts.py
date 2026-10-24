@@ -1,4 +1,5 @@
 """Transport schemas only. Inventory execution remains in the C# department."""
+from .handling_wire import HandlingEnvelope
 from typing import Annotated, Literal
 from uuid import UUID
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
@@ -118,6 +119,6 @@ def legacy_sample_default(value):
 
 
 TransportEnvelope = Annotated[
-    Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | FactEnvelope,
+    Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | FactEnvelope | HandlingEnvelope,
     Field(discriminator='type'), BeforeValidator(legacy_sample_default)]
 transport_envelope = TypeAdapter(TransportEnvelope)

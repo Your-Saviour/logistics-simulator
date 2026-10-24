@@ -141,3 +141,22 @@ Rolling back old application binaries after whole-unit writes is unsupported:
 old writers cannot preserve unit invariants. Rollback is allowed before enabling
 whole-unit writes, or by restoring a verified pre-upgrade backup with coordinated
 operational reconciliation. No automatic deployment or live cutover is included.
+
+## Private adapter custody relay
+
+`handling.offered|accepted|departed|received|acknowledged|quarantined.v1` wraps
+one complete handoff as `payload`. Envelope aggregate and causation IDs equal
+the handoff ID; aggregate version equals the embedded unit version. The source
+sends offers, departures and acknowledgements; the destination sends acceptance
+and receipt. The adapter validates scope, immutable evidence and sender/recipient
+ownership but performs no inventory operation.
+
+Persist the entire first envelope, including `wall_time`, before publishing it.
+A retry retains its event ID and complete body. It uses a new private publication
+operation so the adapter actually sends again instead of returning a cached
+operation response. Native HELICS sends immediately; its configured positive
+quantum governs delivery. Valid custody messages may therefore carry historical
+protocol evidence after native time advances. Receivers schedule that evidence
+at `max(current grant, original effective_time)` and continue the same durable
+handoff, rather than inserting or rewriting earlier movement records. Ordinary
+business messages retain their existing positive-quantum and late-input fences.

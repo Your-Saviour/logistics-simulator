@@ -1,4 +1,5 @@
 """Shipping wire types only; PHP owns scheduling and all business effects."""
+from .handling_wire import HandlingEnvelope
 from typing import Annotated, Any, Literal
 from uuid import UUID
 from pydantic import BeforeValidator, Field, TypeAdapter, model_validator
@@ -168,6 +169,6 @@ TransportEnvelope = Annotated[
     Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | FactEnvelope |
     ShippingOrderEnvelope | ShippingFactEnvelope | StorageReferenceEnvelope |
     StorageTransferEnvelope | StorageRejectionEnvelope | ProductionDemandEnvelope |
-    CarrierRequestEnvelope | CarrierFactEnvelope,
+    CarrierRequestEnvelope | CarrierFactEnvelope | HandlingEnvelope,
     Field(discriminator='type'), BeforeValidator(legacy_sample_default)]
 transport_envelope = TypeAdapter(TransportEnvelope)
