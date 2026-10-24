@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:handling:movement:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "unit_id",
+    "barcode",
+    "run_id",
+    "epoch",
+    "sequence",
+    "custody_generation",
+    "origin",
+    "destination",
+    "simulation_time",
+    "action",
+    "references"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "unit_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "barcode": {
+      "type": "string",
+      "pattern": "^HU-[0-9A-F]{32}$"
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "epoch": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "custody_generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "destination": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+    },
+    "simulation_time": {
+      "type": "number",
+      "minimum": 0
+    },
+    "action": {
+      "enum": [
+        "receive",
+        "putaway",
+        "retrieve",
+        "load",
+        "depart",
+        "unload",
+        "consume",
+        "produce",
+        "dispatch"
+      ]
+    },
+    "references": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transfer_id",
+        "batch_id",
+        "shipment_id"
+      ],
+      "properties": {
+        "transfer_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "batch_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shipment_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "enum": [
+              "putaway",
+              "retrieve",
+              "load",
+              "depart",
+              "unload",
+              "dispatch"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "origin": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+          }
+        }
+      }
+    }
+  ]
+}

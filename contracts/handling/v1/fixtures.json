@@ -1,0 +1,209 @@
+{
+  "placed_unit": {
+    "version": 1,
+    "id": "11111111-1111-4111-8111-111111111111",
+    "barcode": "HU-11111111111141118111111111111111",
+    "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "contents": [
+      {
+        "sku": "RAW-STEEL",
+        "quantity": 4
+      }
+    ],
+    "category": "raw",
+    "state": "available",
+    "owner": "storage",
+    "custody_generation": 0,
+    "last_sequence": 1,
+    "position": "storage.raw.r01.b01.l01",
+    "origin": null,
+    "destination": null,
+    "handoff_id": null
+  },
+  "transit_unit": {
+    "version": 2,
+    "id": "11111111-1111-4111-8111-111111111111",
+    "barcode": "HU-11111111111141118111111111111111",
+    "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "contents": [
+      {
+        "sku": "RAW-STEEL",
+        "quantity": 4
+      }
+    ],
+    "category": "raw",
+    "state": "in_transit",
+    "owner": "storage",
+    "custody_generation": 1,
+    "last_sequence": 2,
+    "position": null,
+    "origin": "storage.raw.r01.b01.l01",
+    "destination": "manufacturing.cell01.input01",
+    "handoff_id": "44444444-4444-4444-8444-444444444444"
+  },
+  "consumed_unit": {
+    "version": 1,
+    "id": "11111111-1111-4111-8111-111111111111",
+    "barcode": "HU-11111111111141118111111111111111",
+    "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "contents": [
+      {
+        "sku": "RAW-STEEL",
+        "quantity": 4
+      }
+    ],
+    "category": "raw",
+    "state": "consumed",
+    "owner": "storage",
+    "custody_generation": 0,
+    "last_sequence": 1,
+    "position": null,
+    "origin": null,
+    "destination": null,
+    "handoff_id": null
+  },
+  "movement": {
+    "id": "55555555-5555-4555-8555-555555555555",
+    "unit_id": "11111111-1111-4111-8111-111111111111",
+    "barcode": "HU-11111111111141118111111111111111",
+    "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "sequence": 2,
+    "custody_generation": 0,
+    "origin": "storage.inbound.dock01",
+    "destination": "storage.raw.r01.b01.l01",
+    "simulation_time": 10,
+    "action": "putaway",
+    "references": {
+      "transfer_id": null,
+      "batch_id": null,
+      "shipment_id": null
+    }
+  },
+  "offered_handoff": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "source": "storage",
+    "destination_owner": "manufacturing",
+    "origin": "storage.raw.r01.b01.l01",
+    "destination": "manufacturing.cell01.input01",
+    "state": "offered",
+    "unit": {
+      "version": 1,
+      "id": "11111111-1111-4111-8111-111111111111",
+      "barcode": "HU-11111111111141118111111111111111",
+      "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "contents": [
+        {
+          "sku": "RAW-STEEL",
+          "quantity": 4
+        }
+      ],
+      "category": "raw",
+      "state": "reserved",
+      "owner": "storage",
+      "custody_generation": 0,
+      "last_sequence": 1,
+      "position": "storage.raw.r01.b01.l01",
+      "origin": null,
+      "destination": null,
+      "handoff_id": null
+    },
+    "departure_token": null,
+    "receipt_id": null,
+    "reason": null
+  },
+  "departed_handoff": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "source": "storage",
+    "destination_owner": "manufacturing",
+    "origin": "storage.raw.r01.b01.l01",
+    "destination": "manufacturing.cell01.input01",
+    "state": "departed",
+    "unit": {
+      "version": 2,
+      "id": "11111111-1111-4111-8111-111111111111",
+      "barcode": "HU-11111111111141118111111111111111",
+      "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "contents": [
+        {
+          "sku": "RAW-STEEL",
+          "quantity": 4
+        }
+      ],
+      "category": "raw",
+      "state": "in_transit",
+      "owner": "storage",
+      "custody_generation": 1,
+      "last_sequence": 2,
+      "position": null,
+      "origin": "storage.raw.r01.b01.l01",
+      "destination": "manufacturing.cell01.input01",
+      "handoff_id": "44444444-4444-4444-8444-444444444444"
+    },
+    "departure_token": {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "handoff_id": "44444444-4444-4444-8444-444444444444",
+      "unit_id": "11111111-1111-4111-8111-111111111111",
+      "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "custody_generation": 1,
+      "last_sequence": 2,
+      "unit_version": 2
+    },
+    "receipt_id": null,
+    "reason": null
+  },
+  "received_handoff": {
+    "id": "44444444-4444-4444-8444-444444444444",
+    "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "source": "storage",
+    "destination_owner": "manufacturing",
+    "origin": "storage.raw.r01.b01.l01",
+    "destination": "manufacturing.cell01.input01",
+    "state": "received",
+    "unit": {
+      "version": 2,
+      "id": "11111111-1111-4111-8111-111111111111",
+      "barcode": "HU-11111111111141118111111111111111",
+      "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "contents": [
+        {
+          "sku": "RAW-STEEL",
+          "quantity": 4
+        }
+      ],
+      "category": "raw",
+      "state": "in_transit",
+      "owner": "storage",
+      "custody_generation": 1,
+      "last_sequence": 2,
+      "position": null,
+      "origin": "storage.raw.r01.b01.l01",
+      "destination": "manufacturing.cell01.input01",
+      "handoff_id": "44444444-4444-4444-8444-444444444444"
+    },
+    "departure_token": {
+      "id": "66666666-6666-4666-8666-666666666666",
+      "handoff_id": "44444444-4444-4444-8444-444444444444",
+      "unit_id": "11111111-1111-4111-8111-111111111111",
+      "run_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "epoch": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "custody_generation": 1,
+      "last_sequence": 2,
+      "unit_version": 2
+    },
+    "receipt_id": "77777777-7777-4777-8777-777777777777",
+    "reason": null
+  }
+}
