@@ -6,7 +6,9 @@ No host ports or existing deployment volumes are referenced.
 """
 import argparse
 import base64
+import hashlib
 import json
+import os
 from pathlib import Path
 import secrets
 import sys
@@ -25,7 +27,7 @@ BUILDS={
 }
 
 
-def generate(apps,connected=False):
+def generate(apps,connected=False,write=True):
     if connected and set(apps)!=set(APPS): raise ValueError('Mixed federation verification requires all five migrated images')
     out=ROOT/'deploy'/'generated';out.mkdir(parents=True,exist_ok=True)
     label='mixed' if connected else (apps[0] if len(apps)==1 else 'standalone-suite')
@@ -39,7 +41,8 @@ def generate(apps,connected=False):
     if 'shipping_key' not in identity:
         identity['shipping_key']='base64:'+base64.b64encode(secrets.token_bytes(32)).decode()
         identity_path.write_text(json.dumps(identity));identity_path.chmod(0o600)
-    result={'name':'simu-'+prefix,'services':{},'volumes':{}}
+    checkout=hashlib.sha256(str(ROOT).encode()).hexdigest()[:8]
+    result={'name':'simu-'+prefix+'-'+checkout,'services':{},'volumes':{}}
     services=result['services']
     for app in apps:
         password=identity['passwords'][app]
@@ -104,7 +107,7 @@ def generate(apps,connected=False):
         url=f'http://{app}-api:8000' if app=='shipping' else f'http://{app}-web:'+('8080' if app=='twin' else '80')
         browser_apps.append({'name':app,'url':url,'username':app+'-operator','password':password,
                              'employee':app+'-employee','employeePassword':password+'-employee'})
-    services['browser-check']={'image':'logistics-simulator:browser-check',
+    services['browser-check']={'image':os.environ.get('BROWSER_CHECK_IMAGE','logistics-simulator:browser-check'),
         'build':{'context':str(ROOT),'dockerfile':'apps/browser-check/Dockerfile'},'profiles':['test'],
         'environment':{'STACK_APPS':json.dumps(browser_apps)},'shm_size':'512m','volumes':[str(artifacts)+':/artifacts']}
     if connected:
@@ -121,8 +124,9 @@ def generate(apps,connected=False):
             'command':['python','scripts/mixed_federation_check.py'],
             'environment':{'STACK_IDENTITIES':json.dumps(identity)},'working_dir':'/app','user':'0:0',
             'volumes':[str(ROOT/'scripts')+':/app/scripts:ro','power-gate:/control']}
-    path=out/(prefix+'.json');path.write_text(json.dumps(result,indent=2));path.chmod(0o600)
-    print(path)
+    if write:
+        path=out/(prefix+'.json');path.write_text(json.dumps(result,indent=2));path.chmod(0o600)
+        print(path)
     return result
 
 if __name__=='__main__':

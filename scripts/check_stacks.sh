@@ -3,7 +3,7 @@
 set -eu
 app=${1:-all}
 case "$app" in storage|manufacturing|logistics|shipping|twin|all) ;; *) echo 'Expected storage, manufacturing, logistics, shipping, twin or all' >&2; exit 2;; esac
-work() { python3 scripts/docker_guard.py --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "stack-$app" -- docker "$@"; }
+work() { python3 scripts/docker_guard.py --wait --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "stack-$app" -- docker "$@"; }
 python3 scripts/stacks_compose.py --app "$app"
 if [ "$app" = all ]; then
  manifest=deploy/generated/migration-standalone-suite.json
@@ -30,6 +30,19 @@ for selected_app in $selected; do
  if [ "$selected_app" != twin ]; then
   work compose -f "$manifest" run --rm "$selected_app-verify" python scripts/stack_acceptance.py --app "$selected_app" --url "http://$selected_app-api:8000" --terminal-reset
   if [ "${STACK_STARTUP_ONLY:-0}" != 1 ]; then sh scripts/recovery_stacks.sh "$manifest" "$selected_app"; fi
+ fi
+ if [ "$selected_app" = logistics ]; then
+  work compose -f "$manifest" up -d --scale logistics-worker=2 logistics-worker
+  work compose -f "$manifest" run --rm logistics-verify python scripts/logistics_acceptance.py
+  work compose -f "$manifest" run --rm logistics-verify python scripts/logistics_acceptance.py --phase prepare-transit
+  work compose -f "$manifest" stop logistics-worker
+  work compose -f "$manifest" run --rm logistics-verify python scripts/logistics_acceptance.py --phase queue
+  work compose -f "$manifest" start logistics-worker
+  work compose -f "$manifest" run --rm logistics-verify python scripts/logistics_acceptance.py --phase recovered
+  work compose -f "$manifest" stop logistics-broker
+  work compose -f "$manifest" run --rm logistics-verify python scripts/logistics_acceptance.py --phase broker-down
+  work compose -f "$manifest" up -d --wait logistics-broker
+  work compose -f "$manifest" run --rm logistics-verify python scripts/logistics_acceptance.py --phase broker-up
  fi
  if [ "$selected_app" = storage ]; then
   work compose -f "$manifest" up -d --scale storage-worker=2 storage-worker

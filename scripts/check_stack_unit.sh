@@ -2,7 +2,7 @@
 # All framework and dependency checks execute in the application's containers.
 set -eu
 app=${1:?Expected storage, manufacturing, logistics, shipping or twin}
-work() { python3 scripts/docker_guard.py --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "$app-unit" -- docker "$@"; }
+work() { python3 scripts/docker_guard.py --wait --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "$app-unit" -- docker "$@"; }
 case "$app" in
 storage)
  manifest=apps/storage/compose.smoke.yaml

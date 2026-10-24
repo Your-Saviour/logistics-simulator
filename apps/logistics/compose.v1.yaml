@@ -1,0 +1,99 @@
+name: logistics-v1
+x-runtime: &runtime
+  image: ${LOGISTICS_IMAGE:-logistics-v1:local}
+  build: ./backend
+  restart: unless-stopped
+  environment: &environment
+    SIMULATOR: logistics
+    ROLE: api
+    DATABASE_URL: ${LOGISTICS_DATABASE_URL:?Set LOGISTICS_DATABASE_URL}
+    AMQP_URL: ${LOGISTICS_AMQP_URL:?Set LOGISTICS_AMQP_URL}
+    APP_USERNAME: ${LOGISTICS_USERNAME:-operator}
+    APP_PASSWORD: ${LOGISTICS_PASSWORD:?Set LOGISTICS_PASSWORD}
+    APP_IDENTITIES: ${LOGISTICS_IDENTITIES:-[]}
+    CLOCK_MODE: ${CLOCK_MODE:-standalone}
+    BOUNDARY_PROVIDERS: ${BOUNDARY_PROVIDERS:-{}}
+    AUTONOMOUS_SAMPLE: ${AUTONOMOUS_SAMPLE:-true}
+    SCENARIO: ${SCENARIO:-{}}
+    HANDOFF_QUANTUM: ${HANDOFF_QUANTUM:-1}
+    FEDERATION_ID: ${FEDERATION_ID:-}
+    FEDERATION_RUN_ID: ${FEDERATION_RUN_ID:-}
+    FEDERATION_EPOCH: ${FEDERATION_EPOCH:-}
+    HELICS_PEERS: ${HELICS_PEERS:-{}}
+    HELICS_OUTPUTS: ${HELICS_OUTPUTS:-[]}
+    HELICS_ADAPTER_URL: ${HELICS_ADAPTER_URL:-http://logistics-adapter:8010}
+    HELICS_ADAPTER_TOKEN: ${HELICS_ADAPTER_TOKEN:-}
+  depends_on:
+    logistics-db:
+      condition: service_healthy
+      required: false
+    logistics-broker:
+      condition: service_healthy
+      required: false
+services:
+  logistics-api:
+    <<: *runtime
+  logistics-worker:
+    <<: *runtime
+    environment:
+      <<: *environment
+      ROLE: worker
+  logistics-controller:
+    <<: *runtime
+    environment:
+      <<: *environment
+      ROLE: controller
+  logistics-web:
+    image: ${LOGISTICS_WEB_IMAGE:-logistics-web-v1:local}
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: ${LOGISTICS_API_UPSTREAM:-logistics-api:8000}
+    ports:
+      - ${LOGISTICS_BIND:-127.0.0.1}:${LOGISTICS_PORT:-8084}:80
+  logistics-db:
+    image: postgres:16.15-alpine
+    profiles: [local]
+    environment:
+      POSTGRES_USER: logistics
+      POSTGRES_PASSWORD: ${LOGISTICS_DB_PASSWORD:?Set LOGISTICS_DB_PASSWORD}
+      POSTGRES_DB: logistics
+    volumes: [logistics-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U logistics]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  logistics-broker:
+    image: rabbitmq:4.3.6-alpine
+    profiles: [local]
+    environment:
+      RABBITMQ_DEFAULT_USER: logistics
+      RABBITMQ_DEFAULT_PASS: ${LOGISTICS_BROKER_PASSWORD:?Set LOGISTICS_BROKER_PASSWORD}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: +S 2:2 +A 4
+    volumes: [logistics-broker-data:/var/lib/rabbitmq]
+    healthcheck:
+      test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672']
+      interval: 3s
+      start_period: 45s
+      retries: 30
+  logistics-adapter:
+    image: ${LOGISTICS_ADAPTER_IMAGE:-logistics-adapter-v1:local}
+    build:
+      context: ../..
+      dockerfile: apps/adapter/Dockerfile
+    profiles: [connected]
+    environment:
+      SIMULATOR: logistics
+      FEDERATION_ID: ${FEDERATION_ID:-}
+      FEDERATION_RUN_ID: ${FEDERATION_RUN_ID:-}
+      FEDERATION_EPOCH: ${FEDERATION_EPOCH:-}
+      HELICS_CONFIG: ${HELICS_CONFIG:-}
+      HELICS_OUTPUTS: ${HELICS_OUTPUTS:-[]}
+      HELICS_ADAPTER_TOKEN: ${HELICS_ADAPTER_TOKEN:-}
+      ADAPTER_JOURNAL: /journal/adapter.sqlite
+    volumes: [logistics-adapter-journal:/journal]
+volumes:
+  logistics-data:
+  logistics-broker-data:
+  logistics-adapter-journal:

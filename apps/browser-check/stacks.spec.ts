@@ -73,7 +73,7 @@ if(logistics) test('logistics: employee assigns fleet and follows custody throug
  expect((await request.post(logistics.url+'/api/control/speed',{headers,data:{speed:5}})).ok()).toBe(true);
  await page.goto(logistics.url);await page.getByLabel('Username',{exact:true}).fill(logistics.employee);await page.getByLabel('Password',{exact:true}).fill(logistics.employeePassword);await page.getByRole('button',{name:'Log in',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Fleet availability'})).toBeVisible();
- await page.getByLabel('Route',{exact:true}).selectOption('WAREHOUSE-DISPATCH');await page.getByLabel('Load quantity',{exact:true}).fill('8');await page.getByRole('button',{name:'Request transport',exact:true}).click();
+ await page.getByRole('combobox',{name:'Route',exact:true}).selectOption('WAREHOUSE-DISPATCH');await page.getByLabel('Load quantity',{exact:true}).fill('8');await page.getByRole('button',{name:'Request transport',exact:true}).click();
  const transfer=page.locator('[data-transfers] tbody tr').filter({hasText:'WAREHOUSE-DISPATCH'});
  await expect(transfer).toHaveCount(1);await transfer.getByRole('combobox',{name:'Assign vehicle'}).selectOption('TRUCK-1');await transfer.getByRole('button',{name:'Assign',exact:true}).click();
  await transfer.getByRole('button',{name:'Load',exact:true}).click();await transfer.getByRole('button',{name:'Depart',exact:true}).click();

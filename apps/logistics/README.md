@@ -1,3 +1,22 @@
+# Logistics V1 (SIMU-4)
+
+Go/Gin owns finite-fleet transport, PostgreSQL transactions, RabbitMQ workers and
+the durable granted-time controller. Svelte/TypeScript provides the independent
+employee fleet website. See [Logistics V1](../../docs/logistics-v1.md) for domain
+workflow, commands, providers, HELICS handoffs and Docker/CyberLab deployment.
+
+```sh
+make stack-unit APP=logistics
+make stack-check APP=logistics
+make logistics-connected-check
+make logistics-deployment-check
+```
+
+Build/test only in Docker through `scripts/docker_guard.py`, retaining the default
+20 GiB reserve. Use `compose.v1.yaml` and `logistics.env.example` for persistent
+role deployment; keep real env files untracked. Historical SIMU-50 foundation
+notes follow; their sample-only scope and earlier evidence predate SIMU-4.
+
 # Logistics foundation (SIMU-50)
 
 Go/Gin owns HTTP commands, PostgreSQL transactions, the sample quantity worker,

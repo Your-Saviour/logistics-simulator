@@ -23,6 +23,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--minimum-gib',type=float,default=20)
     parser.add_argument('--label',default='container-workload')
+    parser.add_argument('--wait',action='store_true',help='Wait for another guarded workload instead of exiting')
     parser.add_argument('command',nargs=argparse.REMAINDER)
     args=parser.parse_args()
     command=args.command[1:] if args.command[:1]==['--'] else args.command
@@ -30,9 +31,16 @@ def main():
         parser.error('Pass a Docker command after --; service work must run in containers')
     if args.minimum_gib<1:
         parser.error('Keep at least 1 GiB in reserve')
-    state=ROOT/'.superpowers';state.mkdir(exist_ok=True)
+    # All worktrees share one workload lock, even when their source directories differ.
+    lock_root=ROOT
+    try:
+        common=subprocess.run(['git','rev-parse','--path-format=absolute','--git-common-dir'],cwd=ROOT,capture_output=True,text=True,check=True)
+        lock_root=Path(common.stdout.strip()).parent
+    except (OSError,subprocess.CalledProcessError):
+        pass
+    state=lock_root/'.superpowers';state.mkdir(exist_ok=True)
     with (state/'container-workload.lock').open('a+') as lock:
-        try: fcntl.flock(lock.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try: fcntl.flock(lock.fileno(),fcntl.LOCK_EX if args.wait else fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:
             print('Another guarded Docker workload is running; wait for its completion.',file=sys.stderr)
             return 75

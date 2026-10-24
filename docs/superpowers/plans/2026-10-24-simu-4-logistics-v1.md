@@ -36,12 +36,12 @@ provides the employee transport workflow.
 Store.ScheduleTransport(ctx,key,command,audit), Store.Transport(ctx), and
 executeTransport(ctx,tx,run,job) used by Store.Execute.
 
-- [ ] Write real SQL/API regressions for complete lifecycle, capacity, competing
+- [x] Write real SQL/API regressions for complete lifecycle, capacity, competing
   assignment, early/duplicate arrival, grant barrier, stale epoch and audit rollback.
-- [ ] Run make stack-unit APP=logistics; observe missing endpoint/domain failures.
-- [ ] Add validated scenario configuration, additive schema and domain transactions.
-- [ ] Run the full Go suite and vet; require all passing.
-- [ ] Commit feat: implement durable fleet transport (SIMU-4).
+- [x] Run make stack-unit APP=logistics; observe missing endpoint/domain failures.
+- [x] Add validated scenario configuration, additive schema and domain transactions.
+- [x] Run the full Go suite and vet; require all passing.
+- [x] Commit feat: implement durable fleet transport (SIMU-4).
 
 ### Task 2: Providers and HELICS domain handoffs
 
@@ -51,12 +51,12 @@ contracts/v1/logistics-boundary.schema.json, adapter envelope validation.
 **Interfaces:** SeedTransport(ctx) error; IngestTransport(ctx,raw,source);
 versioned requests, receipts and facts use existing adapter v1 operations.
 
-- [ ] Add deterministic provider and peer identity/deduplication regressions first.
-- [ ] Observe failures in the containerized Go suite.
-- [ ] Implement demand, provider-owned workflow and receipt automation; domain
+- [x] Add deterministic provider and peer identity/deduplication regressions first.
+- [x] Observe failures in the containerized Go suite.
+- [x] Implement demand, provider-owned workflow and receipt automation; domain
   inputs/outputs retain the existing native journals and grant barriers.
-- [ ] Verify the full Go suite and an actual native HELICS peer exchanging domain events.
-- [ ] Commit feat: connect transport providers and boundary facts (SIMU-4).
+- [x] Verify the full Go suite and an actual native HELICS peer exchanging domain events.
+- [x] Commit feat: connect transport providers and boundary facts (SIMU-4).
 
 ### Task 3: Employee website
 
@@ -64,12 +64,12 @@ versioned requests, receipts and facts use existing adapter v1 operations.
 
 **Interfaces:** GET /api/transport and POST /api/transport/commands from Task 1.
 
-- [ ] Add browser lifecycle checks for fleet/route display, assignments, valid
+- [x] Add browser lifecycle checks for fleet/route display, assignments, valid
   actions and separate ETA/arrival/receipt; retain uncertain command retry coverage.
-- [ ] Observe missing transport UI failure in Docker.
-- [ ] Implement the queue, fleet, transfer form and state actions using existing styling.
-- [ ] Run Svelte type checks, production build and desktop/mobile browser acceptance.
-- [ ] Commit feat: add employee fleet workspace (SIMU-4).
+- [x] Observe missing transport UI failure in Docker.
+- [x] Implement the queue, fleet, transfer form and state actions using existing styling.
+- [x] Run Svelte type checks, production build and desktop/mobile browser acceptance.
+- [x] Commit feat: add employee fleet workspace (SIMU-4).
 
 ### Task 4: Deployment and recovery acceptance
 
@@ -79,9 +79,9 @@ acceptance, deployment and connected checks; docs/logistics-v1.md and acceptance
 **Interfaces:** External DATABASE_URL, AMQP_URL, API_UPSTREAM and adapter settings;
 same binary with ROLE=api|worker|controller, independent workers.
 
-- [ ] Add end-to-end lifecycle/restart/duplicate-arrival assertions.
-- [ ] Run them to establish the missing deployment/acceptance behavior.
-- [ ] Add persistent packaging and guarded disposable checks without volume deletion.
-- [ ] Run make stack-unit APP=logistics, make stack-check APP=logistics, connected
+- [x] Add end-to-end lifecycle/restart/duplicate-arrival assertions.
+- [x] Run them to establish the missing deployment/acceptance behavior.
+- [x] Add persistent packaging and guarded disposable checks without volume deletion.
+- [x] Run make stack-unit APP=logistics, make stack-check APP=logistics, connected
   and deployment checks. Record exact local results and hosted limits.
-- [ ] Review the whole branch, fix material findings with regressions, and commit.
+- [x] Review the whole branch, fix material findings with regressions, and commit.
