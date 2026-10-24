@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "time_unit": "s",
+  "quantity_unit": "item",
+  "power_unit": "kW",
+  "minimum_handoff_seconds": 1,
+  "boundaries": {
+    "manufacturing": {"materials": "storage", "demand": "shipping", "power": "external-power"},
+    "storage": {"supply": "manufacturing", "requests": "shipping"},
+    "logistics": {"transport": "shipping", "destinations": "storage"},
+    "shipping": {"orders": "external-orders", "goods": "storage", "carrier": "logistics"}
+  },
+  "ownership": {
+    "manufacturing": "production batches and output completion",
+    "storage": "inventory, reservations, issues and receipts",
+    "logistics": "vehicle capacity, journeys and confirmed arrivals",
+    "shipping": "customer orders, packing and shipment state"
+  }
+}

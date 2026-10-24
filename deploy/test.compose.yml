@@ -1,0 +1,24 @@
+name: simu-tests
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: simulator_test
+      POSTGRES_PASSWORD: isolated-test-password
+      POSTGRES_DB: simulator_test
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U simulator_test -d simulator_test]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    image: logistics-simulator:bootstrap
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      TEST_DATABASE_URL: postgresql://simulator_test:isolated-test-password@db:5432/simulator_test
+    depends_on:
+      db:
+        condition: service_healthy
+    command: [pytest, -q, -p, 'no:cacheprovider']

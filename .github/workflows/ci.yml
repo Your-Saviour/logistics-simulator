@@ -1,0 +1,41 @@
+name: Application bootstrap
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: make check
+      - name: Build and start five independent websites
+        run: make suite
+      - name: Exercise HTTP and real recovery paths
+        run: |
+          make smoke APP=suite
+          make recovery
+      - name: Browser checks
+        working-directory: apps/web
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test
+      - name: Standalone starts
+        run: python3 scripts/standalone_check.py
+      - name: Connected HELICS stack
+        run: python3 scripts/connected_check.py
+      - name: Container logs on failure
+        if: failure()
+        run: docker compose -f deploy/generated/suite.json logs --tail 50
+      - name: Stop verification containers
+        if: always()
+        run: |
+          docker compose -f deploy/generated/suite.json down
+          make clean-tests

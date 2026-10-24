@@ -1,2 +1,12 @@
 .superpowers/
 .playwright-mcp/
+.env
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+node_modules/
+dist/
+deploy/generated/
+apps/web/test-results/
+apps/web/playwright-report/

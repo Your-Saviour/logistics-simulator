@@ -1,0 +1,11 @@
+.git
+.superpowers
+.playwright-mcp
+node_modules
+**/node_modules
+**/dist
+.venv
+__pycache__
+.pytest_cache
+.env
+deploy/generated/
