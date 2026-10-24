@@ -6,13 +6,14 @@ use Livewire\Attributes\Locked;
 final class OrderDesk extends Component
 {
     public string $customer='',$destination='CUSTOMER-A',$search='',$queue='all',$selected='',$error='',$notice='';
+    public string $unitSearch='',$selectedUnit='';
     public array $lines=[['sku'=>'PRODUCT','quantity'=>'1']];
     #[Locked] public array $pending=[];
     #[Locked] public string $key='',$runId='',$epoch='';
     public function boot():void {$this->identity();}
     private function identity():array {$p=app(Settings::class)->sessionPrincipal(session('shipping.identity'));abort_unless($p,401);abort_unless(in_array('status:read',$p['scopes'],true),403);return $p;}
     public function mount():void {$this->refreshRun();}
-    public function refreshRun():void {$this->identity();$r=app(Ledger::class)->status()['run'];$this->runId=$r['id'];$this->epoch=$r['epoch'];$this->key=Rules::uuid4();$this->pending=[];$this->selected='';}
+    public function refreshRun():void {$this->identity();$r=app(Ledger::class)->status()['run'];$this->runId=$r['id'];$this->epoch=$r['epoch'];$this->key=Rules::uuid4();$this->pending=[];$this->selected='';$this->unitSearch='';$this->selectedUnit='';}
     public function updated(string $name):void {if(in_array($name,['customer','destination'],true)||str_starts_with($name,'lines.')){$this->pending=[];}}
     public function addLine():void {$this->identity();if(count($this->lines)<100)$this->lines[]=['sku'=>'','quantity'=>'1'];$this->pending=[];}
     public function removeLine(int $index):void {$this->identity();if(count($this->lines)>1&&isset($this->lines[$index])){unset($this->lines[$index]);$this->lines=array_values($this->lines);}$this->pending=[];}
@@ -37,6 +38,13 @@ final class OrderDesk extends Component
         $p=$this->identity();$snapshot=null;$unavailable='';try{$snapshot=app(Fulfilment::class)->snapshot();}catch(\PDOException){$unavailable='Shipping records unavailable. Waiting for database recovery.';}
         $orders=$snapshot['orders']??[];$detail=null;foreach($orders as $o)if($o['id']===$this->selected)$detail=$o;
         $query=strtolower($this->search);$orders=array_values(array_filter($orders,function($o)use($query){$text=strtolower($o['id'].' '.$o['customer'].' '.$o['destination'].' '.implode(' ',array_column($o['lines'],'sku')));return ($query===''||str_contains($text,$query))&&match($this->queue){'packing'=>$o['status']==='ready','dispatch'=>$o['status']==='packed','delivery'=>in_array($o['status'],['awaiting_carrier','in_transit'],true),default=>true};}));
-        return view('orders',['snapshot'=>$snapshot,'orders'=>$orders,'detail'=>$detail,'canWrite'=>in_array('jobs:write',$p['scopes'],true),'unavailable'=>$unavailable]);
+        $handling=$snapshot['handling']??null;$allUnits=$handling['units']??[];$term=strtolower(trim($this->unitSearch));
+        $unitRows=array_values(array_filter($allUnits,fn($unit)=>$term===''||str_contains(strtolower(implode(' ',[$unit['id'],$unit['barcode'],$unit['position']??'',$unit['destination']??'',...array_column($unit['contents'],'sku')])),$term)));
+        $unitDetail=null;foreach($allUnits as $unit)if($unit['id']===$this->selectedUnit){
+            $relatedOrders=[];foreach($snapshot['orders'] as $order)foreach($order['lines'] as $line)if(in_array($unit['id'],$line['unit_ids']??[],true)){$relatedOrders[$order['id']]=['id'=>$order['id'],'customer'=>$order['customer']];}
+            $unitDetail=['unit'=>$unit,'movements'=>array_values(array_filter($handling['movements'],fn($move)=>$move['unit_id']===$unit['id'])),'handoffs'=>array_values(array_filter($handling['handoffs'],fn($handoff)=>$handoff['unit']['id']===$unit['id'])),'orders'=>array_values($relatedOrders)];break;
+        }
+        $unitPromises=array_values(array_filter($handling['handoffs']??[],fn($handoff)=>in_array($handoff['state'],['offered','accepted'],true)));
+        return view('orders',['snapshot'=>$snapshot,'orders'=>$orders,'detail'=>$detail,'canWrite'=>in_array('jobs:write',$p['scopes'],true),'unavailable'=>$unavailable,'handling'=>$handling,'unitRows'=>$unitRows,'unitDetail'=>$unitDetail,'unitPromises'=>$unitPromises]);
     }
 }

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 type App = { name: string; url: string; username: string; password: string; employee: string; employeePassword: string };
 const apps = JSON.parse(process.env.STACK_APPS ?? '[]') as App[];
+test.beforeEach(async({page})=>{await page.setViewportSize({width:1440,height:900});});
 for (const app of apps) {
   test(`${app.name}: independent login, real status and mobile width`, async ({ page }) => {
     await page.goto(app.url);
@@ -62,10 +63,32 @@ if(storage) test('storage: employee receives, reserves, picks and confirms trans
   await page.getByLabel('Search inventory',{exact:true}).fill('dispatch');
   await expect(page.locator('[data-inventory] tbody tr')).toHaveCount(2);
   await page.getByLabel('Search inventory',{exact:true}).fill('');
+  const warehouse=await(await request.get(storage.url+'/api/warehouse',{headers})).json();
+  const transferred=warehouse.handling.units.find((unit:{contents:{quantity:number}[]})=>unit.contents[0].quantity===4);
+  expect(transferred.position).toMatch(/^storage\.dispatch\.dock/);
+  await page.getByLabel('Find a handling unit',{exact:true}).fill(transferred.barcode.toLowerCase());
+  await expect(page.locator('[data-unit-list] tbody tr')).toHaveCount(1);
+  const inspect=page.getByRole('button',{name:'Inspect '+transferred.barcode,exact:true});
+  await inspect.focus();await page.keyboard.press('Enter');
+  const unitDetail=page.locator('[data-unit-detail]');
+  await expect(unitDetail).toContainText(transferred.barcode);
+  await expect(unitDetail).toContainText(transferred.position);
+  await expect(unitDetail).toContainText('PRODUCT · 4 items');
+  await expect(unitDetail).toContainText('unload');
+  await expect(unitDetail).toContainText('transfer_id');
+  await expect(unitDetail.locator('[data-mutate-unit]')).toHaveCount(0);
+  await unitDetail.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'/artifacts/storage-handling-inspector-desktop.png',fullPage:true});await page.locator('.unit-inspector').screenshot({path:'/artifacts/storage-inspector-panel-desktop.png'});
   await page.screenshot({path:'/artifacts/storage-v1-employee-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
   await page.screenshot({path:'/artifacts/storage-v1-employee-mobile.png',fullPage:true});
+  await unitDetail.scrollIntoViewIfNeeded();
+  await page.screenshot({path:'/artifacts/storage-handling-inspector-mobile.png',fullPage:true});await page.locator('.unit-inspector').screenshot({path:'/artifacts/storage-inspector-panel-mobile.png'});
+  await page.getByRole('button',{name:'Close inspection',exact:true}).click();
+  await expect(unitDetail).toHaveCount(0);
+  await page.getByLabel('Find a handling unit',{exact:true}).fill('no-such-barcode');
+  await expect(page.locator('[data-unit-list]')).toContainText('No handling units match');
 });
 
 const logistics=apps.find(app=>app.name==='logistics');
@@ -85,9 +108,18 @@ if(logistics) test('logistics: employee assigns fleet and follows custody throug
  await expect(transfer).toHaveCount(1);await transfer.getByRole('combobox',{name:'Assign vehicle'}).selectOption('TRUCK-1');await transfer.getByRole('button',{name:'Assign',exact:true}).click();
  await transfer.getByRole('button',{name:'Load',exact:true}).click();await transfer.getByRole('button',{name:'Depart',exact:true}).click();
  await expect(transfer).toContainText('in_transit');await expect(transfer).toContainText('vehicle');await expect(transfer.getByRole('button',{name:'Confirm receipt',exact:true})).toHaveCount(0);
+ const transitSnapshot=await(await request.get(logistics.url+'/api/transport',{headers})).json();
+ const transitUnit=transitSnapshot.handling.units.find((unit:{id:string})=>unit.id===unitID);expect(transitUnit.position).toBeNull();
+ await page.getByLabel('Find a handling unit',{exact:true}).fill(transitUnit.barcode.toLowerCase());
+ const inspectUnit=page.getByRole('button',{name:'Inspect '+transitUnit.barcode,exact:true});await inspectUnit.focus();await page.keyboard.press('Enter');
+ const unitDetail=page.locator('[data-unit-detail]');await expect(unitDetail).toContainText('Destination receipt unconfirmed');await expect(unitDetail).toContainText('No confirmed position');await expect(unitDetail).toContainText(transitUnit.origin);await expect(unitDetail).toContainText('PRODUCT · 8 items');
+ await page.screenshot({path:'/artifacts/logistics-handling-in-transit-desktop.png',fullPage:true});
  await transfer.getByRole('button',{name:'Unload',exact:true}).click();await expect(transfer).toContainText('unloaded');await transfer.getByRole('button',{name:'Confirm receipt',exact:true}).click();await expect(transfer).toContainText('received');
  await expect(page.locator('[data-fleet] tbody tr').filter({hasText:'TRUCK-1'})).toContainText('DISPATCH');
+ const receivedSnapshot=await(await request.get(logistics.url+'/api/transport',{headers})).json();const receivedUnit=receivedSnapshot.handling.units.find((unit:{id:string})=>unit.id===unitID);
+ expect(receivedUnit.position).toMatch(/^logistics\./);await expect(unitDetail).toContainText(receivedUnit.position);await expect(unitDetail).toContainText('unload');await expect(unitDetail).toContainText('transfer_id');await unitDetail.scrollIntoViewIfNeeded();await page.screenshot({path:'/artifacts/logistics-handling-inspector-desktop.png',fullPage:true});await page.locator('.unit-inspector').screenshot({path:'/artifacts/logistics-inspector-panel-desktop.png'});
  await page.screenshot({path:'/artifacts/logistics-v1-employee-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:'/artifacts/logistics-v1-employee-mobile.png',fullPage:true});
+ await unitDetail.scrollIntoViewIfNeeded();await page.screenshot({path:'/artifacts/logistics-handling-inspector-mobile.png',fullPage:true});await page.locator('.unit-inspector').screenshot({path:'/artifacts/logistics-inspector-panel-mobile.png'});await page.getByRole('button',{name:'Close inspection',exact:true}).click();await expect(unitDetail).toHaveCount(0);
 });
 
 const manufacturing=apps.find(app=>app.name==='manufacturing');
@@ -104,6 +136,40 @@ if(manufacturing) test('manufacturing: employee holds, supplies and releases a f
  await page.getByLabel('Material quantity',{exact:true}).fill('8');await page.getByRole('button',{name:'Receive materials',exact:true}).click();await expect(page.locator('[data-materials]')).toContainText('8');
  await order.getByRole('button',{name:'Release order',exact:true}).click();await expect(order).toContainText('completed',{timeout:60000});await order.getByRole('button',{name:'Details',exact:true}).click();await expect(page.locator('[data-detail]')).toContainText('Output: 4');await expect(page.locator('[data-detail]')).toContainText('Scrap: 0');
  await page.getByLabel('Search work orders',{exact:true}).fill('no-such-product');await expect(page.locator('[data-orders] tbody')).toContainText('No matching work orders');await page.getByLabel('Search work orders',{exact:true}).fill('');
+ const production=await(await request.get(manufacturing.url+'/api/production',{headers})).json();
+ const input=production.handling.units.find((unit:{category:string})=>unit.category==='raw');
+ const output=production.handling.units.find((unit:{category:string})=>unit.category==='finished');
+ expect(input.state).toBe('consumed');expect(input.position).toBeNull();expect(output.id).not.toBe(input.id);
+ await page.getByLabel('Find a handling unit',{exact:true}).fill(input.barcode.toLowerCase());
+ await expect(page.locator('[data-unit-list] tbody tr')).toHaveCount(1);
+ const inspectInput=page.getByRole('button',{name:'Inspect '+input.barcode,exact:true});await inspectInput.focus();await page.keyboard.press('Enter');
+ const unitDetail=page.locator('[data-unit-detail]');await expect(unitDetail).toContainText('Consumed in production');await expect(unitDetail).toContainText('No confirmed position');await expect(unitDetail).toContainText('COMPONENT · 8 items');await expect(unitDetail).toContainText('consume');
+ const lineage=unitDetail.locator('[data-unit-lineage]');await expect(lineage).toContainText('Good output: 4 · Scrap: 0');await lineage.getByRole('button',{name:output.barcode,exact:true}).click();
+ await expect(unitDetail).toContainText('PRODUCT · 4 items');await expect(unitDetail).toContainText(output.position);await expect(unitDetail).toContainText('produce');
+ await unitDetail.scrollIntoViewIfNeeded();await page.screenshot({path:'/artifacts/manufacturing-handling-inspector-desktop.png',fullPage:true});await page.locator('.handling-inspector').screenshot({path:'/artifacts/manufacturing-inspector-panel-desktop.png'});
  await page.screenshot({path:'/artifacts/manufacturing-v1-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:'/artifacts/manufacturing-v1-mobile.png',fullPage:true});
+ await expect(page.locator('.message')).toHaveCSS('position','static');await unitDetail.scrollIntoViewIfNeeded();await page.screenshot({path:'/artifacts/manufacturing-handling-inspector-mobile.png',fullPage:true});await page.locator('.handling-inspector').screenshot({path:'/artifacts/manufacturing-inspector-panel-mobile.png'});
+ await page.getByRole('button',{name:'Close inspection',exact:true}).click();await expect(unitDetail).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Finalize',exact:true})).toHaveCount(0);
+});
+
+const shipping=apps.find(app=>app.name==='shipping');
+if(shipping) test('shipping: employee inspects a fulfilled whole unit and its historical custody',async({page,request})=>{
+ test.setTimeout(120000);
+ const headers={Authorization:'Basic '+Buffer.from(shipping.username+':'+shipping.password).toString('base64')};
+ const status=await(await request.get(shipping.url+'/api/status',{headers})).json();
+ expect((await request.post(shipping.url+'/api/control/reset',{headers,data:{confirm_run_id:status.run.id}})).ok()).toBe(true);
+ expect((await request.post(shipping.url+'/api/control/speed',{headers,data:{speed:20}})).ok()).toBe(true);
+ await page.goto(shipping.url);await page.getByLabel('Username',{exact:true}).fill(shipping.employee);await page.getByLabel('Password',{exact:true}).fill(shipping.employeePassword);await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ const customer='Handling browser '+Date.now(),form=page.locator('.order-form');
+ await form.getByLabel('Customer reference',{exact:true}).fill(customer);await form.locator('[name="quantity-0"]').fill('4');await form.getByRole('button',{name:'Create order',exact:true}).click();
+ await page.getByLabel('Search orders',{exact:true}).fill(customer);const orderRow=page.locator('.order-desk tbody tr').filter({hasText:customer});
+ await orderRow.getByRole('button',{name:'Request fulfilment',exact:true}).click();await expect(orderRow).toContainText('4 / 4 item',{timeout:30000});await orderRow.getByRole('button',{name:'Pack',exact:true}).click();await orderRow.getByRole('button',{name:'Dispatch',exact:true}).click();await expect(orderRow.locator('td').nth(3)).toHaveText('delivered',{timeout:30000});
+ const snapshot=await(await request.get(shipping.url+'/api/shipping',{headers})).json();const order=snapshot.orders.find((row:{customer:string})=>row.customer===customer);const unit=snapshot.handling.units.find((row:{id:string})=>row.id===order.lines[0].unit_ids[0]);
+ expect(unit.state).toBe('dispatched');expect(unit.position).toBeNull();
+ await page.getByLabel('Find a handling unit',{exact:true}).fill(unit.barcode.toLowerCase());await expect(page.locator('[data-unit-list] tbody tr')).toHaveCount(1);
+ const inspect=page.getByRole('button',{name:'Inspect '+unit.barcode,exact:true});await inspect.focus();await page.keyboard.press('Enter');const detail=page.locator('[data-unit-detail]');
+ await expect(detail).toContainText('Custody transferred; historical record');await expect(detail).toContainText('No confirmed position');await expect(detail).toContainText('PRODUCT · '+unit.contents[0].quantity+' items');await expect(detail).toContainText('shipment_id');await expect(detail).toContainText(order.shipment.id);await expect(detail.getByRole('button',{name:'Order '+customer,exact:true})).toBeVisible();
+ await detail.scrollIntoViewIfNeeded();await page.screenshot({path:'/artifacts/shipping-handling-inspector-desktop.png',fullPage:true});await page.locator('.unit-inspector').screenshot({path:'/artifacts/shipping-inspector-panel-desktop.png'});await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:'/artifacts/shipping-handling-inspector-mobile.png',fullPage:true});await page.locator('.unit-inspector').screenshot({path:'/artifacts/shipping-inspector-panel-mobile.png'});
+ await page.getByRole('button',{name:'Close inspection',exact:true}).click();await expect(detail).toHaveCount(0);await page.getByLabel('Find a handling unit',{exact:true}).fill('no-such-barcode');await expect(page.locator('[data-unit-list]')).toContainText('No handling units match');await expect(page.getByRole('button',{name:'Finalize',exact:true})).toHaveCount(0);
 });

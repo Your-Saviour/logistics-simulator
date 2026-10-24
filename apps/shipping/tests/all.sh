@@ -18,6 +18,7 @@ php /app/tests/shipping_goods_handoff.php
 php /app/tests/shipping_goods_admission.php
 php /app/tests/shipping_http.php
 php /app/tests/shipping_web.php
+php /app/tests/handling_web.php
 php /app/tests/shipping_boundary.php
 php /app/tests/shipping_typed.php
 php /app/tests/shipping_cancellation.php

@@ -9,7 +9,7 @@
   "scripts": {
     "build": "ng build",
     "start": "ng serve --host 0.0.0.0 --proxy-config proxy.conf.json",
-    "test": "node --experimental-strip-types --test src/api.test.ts"
+    "test": "node --experimental-strip-types --test src/*.test.ts"
   },
   "dependencies": {
     "@angular/common": "21.2.25",
