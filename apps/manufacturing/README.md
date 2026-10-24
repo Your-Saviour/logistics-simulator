@@ -128,6 +128,17 @@ Peer/output routing retains the existing endpoint/source/destination/boundary
 configuration shape. A HELICS power provider uses its peer's `value_target`,
 default `external-power/available_power_kw`.
 
+Native material reservations retain their original request and track each new
+attempt separately. A confirmed Storage shortage schedules a fresh request for
+the same missing quantity after `MATERIAL_RETRY_QUANTA` simulation quanta
+(default 5; allowed range 1–3600). Successful recipe parts remain assigned to
+their batch. A rejected issue retains its receiving slots until Storage confirms
+release; accepted or received custody cannot be reversed by a rejection.
+Unknown, stale or contradictory outcomes appear in `material_recovery` in the
+production API and projection with their quarantine reason. A blocked release
+requires source reconciliation rather than another material order. Migration
+012 preserves requests and reservations emitted by the preceding schema.
+
 The Java controller persists adapter session and operation intents before HTTP
 mutations. Native initialization, polling/receive processing and time requests
 set a durable pending flag. Preparing a time request marks it in the same SQL

@@ -12,6 +12,7 @@ final class Projection {
   var config=one(c,"SELECT config FROM production_config WHERE run_id=?",id);
   snapshot.put("config",config==null?Production.config(json(run.get("scenario")).get("manufacturing")):config.get("config"));
   snapshot.put("orders",rows(c,"SELECT * FROM production_orders WHERE run_id=? ORDER BY id",id));
+  snapshot.put("material_recovery",MaterialRequests.snapshot(c,run));
   snapshot.put("material_assignments",rows(c,"SELECT * FROM production_material_plans WHERE run_id=? AND epoch=? ORDER BY id",id,run.get("epoch")));
   snapshot.put("expected_material_units",rows(c,"SELECT * FROM production_material_expected WHERE run_id=? AND epoch=? ORDER BY unit_id",id,run.get("epoch")));
   snapshot.put("materials",rows(c,"SELECT * FROM production_materials WHERE run_id=? ORDER BY sku",id));

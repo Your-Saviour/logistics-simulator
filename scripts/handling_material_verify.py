@@ -52,10 +52,13 @@ def main():
                   UPDATE material_transport_gate SET dropped=dropped+1 WHERE kind=NEW.envelope->>'type';NEW.sent_at=clock_timestamp();
                 END IF;RETURN NEW;END$$;
                 CREATE TRIGGER gate_material_publication BEFORE INSERT ON boundary_outbox FOR EACH ROW EXECUTE FUNCTION gate_material_publication()""")
+        batch=command('manufacturing',{'action':'create','product':'PRODUCT','line':'LINE-1','quantity':1});command('manufacturing',{'action':'release','reference':batch})
+        shortage=wait(lambda:row('manufacturing',"SELECT * FROM production_material_failures WHERE run_id=%s AND state='applied' AND envelope->'payload'->>'action'='reserve' LIMIT 1",run),bool,'real source shortage recorded without stalling')
+        assert get('manufacturing','status')['run']['state']=='running'
+        assert row('manufacturing','SELECT count(*) n FROM production_handling_units WHERE run_id=%s',run)['n']==0
         unit=str(uuid4());receipt=command('storage',{'action':'expect','sku':'COMPONENT','location':'RAW-A','quantity':2,'correlation_id':str(uuid4()),'units':[{'id':unit,'quantity':2}]})
         command('storage',{'action':'receive','reference':receipt})
         shelf='storage.raw.r01.b01.l04';command('storage',{'action':'putaway','unit_id':unit,'destination':shelf})
-        batch=command('manufacturing',{'action':'create','product':'PRODUCT','line':'LINE-1','quantity':1});command('manufacturing',{'action':'release','reference':batch})
         accepted=wait(lambda:row('manufacturing',"SELECT * FROM production_custody WHERE unit_id=%s AND state='accepted'",unit),bool,'native capacity accepted')
         source=row('storage','SELECT * FROM warehouse_handling_units WHERE id=%s',unit);stock=row('storage',"SELECT * FROM warehouse_stock WHERE run_id=%s AND sku='COMPONENT' AND location='RAW-A'",run)
         assert source['position']==shelf and source['state']=='reserved' and stock['on_hand']==stock['reserved']==2,(source,stock)
@@ -92,8 +95,12 @@ def main():
         assert all(v['dropped']>0 for values in drops.values() for v in values),drops
         plan=row('manufacturing','SELECT p.* FROM production_material_plans p JOIN production_material_expected e ON e.reservation_id=p.id WHERE e.unit_id=%s',unit)
         assert str(plan['batch_id'])==batch and plan['status']=='received'
+        attempts=db['manufacturing'].execute('SELECT a.* FROM production_material_attempts a JOIN production_material_requests r ON r.id=a.request_id WHERE r.batch_id=%s ORDER BY a.generation',(batch,)).fetchall()
+        assert len(attempts)>=2 and attempts[0]['state']=='rejected' and attempts[-1]['state']=='received',attempts
+        assert len({str(a['aggregate_id']) for a in attempts})==len(attempts)
+        assert all(a['envelope']['payload']['quantity']==2 for a in attempts)
         assert row('storage',"SELECT on_hand,reserved FROM warehouse_stock WHERE run_id=%s AND sku='COMPONENT' AND location='RAW-A'",run)=={'on_hand':0,'reserved':0}
-        record.update(status='passed',unit_id=unit,batch_id=batch,barcode=final_source['barcode'],source_sequence=3,receipt_sequence=4,source_version=final_source['version'],target_version=final_target['version'],dropped_publications=drops,handling_frames=frames)
+        record.update(status='passed',unit_id=unit,batch_id=batch,barcode=final_source['barcode'],source_sequence=3,receipt_sequence=4,source_version=final_source['version'],target_version=final_target['version'],dropped_publications=drops,handling_frames=frames,material_attempts=[{'event_id':str(a['event_id']),'aggregate_id':str(a['aggregate_id']),'generation':a['generation'],'state':a['state']} for a in attempts])
         path.write_text(json.dumps(record,indent=2,default=str));print('C#/Java native raw custody: elevated shelf, automatic request/assignment, acceptance/token/receipt/ack loss recovery and once-only recipe consumption passed',flush=True)
     except Exception as error:
         record.update(status='failed',error=str(error));path.write_text(json.dumps(record,indent=2,default=str));raise

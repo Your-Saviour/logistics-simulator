@@ -23,7 +23,9 @@ def main():
             service=services[app+'-'+role];service['image']='logistics-simulator:handling-material-'+app
             env=service['environment'];env.update(context,CLOCK_MODE='helics',BOUNDARY_PROVIDERS=json.dumps(providers),HELICS_PEERS=json.dumps(peers),HELICS_OUTPUTS=json.dumps(outputs),
                 HELICS_ADAPTER_URL='http://'+app+'-adapter:8010',HELICS_ADAPTER_TOKEN=token,HELICS_TIMEOUT_SECONDS='180',AUTONOMOUS_SAMPLE='false',AUTONOMOUS_WAREHOUSE='false',AUTONOMOUS_PRODUCTION='false')
-            if app=='manufacturing':env['SCENARIO']=json.dumps({'manufacturing':{'products':[{'sku':'PRODUCT','bom':{'COMPONENT':2},'duration_seconds':86400,'scrap_percent':0}], 'lines':[{'code':'LINE-1','capacity':1,'products':['PRODUCT']}]}})
+            if app=='manufacturing':
+                env['MATERIAL_RETRY_QUANTA']='60'
+                env['SCENARIO']=json.dumps({'manufacturing':{'products':[{'sku':'PRODUCT','bom':{'COMPONENT':2},'duration_seconds':86400,'scrap_percent':0}], 'lines':[{'code':'LINE-1','capacity':1,'products':['PRODUCT']}]}})
             if role=='api':identities[app]={'username':env['APP_USERNAME'],'password':env['APP_PASSWORD']};databases[app]=env['DATABASE_URL']
             if role=='controller':service['depends_on'][app+'-adapter']={'condition':'service_started'}
         config={'name':app,'coreType':'tcp_ss','coreInit':'--federates=1','broker':'tcp://material-helics-broker:24900','period':1.0,'timeDelta':1.0,

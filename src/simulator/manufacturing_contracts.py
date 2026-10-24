@@ -3,6 +3,7 @@ from .handling_wire import HandlingEnvelope
 from typing import Annotated, Literal
 from pydantic import Field, TypeAdapter
 from .contracts import Envelope
+from .shipping_contracts import StorageReferenceEnvelope, StorageRejectionEnvelope
 from .storage_contracts import (ReceiptEnvelope, RequestEnvelope, ArrivalEnvelope, IssueEnvelope,
                                FactEnvelope, Code, Quantity, Strict, legacy_sample_default)
 
@@ -22,7 +23,7 @@ class DemandEnvelope(Envelope):
 
 
 TransportEnvelope = Annotated[
-    Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | IssueEnvelope | FactEnvelope | DemandEnvelope | HandlingEnvelope,
+    Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | IssueEnvelope | FactEnvelope | DemandEnvelope | StorageReferenceEnvelope | StorageRejectionEnvelope | HandlingEnvelope,
     Field(discriminator='type')]
 # Preserve omitted legacy sample type, without modifying the published storage schema.
 from pydantic import BeforeValidator

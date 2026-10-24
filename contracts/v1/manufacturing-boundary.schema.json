@@ -1437,6 +1437,21 @@
       "title": "ReceiptInput",
       "type": "object"
     },
+    "ReferenceInput": {
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "format": "uuid",
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference"
+      ],
+      "title": "ReferenceInput",
+      "type": "object"
+    },
     "RequestEnvelope": {
       "additionalProperties": false,
       "properties": {
@@ -1910,6 +1925,263 @@
       "title": "SamplePayload",
       "type": "object"
     },
+    "StorageReferenceEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "storage.pick.v1",
+            "storage.release.v1"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "const": "storage",
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "const": "requests",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ReferenceInput"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "StorageReferenceEnvelope",
+      "type": "object"
+    },
+    "StorageRejection": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "expect",
+            "reserve",
+            "receive",
+            "release",
+            "issue",
+            "pick",
+            "transfer",
+            "arrive"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "request": {
+          "additionalProperties": true,
+          "title": "Request",
+          "type": "object"
+        }
+      },
+      "required": [
+        "action",
+        "reason",
+        "request"
+      ],
+      "title": "StorageRejection",
+      "type": "object"
+    },
+    "StorageRejectionEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "storage.command.rejected.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "const": "storage",
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "minLength": 1,
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "minLength": 1,
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/StorageRejection"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "StorageRejectionEnvelope",
+      "type": "object"
+    },
     "TransferFact": {
       "additionalProperties": false,
       "properties": {
@@ -2017,13 +2289,16 @@
       "manufacturing.demand.v1": "#/$defs/DemandEnvelope",
       "sample.completed.v1": "#/$defs/Envelope",
       "storage.arrive.completed.v1": "#/$defs/FactEnvelope",
+      "storage.command.rejected.v1": "#/$defs/StorageRejectionEnvelope",
       "storage.expect.completed.v1": "#/$defs/FactEnvelope",
       "storage.issue.completed.v1": "#/$defs/FactEnvelope",
       "storage.issue.v1": "#/$defs/IssueEnvelope",
       "storage.pick.completed.v1": "#/$defs/FactEnvelope",
+      "storage.pick.v1": "#/$defs/StorageReferenceEnvelope",
       "storage.receipt.v1": "#/$defs/ReceiptEnvelope",
       "storage.receive.completed.v1": "#/$defs/FactEnvelope",
       "storage.release.completed.v1": "#/$defs/FactEnvelope",
+      "storage.release.v1": "#/$defs/StorageReferenceEnvelope",
       "storage.request.v1": "#/$defs/RequestEnvelope",
       "storage.reserve.completed.v1": "#/$defs/FactEnvelope",
       "storage.transfer.arrived.v1": "#/$defs/ArrivalEnvelope",
@@ -2052,6 +2327,12 @@
     },
     {
       "$ref": "#/$defs/DemandEnvelope"
+    },
+    {
+      "$ref": "#/$defs/StorageReferenceEnvelope"
+    },
+    {
+      "$ref": "#/$defs/StorageRejectionEnvelope"
     },
     {
       "$ref": "#/$defs/HandlingEnvelope"
