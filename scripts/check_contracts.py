@@ -7,10 +7,11 @@ from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 from simulator.contracts import Envelope
 from simulator.providers import SeededInput
 from simulator.storage_contracts import transport_envelope
+from simulator.logistics_contracts import logistics_envelope
 from simulator.adapter_protocol import Command, PAYLOADS
 
 ROOT=Path(__file__).resolve().parents[1]
-MODELS={'sample.completed':Envelope,'seeded-input':SeededInput,'storage-boundary':transport_envelope}
+MODELS={'sample.completed':Envelope,'seeded-input':SeededInput,'storage-boundary':transport_envelope,'logistics-boundary':logistics_envelope}
 
 def adapter_schema():
     schema=Command.model_json_schema()
@@ -29,7 +30,7 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--write',action='store_true');args=parser.parse_args()
     for name,model in MODELS.items():
         path=ROOT/'contracts/v1'/(name+'.schema.json')
-        expected=model.json_schema() if name=='storage-boundary' else model.model_json_schema()
+        expected=model.json_schema() if name in ('storage-boundary','logistics-boundary') else model.model_json_schema()
         if args.write:
             path.write_text(json.dumps(expected,indent=2)+'\n')
         published=json.loads(path.read_text())
@@ -38,7 +39,7 @@ def main():
         validator=Draft202012Validator(published,format_checker=FormatChecker())
         valid=json.loads((ROOT/'contracts/v1/fixtures'/(name+'.json')).read_text())
         validator.validate(valid)
-        model.validate_python(valid) if name=='storage-boundary' else model.model_validate(valid)
+        model.validate_python(valid) if name in ('storage-boundary','logistics-boundary') else model.model_validate(valid)
         invalid={**valid,'quantity':-1} if name=='seeded-input' else {**valid,'type':'analytics.sample.v1'}
         try:
             validator.validate(invalid)

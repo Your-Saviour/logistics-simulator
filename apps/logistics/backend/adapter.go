@@ -204,14 +204,27 @@ func (a *Adapter) Tick(ctx context.Context, r row) error {
 			return errors.New("invalid adapter message")
 		}
 		raw, _ := json.Marshal(message["envelope"])
-		var envelope Envelope
-		if e = strictJSON(bytes.NewReader(raw), &envelope); e != nil {
+		var meta struct {
+			Type    string `json:"type"`
+			EventID string `json:"event_id"`
+		}
+		if e = json.Unmarshal(raw, &meta); e != nil {
 			return e
 		}
-		if _, e = a.Store.Ingest(ctx, envelope, stringify(message["source"])); e != nil {
-			return e
+		if meta.Type != "sample.completed.v1" {
+			if _, e = a.Store.IngestTransport(ctx, raw, stringify(message["source"])); e != nil {
+				return e
+			}
+		} else {
+			var envelope Envelope
+			if e = strictJSON(bytes.NewReader(raw), &envelope); e != nil {
+				return e
+			}
+			if _, e = a.Store.Ingest(ctx, envelope, stringify(message["source"])); e != nil {
+				return e
+			}
 		}
-		acked = append(acked, envelope.EventID)
+		acked = append(acked, meta.EventID)
 	}
 	// Only the committed grant and committed inbox inputs can clear native pending.
 	if e = a.phase(ctx, "executing", nativePending, true); e != nil {
@@ -275,8 +288,19 @@ func (a *Adapter) settle(ctx context.Context, r row) error {
 	}
 	for _, out := range outputs {
 		for _, route := range a.Store.C.Outputs {
-			envelope := boundaryEnvelope(a.Store.C, r, out, route)
-			operationID := uuid.NewSHA1(uuid.MustParse(out["id"].(string)), []byte(route.Endpoint)).String()
+			var envelope any
+			if out["envelope"].(map[string]any)["transfer"] != nil {
+				body := out["envelope"].(map[string]any)
+				tr := body["transfer"].(map[string]any)
+				if route.Destination == "storage" && (body["type"] != "logistics.unload.completed.v1" || tr["external_reference"] == nil) {
+					continue
+				}
+				envelope = transportBoundaryEnvelope(a.Store.C, r, out, route)
+			} else {
+				envelope = boundaryEnvelope(a.Store.C, r, out, route)
+			}
+			routeBody, _ := json.Marshal(route)
+			operationID := uuid.NewSHA1(uuid.MustParse(out["id"].(string)), routeBody).String()
 			if _, e = a.Call(ctx, "publish", row{"endpoint": route.Endpoint, "envelope": envelope}, operationID); e != nil {
 				return e
 			}

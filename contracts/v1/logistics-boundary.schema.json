@@ -1,0 +1,611 @@
+{
+  "$defs": {
+    "LogisticsFactEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "logistics.request.completed.v1",
+            "logistics.assign.completed.v1",
+            "logistics.load.completed.v1",
+            "logistics.depart.completed.v1",
+            "logistics.arrive.completed.v1",
+            "logistics.unload.completed.v1",
+            "logistics.receive.completed.v1"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "const": "logistics",
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "minLength": 1,
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "minLength": 1,
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/TransportRecord"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "LogisticsFactEnvelope",
+      "type": "object"
+    },
+    "LogisticsReceiptEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "logistics.receipt.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "const": "logistics",
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "const": "destinations",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/TransportReceipt"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "LogisticsReceiptEnvelope",
+      "type": "object"
+    },
+    "LogisticsRequestEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "logistics.request.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "const": "logistics",
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "const": "transport",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/TransportRequest"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "LogisticsRequestEnvelope",
+      "type": "object"
+    },
+    "TransportReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "format": "uuid",
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference"
+      ],
+      "title": "TransportReceipt",
+      "type": "object"
+    },
+    "TransportRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "external_reference": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "External Reference"
+        },
+        "route": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Route",
+          "type": "string"
+        },
+        "origin": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Origin",
+          "type": "string"
+        },
+        "destination": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Destination",
+          "type": "string"
+        },
+        "journey_seconds": {
+          "maximum": 604800,
+          "minimum": 1,
+          "title": "Journey Seconds",
+          "type": "number"
+        },
+        "sku": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "vehicle": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Vehicle"
+        },
+        "status": {
+          "enum": [
+            "requested",
+            "assigned",
+            "loaded",
+            "in_transit",
+            "arrived",
+            "unloaded",
+            "received"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "custody": {
+          "enum": [
+            "origin",
+            "vehicle",
+            "destination"
+          ],
+          "title": "Custody",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "boolean"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "planned_eta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Planned Eta"
+        },
+        "departed_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Departed At"
+        },
+        "arrived_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Arrived At"
+        },
+        "unloaded_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unloaded At"
+        },
+        "received_at": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Received At"
+        }
+      },
+      "required": [
+        "id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "external_reference",
+        "route",
+        "origin",
+        "destination",
+        "journey_seconds",
+        "sku",
+        "quantity",
+        "vehicle",
+        "status",
+        "custody",
+        "provider",
+        "version",
+        "planned_eta",
+        "departed_at",
+        "arrived_at",
+        "unloaded_at",
+        "received_at"
+      ],
+      "title": "TransportRecord",
+      "type": "object"
+    },
+    "TransportRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "route": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Route",
+          "type": "string"
+        },
+        "sku": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "external_reference": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "External Reference"
+        }
+      },
+      "required": [
+        "route",
+        "sku",
+        "quantity"
+      ],
+      "title": "TransportRequest",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "logistics.arrive.completed.v1": "#/$defs/LogisticsFactEnvelope",
+      "logistics.assign.completed.v1": "#/$defs/LogisticsFactEnvelope",
+      "logistics.depart.completed.v1": "#/$defs/LogisticsFactEnvelope",
+      "logistics.load.completed.v1": "#/$defs/LogisticsFactEnvelope",
+      "logistics.receipt.v1": "#/$defs/LogisticsReceiptEnvelope",
+      "logistics.receive.completed.v1": "#/$defs/LogisticsFactEnvelope",
+      "logistics.request.completed.v1": "#/$defs/LogisticsFactEnvelope",
+      "logistics.request.v1": "#/$defs/LogisticsRequestEnvelope",
+      "logistics.unload.completed.v1": "#/$defs/LogisticsFactEnvelope"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/LogisticsRequestEnvelope"
+    },
+    {
+      "$ref": "#/$defs/LogisticsReceiptEnvelope"
+    },
+    {
+      "$ref": "#/$defs/LogisticsFactEnvelope"
+    }
+  ]
+}

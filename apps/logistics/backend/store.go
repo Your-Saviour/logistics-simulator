@@ -281,7 +281,8 @@ func (s *Store) Execute(ctx context.Context, id string) (result string, e error)
 			return nil
 		}
 		if j["payload"].(map[string]any)["transport"] != nil {
-		 result="completed";return executeTransport(ctx,tx,r,j)
+			result = "completed"
+			return executeTransport(ctx, tx, r, j)
 		}
 		quantity := num(j["payload"].(map[string]any), "quantity")
 		if quantity < 1 || quantity > 10000 || quantity != math.Trunc(quantity) {
@@ -518,50 +519,7 @@ func (s *Store) Published(ctx context.Context, id string) error {
 		return e
 	})
 }
-func (s *Store) Seed(ctx context.Context) error {
-	r, e := s.Run(ctx)
-	if e != nil {
-		return e
-	}
-	if r["state"] != "running" {
-		return nil
-	}
-	var scenario Scenario
-	raw, _ := json.Marshal(r["scenario"])
-	if e = json.Unmarshal(raw, &scenario); e != nil {
-		return e
-	}
-	threshold := math.Max(num(r, "granted"), num(r, "requested")) + s.C.Quantum
-	slot := int(math.Max(1, math.Ceil(threshold/float64(scenario.IntervalSeconds))))
-	due, e := nextBusinessDue(scenario, float64((slot-1)*scenario.IntervalSeconds), float64(scenario.IntervalSeconds))
-	if e != nil {
-		return e
-	}
-	slot = int(math.Ceil(due / float64(scenario.IntervalSeconds)))
-	for _, boundary := range []string{"transport", "destinations"} {
-		if s.C.Providers[boundary] != "synthetic" {
-			continue
-		}
-		input := seededInput(scenario, r["id"].(string), r["epoch"].(string), boundary, slot, due)
-		id := input["input_id"].(string)
-		var exists bool
-		if e = s.DB.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM jobs WHERE run_id=$1 AND idempotency_key=$2)", r["id"], "synthetic:"+id).Scan(&exists); e != nil {
-			return e
-		}
-		if exists {
-			continue
-		}
-		_, e = s.Schedule(ctx, "synthetic:"+id, JobCommand{due, input["quantity"].(int)}, &Audit{Actor: "logistics-synthetic", Role: "service", RequestID: id, Action: "seed:" + input["kind"].(string), Key: id, Peer: "controller"}, input)
-		if e != nil {
-			var c Conflict
-			if errors.As(e, &c) {
-				return nil
-			}
-			return e
-		}
-	}
-	return nil
-}
+func (s *Store) Seed(ctx context.Context) error { return s.SeedTransport(ctx) }
 func (s *Store) Stall(ctx context.Context, epoch, message string) error {
 	return s.transaction(ctx, func(tx pgx.Tx) error {
 		r, e := lockRun(ctx, tx)

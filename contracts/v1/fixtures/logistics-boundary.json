@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "type": "logistics.request.v1",
+  "event_id": "10000000-0000-4000-8000-000000000001",
+  "federation_id": "transport-reference",
+  "run_id": "20000000-0000-4000-8000-000000000001",
+  "epoch": "30000000-0000-4000-8000-000000000001",
+  "correlation_id": "40000000-0000-4000-8000-000000000001",
+  "causation_id": "50000000-0000-4000-8000-000000000001",
+  "aggregate_id": "60000000-0000-4000-8000-000000000001",
+  "aggregate_version": 1,
+  "source": "shipping",
+  "destination": "logistics",
+  "boundary": "transport",
+  "effective_time": 2,
+  "wall_time": "2026-10-24T00:00:00Z",
+  "quantity_unit": "item",
+  "payload": {"route":"WAREHOUSE-DISPATCH","sku":"PRODUCT","quantity":5}
+}
