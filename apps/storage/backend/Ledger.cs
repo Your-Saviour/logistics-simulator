@@ -7,7 +7,9 @@ public sealed class Ledger(Database database,Settings settings)
     public static Guid Id(JsonObject o,string key="id")=>Guid.Parse(o[key]!.ToString());
     public static double Num(JsonObject o,string key)=>o[key]!.GetValue<double>();
     public static void AuditRow(Unit u,Guid run,Audit? a,string outcome,int status,Guid? target=null) { if(a is null) return; u.Exec("INSERT INTO command_audit(id,run_id,actor,role,request_id,action,outcome,status_code,idempotency_key,peer,target_id) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10)",Guid.NewGuid(),run,a.Actor,a.Role,a.RequestId,a.Action,outcome,status,a.Key,a.Peer,target); }
-    public JsonObject Status()=>Db.Transaction(u=> { var run=u.Run(); var id=Id(run); return new JsonObject { ["run"]=run,["jobs"]=Array(u.Query("SELECT * FROM jobs WHERE run_id=@p0 ORDER BY created_at DESC LIMIT 100",id)),["effects"]=u.One("SELECT COALESCE(sum(quantity),0) AS n FROM effects WHERE run_id=@p0",id)["n"]!.DeepClone(),["heartbeats"]=Array(u.Query("SELECT role,seen_at,detail,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats")),["pending_boundary_outputs"]=u.One("SELECT count(*) AS n FROM boundary_outbox WHERE run_id=@p0 AND sent_at IS NULL",id)["n"]!.DeepClone() }; });
+    public JsonObject Status()=>Db.Transaction(Status);
+    public static JsonObject Status(Unit u) { var run=u.Run(); var id=Id(run); return new JsonObject { ["run"]=run,["jobs"]=Array(u.Query("SELECT * FROM jobs WHERE run_id=@p0 ORDER BY created_at DESC LIMIT 100",id)),["effects"]=u.One("SELECT COALESCE(sum(quantity),0) AS n FROM effects WHERE run_id=@p0",id)["n"]!.DeepClone(),["heartbeats"]=Array(u.Query("SELECT role,seen_at,detail,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats")),["pending_boundary_outputs"]=u.One("SELECT count(*) AS n FROM boundary_outbox WHERE run_id=@p0 AND sent_at IS NULL",id)["n"]!.DeepClone() }; }
+
     public static JsonArray Array(List<JsonObject> rows)=>new(rows.Cast<JsonNode?>().ToArray());
     public Guid Scope()=>Db.Transaction(u=>Id(u.Run()));
     public void Rejected(Audit a,int status)=>Db.Transaction(u=> { AuditRow(u,a.RunId??Id(u.Run()),a,"rejected",status); return true; });
@@ -24,9 +26,12 @@ public sealed class Ledger(Database database,Settings settings)
     });
     public static bool Outstanding(Unit u,JsonObject r)=>u.One("SELECT EXISTS(SELECT 1 FROM jobs WHERE run_id=@p0 AND due_at<=@p1 AND status NOT IN ('completed','fenced')) OR EXISTS(SELECT 1 FROM boundary_outbox WHERE run_id=@p0 AND sent_at IS NULL) AS busy",Id(r),Num(r,"granted"))["busy"]!.GetValue<bool>();
     public JsonObject Control(string action,JsonObject body,Audit audit) {
-        Rules.Fields(body,"speed","confirm_run_id","scenario"); var speed=body["speed"] is null?1:Rules.Integer(body["speed"],int.MinValue,int.MaxValue); var confirmation=body["confirm_run_id"] is null?(Guid?)null:Rules.Uuid(body["confirm_run_id"]); var scenario=body["scenario"] is null?null:new Scenario(body["scenario"]!.AsObject());
+        Rules.Fields(body,"speed","confirm_run_id","scenario","run_id","epoch"); var speed=body["speed"] is null?1:Rules.Integer(body["speed"],int.MinValue,int.MaxValue); var confirmation=body["confirm_run_id"] is null?(Guid?)null:Rules.Uuid(body["confirm_run_id"]); var scenario=body["scenario"] is null?null:new Scenario(body["scenario"]!.AsObject());
         if(scenario is not null&&action!="reset") throw new Conflict("Scenario changes require a confirmed new run");
-        Db.Transaction(u=> { var r=u.Run(); var id=Id(r); switch(action) {
+        return Db.Transaction(u=> { var r=u.Run(); var id=Id(r); if(body["run_id"] is not null&&Rules.Uuid(body["run_id"])!=id||body["epoch"] is not null&&Rules.Uuid(body["epoch"])!=Id(r,"epoch")) throw new Conflict("Control belongs to a different run or epoch");
+            var key=(action is "hold" or "resume")&&audit.Action.StartsWith("POST /api/control/")&&!string.IsNullOrEmpty(audit.Key)?audit.Key:null;
+            if(key is not null) { if(key.Length>128) throw new Validation("Idempotency-Key length must be 1..128"); var old=u.Query("SELECT action,request,response FROM control_receipts WHERE run_id=@p0 AND actor=@p1 AND idempotency_key=@p2",id,audit.Actor,key).FirstOrDefault(); if(old is not null) { if(old["action"]!.ToString()!=action||!JsonNode.DeepEquals(old["request"],body)) throw new Conflict("Idempotency key already used with a different control"); AuditRow(u,id,audit,"accepted",200);return (JsonObject)old["response"]!.DeepClone(); } }
+            switch(action) {
             case "reset":
                 if(confirmation!=id) throw new Conflict("Reset requires the current run ID as confirmation");
                 if(r["mode"]!.ToString()=="helics") throw new Conflict("Finalize federation and allocate new deployment run/epoch; live reset forbidden");
@@ -41,7 +46,7 @@ public sealed class Ledger(Database database,Settings settings)
                 } else u.Exec("UPDATE runs SET state='finalized' WHERE id=@p0",id);
                 break;
             default: throw new Conflict("Unknown control");
-        } AuditRow(u,id,audit,"accepted",200); return true; }); return Status();
+        } AuditRow(u,id,audit,"accepted",200); var response=Status(u);if(key is not null)u.Exec("INSERT INTO control_receipts(run_id,actor,idempotency_key,action,request,response) VALUES (@p0,@p1,@p2,@p3,@p4,@p5)",id,audit.Actor,key,action,body,response);return response; });
     }
     public string Execute(Guid job)=>Db.Transaction(u=> { var r=u.Run(); var j=u.Query("SELECT * FROM jobs WHERE id=@p0 FOR UPDATE",job).FirstOrDefault();
         if(j is null||Id(j,"run_id")!=Id(r)||Id(j,"epoch")!=Id(r,"epoch")) return "fenced";

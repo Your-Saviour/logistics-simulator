@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:http:twin-projection:1",
+  "title": "Department source projection v1",
+  "type": "object",
+  "required": ["version", "source", "run", "cursor", "snapshot", "events"],
+  "properties": {
+    "version": {"const": 1},
+    "source": {"enum": ["storage", "manufacturing", "logistics", "shipping"]},
+    "run": {
+      "type": "object",
+      "required": ["id", "epoch", "granted", "requested", "committed", "state", "speed", "anchor", "scenario"],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "epoch": {"type": "string", "format": "uuid"},
+        "granted": {"type": "number", "minimum": 0},
+        "requested": {"type": "number", "minimum": 0},
+        "committed": {"type": "number", "minimum": 0},
+        "state": {"type": "string"},
+        "speed": {"type": "number", "exclusiveMinimum": 0},
+        "anchor": {"type": "string", "minLength": 1, "description": "Persisted timezone-bearing timestamp, in native PostgreSQL text or RFC3339 representation."},
+        "scenario": {"type": "object"}
+      }
+    },
+    "health": {
+      "type": "object",
+      "required": ["heartbeats", "pending_jobs", "dead_letters", "broker", "ready"],
+      "properties": {
+        "heartbeats": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["role", "healthy", "seen_at"], "properties": {"role": {"type": "string"}, "healthy": {"type": "boolean"}, "seen_at": {"type": "string"}}}},
+        "pending_jobs": {"type": "integer", "minimum": 0},
+        "dead_letters": {"type": "integer", "minimum": 0},
+        "broker": {"type": ["boolean", "null"]},
+        "ready": {"type": ["boolean", "null"]}
+      }
+    },
+    "effects": {"type": "integer", "minimum": 0, "description": "Sum of committed legacy sample effect quantities for the active run, preserving /api/status semantics."},
+    "cursor": {"type": "string", "minLength": 1},
+    "snapshot": {"type": "object"},
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "simulation_time"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "kind": {"type": "string", "description": "Original domain kind where present; otherwise movement, history or fact."},
+          "correlation_id": {"type": "string", "format": "uuid"},
+          "simulation_time": {"type": "number", "minimum": 0}
+        }
+      }
+    }
+  },
+  "description": "GET /api/projection with Basic authentication and status:read. Run, snapshot and complete active-run durable history are read under one run lock. Cursor is opaque content identity, not an event or sequence. See twin-projection.md for source shapes and reconnect rules."
+}

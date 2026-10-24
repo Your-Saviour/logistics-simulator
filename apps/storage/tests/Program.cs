@@ -22,6 +22,20 @@ if (Environment.GetEnvironmentVariable("STORAGE_INTEGRATION")=="true") {
     var existing=ledger.Status()["run"]!.AsObject();
     ledger.Control("reset",new JsonObject {["confirm_run_id"]=existing["id"]!.DeepClone()},new Audit(Guid.NewGuid(),"operator","operator","test:reset","","tests"));
     var run=ledger.Status()["run"]!.AsObject(); var epoch=Ledger.Id(run,"epoch"); var audit=new Audit(Guid.NewGuid(),"employee","employee","POST /api/jobs","test","local");
+    foreach(var action in new[]{"hold","resume","speed","finalize","reset"}) {
+        foreach(var field in new[]{"run_id","epoch"}) {
+            var precondition=new JsonObject {["run_id"]=run["id"]!.DeepClone(),["epoch"]=run["epoch"]!.DeepClone(),["confirm_run_id"]=run["id"]!.DeepClone()};precondition[field]=Guid.NewGuid().ToString();
+            try { ledger.Control(action,precondition,audit);throw new Exception("Stale control accepted"); }catch(Conflict){Check(ledger.Status()["run"]!["state"]!.ToString()=="running","stale control rejected before mutation: "+action+" "+field);}
+        }
+    }
+    var receiptAudit=audit with { Actor="receipt-test",Action="POST /api/control/hold",Key="hold-receipt" };
+    var firstHold=ledger.Control("hold",new JsonObject(),receiptAudit);
+    ledger.Control("resume",new JsonObject(),audit);
+    var retryHold=ledger.Control("hold",new JsonObject(),receiptAudit);
+    Check(ledger.Status()["run"]!["state"]!.ToString()=="running"&&JsonNode.DeepEquals(firstHold,retryHold),"lost control response replays receipt without overwriting another actor resume");
+    try {ledger.Control("resume",new JsonObject(),receiptAudit with {Action="POST /api/control/resume"});throw new Exception("Changed keyed action accepted");}catch(Conflict){Check(true,"control receipt rejects changed action");}
+    var infrastructure=new Warehouse(ledger,settings).Projection()["health"] as JsonObject;
+    Check(infrastructure is not null&&infrastructure["pending_jobs"] is not null&&infrastructure["dead_letters"] is not null&&infrastructure["heartbeats"] is JsonArray,"projection exposes safe infrastructure health");
     var job=ledger.Schedule("test:"+Guid.NewGuid(),2,7,audit); var jobId=Ledger.Id(job);
     Check(ledger.Execute(jobId)=="waiting","workers cannot execute before persisted grant");
     ledger.Heartbeat("controller"); Check(ledger.Prepare(2,epoch),"empty completion barrier permits request");

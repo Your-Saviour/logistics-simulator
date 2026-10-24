@@ -1,7 +1,7 @@
 #!/bin/sh
 # Disposable mixed-language HELICS scenarios, all service work inside Docker.
 set -eu
-work() { python3 scripts/docker_guard.py --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label mixed-federation -- docker "$@"; }
+work() { python3 scripts/docker_guard.py --wait --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label mixed-federation -- docker "$@"; }
 python3 scripts/stacks_compose.py --connected
 manifest=deploy/generated/migration-mixed.json
 prefix=simu-mixed-check-$(date +%s)
@@ -15,9 +15,11 @@ cleanup() {
  docker compose -p "$project" -f "$manifest" down
 }
 trap cleanup EXIT HUP INT TERM
-if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then work build -t logistics-simulator:bootstrap .; fi
-work build -t logistics-simulator:adapter -f apps/adapter/Dockerfile .
-work run --rm --memory=768m logistics-simulator:adapter sh -c 'pytest -q tests/adapter && python examples/helics/adapter_smoke.py'
+if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then
+ work build -t logistics-simulator:bootstrap .
+ work build -t logistics-simulator:adapter -f apps/adapter/Dockerfile .
+ work run --rm --memory=768m logistics-simulator:adapter sh -c 'pytest -q tests/adapter && python examples/helics/adapter_smoke.py'
+fi
 if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then
 for app in storage manufacturing logistics shipping twin; do
  work compose -p "$project" -f "$manifest" build "$app-api"

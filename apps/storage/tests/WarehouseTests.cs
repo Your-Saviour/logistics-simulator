@@ -49,8 +49,17 @@ public static class WarehouseTests
         check(Done(capacityReceive)["status"]!.ToString()=="rejected"&&warehouse.Snapshot()["movements"]!.AsArray().Count==movesBefore,"capacity counts all SKUs and rejects without movement writes");
         var release=Submit("reserve",Fields("COMPONENT","RAW-A",2,"production")); Submit("release",Reference(release));
         check(Stock("COMPONENT","RAW-A")["available"]!.GetValue<int>()==3,"release restores available quantity");
+        ledger.Db.Transaction(u=>{ var r=u.Run();u.Exec("INSERT INTO warehouse_movements(id,command_id,run_id,action,sku,location,on_hand_delta,reserved_delta,quantity,correlation_id,reference,simulation_time) SELECT gen_random_uuid(),@p0,@p1,'receive','COMPONENT','TEST-'||n,1,0,1,@p2,@p0,0 FROM generate_series(1,205) n",id,Ledger.Id(r),correlation);return true; });
+        var method=typeof(Warehouse).GetMethod("Projection");
+        check(method is not null,"warehouse exposes source projection");
+        JsonObject Projection()=>(JsonObject)method!.Invoke(warehouse,null)!;
+        var projection=Projection();
+        check(projection["effects"]!.GetValue<long>()==0&&projection["version"]!.GetValue<int>()==1&&projection["source"]!.ToString()=="storage","projection version and source");
+        check(projection["events"]!.AsArray().Count>205,"projection keeps durable warehouse movements");
+        check(projection["events"]!.AsArray().All(e=>e!["id"] is JsonValue&&e["correlation_id"]!.ToString()==correlation.ToString()&&e["simulation_time"] is not null),"projection preserves movement identity correlation and simulation time");
+        check(projection["cursor"]!.ToString()==Projection()["cursor"]!.ToString(),"unchanged projection retains cursor");
         var stale=Body("reserve",Fields("COMPONENT","RAW-A",1,"production")); var staleCommand=warehouse.Submit(Guid.NewGuid().ToString(),stale,audit);
-        Reset(); check(ledger.Execute(Ledger.Id(staleCommand))=="fenced"&&warehouse.Snapshot()["movements"]!.AsArray().Count==0,"reset fences old deliveries and isolates stock history");
+        Reset(); check(Projection()["events"]!.AsArray().Count==0,"projection reset excludes previous-run history"); check(ledger.Execute(Ledger.Id(staleCommand))=="fenced"&&warehouse.Snapshot()["movements"]!.AsArray().Count==0,"reset fences old deliveries and isolates stock history");
         try { warehouse.Submit(Guid.NewGuid().ToString(),stale,audit); throw new Exception("Stale warehouse request accepted"); } catch(Conflict) { check(true,"stale browser run/epoch cannot mutate new inventory"); }
         foreach(var q in new JsonNode?[]{JsonValue.Create(true),JsonValue.Create("1"),JsonValue.Create(1.5),JsonValue.Create(0)}) {
             var f=Body("expect",Fields("PRODUCT","DISPATCH",1)); f["quantity"]=q;

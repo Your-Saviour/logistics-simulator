@@ -176,30 +176,30 @@ func (s *Store) Reject(ctx context.Context, a *Audit, status int) error {
 	return s.transaction(auditCtx, func(tx pgx.Tx) error { return audit(auditCtx, tx, a.RunID, a, "rejected", status, nil) })
 }
 func (s *Store) Status(ctx context.Context) (result row, e error) {
-	e = s.transaction(ctx, func(tx pgx.Tx) error {
-		r, e := lockRun(ctx, tx)
-		if e != nil {
-			return e
-		}
-		jobs, e := objects(ctx, tx, "SELECT * FROM jobs WHERE run_id=$1 ORDER BY created_at DESC LIMIT 100", r["id"])
-		if e != nil {
-			return e
-		}
-		heartbeats, e := objects(ctx, tx, "SELECT role,seen_at,detail,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats")
-		if e != nil {
-			return e
-		}
-		var effects, pending int
-		if e = tx.QueryRow(ctx, "SELECT COALESCE(sum(quantity),0) FROM effects WHERE run_id=$1", r["id"]).Scan(&effects); e != nil {
-			return e
-		}
-		if e = tx.QueryRow(ctx, "SELECT count(*) FROM boundary_outbox WHERE run_id=$1 AND sent_at IS NULL", r["id"]).Scan(&pending); e != nil {
-			return e
-		}
-		result = row{"run": r, "jobs": jobs, "effects": effects, "heartbeats": heartbeats, "pending_boundary_outputs": pending}
-		return nil
-	})
+	e = s.transaction(ctx, func(tx pgx.Tx) error { result, e = statusWithin(ctx, tx); return e })
 	return
+}
+func statusWithin(ctx context.Context, tx pgx.Tx) (row, error) {
+	r, e := lockRun(ctx, tx)
+	if e != nil {
+		return nil, e
+	}
+	jobs, e := objects(ctx, tx, "SELECT * FROM jobs WHERE run_id=$1 ORDER BY created_at DESC LIMIT 100", r["id"])
+	if e != nil {
+		return nil, e
+	}
+	heartbeats, e := objects(ctx, tx, "SELECT role,seen_at,detail,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats")
+	if e != nil {
+		return nil, e
+	}
+	var effects, pending int
+	if e = tx.QueryRow(ctx, "SELECT COALESCE(sum(quantity),0) FROM effects WHERE run_id=$1", r["id"]).Scan(&effects); e != nil {
+		return nil, e
+	}
+	if e = tx.QueryRow(ctx, "SELECT count(*) FROM boundary_outbox WHERE run_id=$1 AND sent_at IS NULL", r["id"]).Scan(&pending); e != nil {
+		return nil, e
+	}
+	return row{"run": r, "jobs": jobs, "effects": effects, "heartbeats": heartbeats, "pending_boundary_outputs": pending}, nil
 }
 func (s *Store) Schedule(ctx context.Context, key string, j JobCommand, a *Audit, input row) (job row, e error) {
 	if key == "" || len(key) > 128 || !finite(j.DueAt) || j.DueAt < 0 || j.Quantity < 1 || j.Quantity > 10000 {
@@ -404,14 +404,52 @@ func (s *Store) Prepare(ctx context.Context, target float64, epoch string) (ok b
 	})
 	return
 }
-func (s *Store) Control(ctx context.Context, action string, speed int, confirmation string, a *Audit, scenario *Scenario) (value row, e error) {
+func (s *Store) Control(ctx context.Context, action string, speed int, confirmation string, a *Audit, scenario *Scenario, preconditions ...row) (value row, e error) {
 	e = s.transaction(ctx, func(tx pgx.Tx) error {
 		r, e := lockRun(ctx, tx)
 		if e != nil {
 			return e
 		}
+		if len(preconditions) > 0 {
+			for _, field := range []string{"run_id", "epoch"} {
+				expected := preconditions[0][field]
+				actual := r["id"]
+				if field == "epoch" {
+					actual = r["epoch"]
+				}
+				if expected != nil && expected != actual {
+					return Conflict("Control belongs to a different run or epoch")
+				}
+			}
+		}
 		if scenario != nil && action != "reset" {
 			return Conflict("Scenario changes require a confirmed new run")
+		}
+		key := ""
+		var request any
+		if a != nil && len(preconditions) > 0 && (action == "hold" || action == "resume") {
+			request = preconditions[0]["request"]
+			if request != nil {
+				key = a.Key
+			}
+		}
+		if key != "" {
+			if len(key) > 128 {
+				return Conflict("Idempotency-Key length must be 1..128")
+			}
+			old, err := object(ctx, tx, "SELECT action,request,response FROM control_receipts WHERE run_id=$1 AND actor=$2 AND idempotency_key=$3", r["id"], a.Actor, key)
+			if err == nil {
+				oldRaw, _ := json.Marshal(old["request"])
+				raw, _ := json.Marshal(request)
+				if old["action"] != action || string(oldRaw) != string(raw) {
+					return Conflict("Idempotency key already used with a different control")
+				}
+				value = old["response"].(map[string]any)
+				return audit(ctx, tx, r["id"].(string), a, "accepted", 200, nil)
+			}
+			if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
 		}
 		switch action {
 		case "reset":
@@ -483,11 +521,23 @@ func (s *Store) Control(ctx context.Context, action string, speed int, confirmat
 		if e != nil {
 			return e
 		}
-		return audit(ctx, tx, r["id"].(string), a, "accepted", 200, nil)
+		if e = audit(ctx, tx, r["id"].(string), a, "accepted", 200, nil); e != nil {
+			return e
+		}
+		value, e = statusWithin(ctx, tx)
+		if e != nil {
+			return e
+		}
+		if key != "" {
+			body, _ := json.Marshal(request)
+			response, err := json.Marshal(value)
+			if err != nil {
+				return err
+			}
+			_, e = tx.Exec(ctx, "INSERT INTO control_receipts(run_id,actor,idempotency_key,action,request,response) VALUES($1,$2,$3,$4,$5,$6)", r["id"], a.Actor, key, action, body, response)
+		}
+		return e
 	})
-	if e == nil {
-		value, e = s.Status(ctx)
-	}
 	return
 }
 func (s *Store) Dispatchable(ctx context.Context) (rows []row, e error) {

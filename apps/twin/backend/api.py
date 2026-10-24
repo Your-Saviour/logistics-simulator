@@ -3,6 +3,12 @@ from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 import logging
 import math
+import os
+import json
+
+from .projection import ProjectionStore
+from .controls import targets, public_targets, forward
+from simulator.audit import write_audit
 
 from flask import Flask, g, jsonify, request
 from flask.json.provider import DefaultJSONProvider
@@ -23,13 +29,16 @@ class ContractJSON(DefaultJSONProvider):
         return DefaultJSONProvider.default(value)
 
 
-def create_app(settings,store,broker_check=None):
+def create_app(settings,store,broker_check=None,control_client=None):
     if settings.app!='twin': raise ValueError('This Flask entry point serves only the digital twin')
     if not settings.password: raise ValueError('Independent twin credentials required')
     if broker_check is None:
         from simulator.messaging import broker_ready
         broker_check=lambda:broker_ready(settings.amqp_url)
     store.migrate()
+    projection=ProjectionStore(store)
+    projection.configure(json.loads(os.getenv('TWIN_SOURCES', '[]')))
+    control_targets=targets(json.loads(os.getenv('TWIN_CONTROL_TARGETS', '[]')))
     app=Flask(__name__)
     app.json_provider_class=ContractJSON
     app.json=ContractJSON(app)
@@ -99,7 +108,60 @@ def create_app(settings,store,broker_check=None):
 
     @app.get('/api/sources')
     @permitted('status:read')
-    def sources(): return jsonify(store.sources())
+    def sources(): return jsonify(projection.view()['sources'])
+
+    def visible_twin():
+        value=projection.view()
+        if 'runs:control' in g.principal.scopes: value['controls']=public_targets(control_targets)
+        return value
+
+    @app.get('/api/twin')
+    @permitted('status:read')
+    def twin_snapshot(): return jsonify(visible_twin())
+
+    @app.get('/api/twin/events')
+    @permitted('status:read')
+    def twin_events():
+        cursor=request.args.get('after', request.headers.get('Last-Event-ID', '0'))
+        if not cursor.isdecimal() or len(cursor)>19:
+            return jsonify(detail='Nonnegative integer cursor required'),422
+        value=visible_twin()
+        # Full snapshot polling is the reconnect fallback. SSE returns the same
+        # atomic snapshot/cursor and closes, avoiding pinned Gunicorn threads.
+        if request.args.get('format')=='sse':
+            from flask import Response
+            body=app.json.dumps(value)
+            return Response(f"retry: 2000\nid: {value['revision']}\nevent: snapshot\ndata: {body}\n\n",
+                            mimetype='text/event-stream',
+                            headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
+        return jsonify(value)
+
+    @app.post('/api/twin/controls/<name>/<action>')
+    @permitted('runs:control')
+    def route_control(name,action):
+        target=control_targets.get(name)
+        if target is None or action not in target['actions']:
+            return jsonify(detail='Control route not configured'),404
+        key=request.headers.get('Idempotency-Key','')
+        if not 1<=len(key)<=128: return jsonify(detail='Idempotency-Key required'),422
+        body=request.get_json(silent=True)
+        if not isinstance(body,dict): return jsonify(detail='JSON object required'),422
+        if target['scope']=='local':
+            if set(body)!={'run_id','epoch'}: return jsonify(detail='Current source run_id and epoch required'),422
+            source=next((s for s in projection.view()['sources'] if s['name']==target['source']),None)
+            if not source or not source['connected'] or not source['status']:
+                return jsonify(detail='Source unavailable; control was not forwarded'),409
+            run=source['status']['run']
+            if (body['run_id'],body['epoch'])!=(run['id'],run['epoch']):
+                return jsonify(detail='Source run changed; control was not forwarded'),409
+        elif body:
+            return jsonify(detail='Federation control body must be empty'),422
+        # Persist routing intent before any remote side effect. The owner is the
+        # authority for command idempotency, fencing and acknowledged state.
+        with store.transaction() as db:
+            write_audit(db,g.audit['run_id'],g.audit,'accepted',202)
+        result,status=forward(target,action,body,key,control_client)
+        return jsonify(result),status
 
     @app.get('/api/audit')
     @permitted('audit:read')

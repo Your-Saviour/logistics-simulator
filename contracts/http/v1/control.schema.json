@@ -5,6 +5,8 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "run_id": {"type": ["string", "null"], "format": "uuid", "description": "Optional current-run precondition, checked under the run lock before every control mutation; mismatch returns 409."},
+    "epoch": {"type": ["string", "null"], "format": "uuid", "description": "Optional current-epoch precondition, checked under the run lock before every control mutation; mismatch returns 409."},
     "speed": {"type": "integer", "default": 1, "description": "For speed actions only, supported standalone values are 1, 5, 20, 60."},
     "confirm_run_id": {"type": ["string", "null"], "format": "uuid"},
     "scenario": {"type": ["object", "null"], "additionalProperties": false,

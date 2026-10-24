@@ -84,7 +84,11 @@ class ProductionTest {
  @Test void batchCompletionPublishesGoodAndScrapAccountingOnce()throws Exception{
   command(Map.of("action","supply","sku","COMPONENT","quantity",4));advance(2);UUID id=create(2);command(Map.of("action","release","reference",id));advance(6);advance(7);advance(30);
   assertEquals(1,get().path("events").size());assertFalse(store.prepare(31,store.run().get("epoch")));var event=get().path("events").get(0).path("envelope");assertEquals("manufacturing.batch.completed.v1",event.path("type").asText());assertEquals(2,event.path("payload").path("output_quantity").asInt());assertEquals(0,event.path("payload").path("scrap_quantity").asInt());assertEquals(id.toString(),event.path("correlation_id").asText());
+  var projected=Json.M.valueToTree(Projection.read(store));var projectedEvents=projected.path("events");
+  for(var movement:projected.path("snapshot").path("movements")){var matching=java.util.stream.StreamSupport.stream(projectedEvents.spliterator(),false).filter(e->e.path("id").asText().equals("manufacturing:movement:"+movement.path("id").asText())).findFirst().orElseThrow();assertEquals(movement.path("kind"),matching.path("kind"),"original business movement kind must survive projection");}
+
   try(var broker=new Messaging(System.getenv("MANUFACTURING_TEST_AMQP"))){broker.relay(store);broker.relay(store);int count=0;com.rabbitmq.client.GetResponse delivery;while((delivery=broker.channel.basicGet("production.events.v1",true))!=null){var body=Json.parse(new String(delivery.getBody(),java.nio.charset.StandardCharsets.UTF_8));if(body.path("event_id").asText().equals(event.path("event_id").asText()))count++;}assertEquals(1,count);}
+  assertEquals(projectedEvents,Json.M.valueToTree(Projection.read(store)).path("events"),"publication metadata must not mutate durable event payloads");
   advance(31);assertEquals(1,get().path("events").size());assertTrue(store.prepare(32,store.run().get("epoch")));
  }
 

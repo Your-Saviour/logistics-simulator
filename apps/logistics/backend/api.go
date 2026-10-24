@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -99,6 +102,14 @@ func api(s *Store, broker func() bool) http.Handler {
 		v["simulation_time"] = scenario.instant(num(run, "granted")).Format("2006-01-02T15:04:05.999999999Z07:00")
 		c.JSON(200, v)
 	})
+	r.GET("/api/projection", permit("status:read"), func(c *gin.Context) {
+		value, err := s.Projection(c.Request.Context())
+		if err != nil {
+			respondError(c, err)
+			return
+		}
+		c.JSON(200, value)
+	})
 	r.GET("/api/transport", permit("status:read"), func(c *gin.Context) {
 		v, e := s.Transport(c.Request.Context())
 		if e != nil {
@@ -155,9 +166,16 @@ func api(s *Store, broker func() bool) http.Handler {
 		command := struct {
 			Speed        int       `json:"speed"`
 			ConfirmRunID *string   `json:"confirm_run_id"`
+			RunID        *string   `json:"run_id"`
+			Epoch        *string   `json:"epoch"`
 			Scenario     *Scenario `json:"scenario"`
 		}{Speed: 1}
-		if e := strictJSON(c.Request.Body, &command); e != nil {
+		raw, err := io.ReadAll(io.LimitReader(c.Request.Body, (1<<20)+1))
+		if err != nil {
+			c.JSON(422, gin.H{"detail": "Invalid control body"})
+			return
+		}
+		if e := strictJSON(bytes.NewReader(raw), &command); e != nil {
 			c.JSON(422, gin.H{"detail": e.Error()})
 			return
 		}
@@ -169,13 +187,26 @@ func api(s *Store, broker func() bool) http.Handler {
 				return
 			}
 		}
+		var request row
+		json.Unmarshal(raw, &request)
+		preconditions := row{"request": request}
+		for field, value := range map[string]*string{"run_id": command.RunID, "epoch": command.Epoch} {
+			if value != nil {
+				id, err := uuid.Parse(*value)
+				if err != nil {
+					c.JSON(422, gin.H{"detail": field + " must be a UUID"})
+					return
+				}
+				preconditions[field] = id.String()
+			}
+		}
 		if command.Scenario != nil {
 			if e := command.Scenario.Validate(); e != nil {
 				c.JSON(422, gin.H{"detail": e.Error()})
 				return
 			}
 		}
-		value, e := s.Control(c.Request.Context(), c.Param("action"), command.Speed, confirmation, c.MustGet("audit").(*Audit), command.Scenario)
+		value, e := s.Control(c.Request.Context(), c.Param("action"), command.Speed, confirmation, c.MustGet("audit").(*Audit), command.Scenario, preconditions)
 		if e != nil {
 			respondError(c, e)
 			return

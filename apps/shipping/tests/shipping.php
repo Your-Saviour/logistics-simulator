@@ -32,8 +32,14 @@ $c=shippingSubmit(['action'=>'create','customer'=>'CANCEL','destination'=>'CUSTO
 shippingSubmit(['action'=>'cancel','reference'=>$c['id']]);shippingDrain();shippingCheck($shipping->order($c['id'])['status']==='cancelled','safe cancellation before fulfilment');
 shippingReject(fn()=>shippingSubmit(['action'=>'create','customer'=>'BAD','destination'=>'CUSTOMER','lines'=>[['sku'=>'PRODUCT','quantity'=>true]]]),'boolean line quantity rejects');
 shippingReject(fn()=>shippingSubmit(['action'=>'create','customer'=>'BAD','destination'=>'CUSTOMER','lines'=>[['sku'=>'PRODUCT','quantity'=>1],['sku'=>'PRODUCT','quantity'=>2]]]),'duplicate SKU rejects');
+$db->transaction(function($u)use($id){$r=$u->run();$u->execute("INSERT INTO shipping_history(run_id,order_id,event,simulation_time,detail) SELECT ?,?,'historical-record',0,'{}'::jsonb FROM generate_series(1,205)",[$r['id'],$id]);});
+$projection=$shipping->projection();shippingCheck(count($projection['events'])>205,'projection preserves complete history beyond interactive snapshot limit');
+shippingCheck(count(array_unique(array_column($projection['events'],'id')))===count($projection['events']),'projection history ids are unique strings');
+shippingCheck($projection['cursor']===$shipping->projection()['cursor'],'unchanged source retains cursor');
+$validEvents=array_filter($projection['events'],fn($event)=>is_string($event['id'])&&isset($event['correlation_id'],$event['simulation_time']));shippingCheck(count($validEvents)===count($projection['events']),'projection retains correlation and simulation time');
 $pending=shippingSubmit(['action'=>'create','customer'=>'OLD','destination'=>'CUSTOMER','lines'=>[['sku'=>'PRODUCT','quantity'=>1]]]);
 $ledger->control('reset',['confirm_run_id'=>$ledger->scope()],$a);shippingCheck($ledger->execute($pending['id'])==='fenced','old domain work is fenced after reset');
 shippingReject(fn()=>$shipping->submit(Rules::uuid4(),$pending['body'],$a),'old browser run cannot enter new epoch');
 shippingCheck($shipping->snapshot()['orders']===[],'reset isolates shipping state');
+shippingCheck($shipping->projection()['events']===[],'projection reset excludes old-run history');
 echo "Shipping lifecycle checks passed\n";

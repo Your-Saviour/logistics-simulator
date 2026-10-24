@@ -1,0 +1,78 @@
+# Persistent Twin entry point. Disposable checks use separate Compose files/projects.
+name: simu-twin-v1
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: twin
+      POSTGRES_PASSWORD: '${TWIN_DATABASE_PASSWORD:?Set a URL-safe TWIN_DATABASE_PASSWORD}'
+      POSTGRES_DB: twin
+    volumes: ['database-data:/var/lib/postgresql/data']
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U twin -d twin]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  broker:
+    image: rabbitmq:4.3.6-alpine
+    hostname: twin-broker
+    user: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: twin
+      RABBITMQ_DEFAULT_PASS: '${TWIN_BROKER_PASSWORD:?Set a URL-safe TWIN_BROKER_PASSWORD}'
+      RABBITMQ_NODENAME: rabbit@twin-broker
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'
+    volumes: ['broker-data:/var/lib/rabbitmq']
+    healthcheck:
+      test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672']
+      interval: 5s
+      timeout: 3s
+      start_period: 45s
+      retries: 30
+  api:
+    image: '${TWIN_IMAGE:-logistics-simulator:twin-v1}'
+    build:
+      context: ../..
+      dockerfile: apps/twin/Dockerfile
+    restart: unless-stopped
+    environment: &environment
+      SIMULATOR: twin
+      ROLE: api
+      DATABASE_URL: 'postgresql://twin:${TWIN_DATABASE_PASSWORD:?Set TWIN_DATABASE_PASSWORD}@db:5432/twin'
+      AMQP_URL: 'amqp://twin:${TWIN_BROKER_PASSWORD:?Set TWIN_BROKER_PASSWORD}@broker:5672/%2F'
+      APP_USERNAME: '${TWIN_USERNAME:-twin-operator}'
+      APP_PASSWORD: '${TWIN_PASSWORD:?Set TWIN_PASSWORD}'
+      APP_IDENTITIES: '${TWIN_IDENTITIES:-[]}'
+      TWIN_SOURCES: '${TWIN_SOURCES:-[]}'
+      TWIN_CONTROL_TARGETS: '${TWIN_CONTROL_TARGETS:-[]}'
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+  projection:
+    image: '${TWIN_IMAGE:-logistics-simulator:twin-v1}'
+    restart: unless-stopped
+    environment:
+      <<: *environment
+      ROLE: projection
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+  web:
+    image: '${TWIN_WEB_IMAGE:-logistics-simulator:twin-web-v1}'
+    build:
+      context: ../..
+      dockerfile: apps/twin/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: http://api:8000
+    ports: ['127.0.0.1:${TWIN_PORT:-8086}:8080']
+    depends_on: [api]
+volumes:
+  database-data:
+  broker-data:

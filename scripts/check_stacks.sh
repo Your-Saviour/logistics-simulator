@@ -76,6 +76,22 @@ for selected_app in $selected; do
 done
 work compose -f "$manifest" run --rm browser-check
 if [ "$app" = all ]; then
+ work compose -f "$manifest" run --rm twin-verify python scripts/twin_acceptance.py --phase native
+ work compose -f "$manifest" run --rm twin-verify python scripts/twin_acceptance.py --phase five-sites
+ work compose -f "$manifest" stop twin-api twin-projection twin-web
+ work compose -f "$manifest" run --rm twin-verify python scripts/twin_acceptance.py --phase without-twin
+ work compose -f "$manifest" start twin-api twin-projection twin-web
+ work compose -f "$manifest" run --rm twin-verify python scripts/twin_acceptance.py --phase native
+ # Each website can stop while the other four keep serving independently.
+ for site in storage manufacturing logistics shipping twin; do
+  frontend="$site-web"
+  if [ "$site" = shipping ]; then frontend=shipping-api; fi
+  work compose -f "$manifest" stop "$frontend"
+  work compose -f "$manifest" run --rm twin-verify python scripts/twin_acceptance.py --phase five-sites --skip-site "$site"
+  work compose -f "$manifest" start "$frontend"
+ done
+fi
+if [ "$app" = all ]; then
  # Also prove each image starts with only its own dependency graph. Reuse the
  # images just built; outage checks already ran above against those images.
  work compose -f "$manifest" down

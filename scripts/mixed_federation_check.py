@@ -111,6 +111,10 @@ def main(phase):
         assert {row['name'] for row in sources}==set(APPS)
         assert all(row['status']['effects']==4 for row in sources)
         assert all(identity['passwords'][app] not in json.dumps(sources) for app in APPS)
+        twin=wait(lambda:clients['twin'].get('/api/twin').json(),lambda value:value.get('aligned') is not None)
+        assert twin['aligned']['run_id']==identity['run_id'] and twin['aligned']['epoch']==identity['epoch']
+        assert twin['aligned']['committed']==min(row['status']['run']['committed'] for row in twin['sources'])
+        print('Twin compatible calendar origins and per-source minimum committed watermark verified; snapshots remain independent.',flush=True)
         print('Mixed C#/Java/Go/PHP federation passed delayed and held grants, external power, correlated durable handoffs, future-work barrier and optional Flask twin observing all four sources.',flush=True)
     finally:
         for client in clients.values(): client.close()

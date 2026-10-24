@@ -1,0 +1,77 @@
+# Disposable contract-recovery acceptance, with production Twin images.
+# The source fixtures are NOT evidence of native departmental business behavior.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: twin_acceptance
+      POSTGRES_PASSWORD: isolated-acceptance
+      POSTGRES_DB: twin_acceptance
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U twin_acceptance]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  broker:
+    image: rabbitmq:4.3.6-alpine
+    user: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: twin_acceptance
+      RABBITMQ_DEFAULT_PASS: isolated-acceptance
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'
+    healthcheck:
+      test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672']
+      interval: 5s
+      timeout: 3s
+      start_period: 45s
+      retries: 30
+  api:
+    image: logistics-simulator:twin-acceptance
+    build:
+      context: ../..
+      dockerfile: apps/twin/Dockerfile
+    environment: &environment
+      SIMULATOR: twin
+      ROLE: api
+      DATABASE_URL: postgresql://twin_acceptance:isolated-acceptance@db:5432/twin_acceptance
+      AMQP_URL: amqp://twin_acceptance:isolated-acceptance@broker:5672/%2F
+      APP_USERNAME: twin-operator
+      APP_PASSWORD: isolated-twin-operator
+      APP_IDENTITIES: '[{"username":"twin-observer","password":"isolated-observer","role":"service","scopes":["status:read"]}]'
+      TWIN_SOURCES: '${TWIN_ACCEPTANCE_SOURCES:-[]}'
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+  projection:
+    image: logistics-simulator:twin-acceptance
+    environment:
+      <<: *environment
+      ROLE: projection
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+  web:
+    image: logistics-simulator:twin-web-acceptance
+    build:
+      context: ../..
+      dockerfile: apps/twin/web/Dockerfile
+    environment:
+      API_UPSTREAM: http://api:8000
+    depends_on: [api]
+  storage-fixture:
+    image: logistics-simulator:twin-acceptance
+    entrypoint: [python, /checks/twin_acceptance.py, --serve, storage]
+    volumes: ['../../scripts:/checks:ro']
+  shipping-fixture:
+    image: logistics-simulator:twin-acceptance
+    entrypoint: [python, /checks/twin_acceptance.py, --serve, shipping]
+    volumes: ['../../scripts:/checks:ro']
+  verify:
+    image: logistics-simulator:twin-acceptance
+    entrypoint: [python, /checks/twin_acceptance.py]
+    profiles: [test]
+    volumes: ['../../scripts:/checks:ro']

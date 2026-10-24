@@ -52,6 +52,29 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
             ["commands"]=Ledger.Array(u.Query("SELECT c.*,j.due_at,j.attempts,j.status AS job_status FROM warehouse_commands c JOIN jobs j USING(id) WHERE c.run_id=@p0 ORDER BY j.created_at DESC LIMIT 200",id))
         };
     });
+    // Observers take the same run lock as every warehouse writer, without Ensure writes.
+    public JsonObject Projection()=>ledger.Db.Transaction(u=> {
+        var run=u.Run(); var id=Ledger.Id(run);
+        var movements=u.Query("SELECT * FROM warehouse_movements WHERE run_id=@p0 ORDER BY simulation_time,id",id);
+        var snapshot=new JsonObject {
+            ["run_id"]=id.ToString(),["epoch"]=run["epoch"]!.DeepClone(),
+            ["inventory"]=Ledger.Array(u.Query("SELECT s.*,s.on_hand-s.reserved AS available,c.kind FROM warehouse_stock s JOIN warehouse_catalog c USING(run_id,sku) WHERE s.run_id=@p0 ORDER BY s.location,s.sku",id)),
+            ["locations"]=Ledger.Array(u.Query("SELECT l.*,COALESCE(sum(s.on_hand),0) AS used FROM warehouse_locations l LEFT JOIN warehouse_stock s ON s.run_id=l.run_id AND s.location=l.code WHERE l.run_id=@p0 GROUP BY l.run_id,l.code ORDER BY l.code",id)),
+            ["receipts"]=Ledger.Array(u.Query("SELECT * FROM warehouse_receipts WHERE run_id=@p0 ORDER BY id",id)),
+            ["reservations"]=Ledger.Array(u.Query("SELECT * FROM warehouse_reservations WHERE run_id=@p0 ORDER BY id",id)),
+            ["transfers"]=Ledger.Array(u.Query("SELECT * FROM warehouse_transfers WHERE run_id=@p0 ORDER BY id",id)),
+            ["movements"]=Ledger.Array(movements),
+            ["commands"]=Ledger.Array(u.Query("SELECT c.*,j.due_at,j.attempts,j.status AS job_status FROM warehouse_commands c JOIN jobs j USING(id) WHERE c.run_id=@p0 ORDER BY j.created_at,c.id",id))
+        };
+        var events=new JsonArray(); foreach(var movement in movements) { var e=(JsonObject)movement.DeepClone();e["id"]="storage:movement:"+movement["id"]!.ToString();e["kind"]="movement";events.Add(e); }
+        var value=new JsonObject {["version"]=1,["source"]="storage",["effects"]=u.One("SELECT COALESCE(sum(quantity),0) AS n FROM effects WHERE run_id=@p0",id)["n"]!.DeepClone(),["run"]=run,["snapshot"]=snapshot,["events"]=events};
+        value["health"]=new JsonObject {
+            ["heartbeats"]=Ledger.Array(u.Query("SELECT role,seen_at,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats ORDER BY role")),
+            ["pending_jobs"]=u.One("SELECT count(*) AS n FROM jobs WHERE run_id=@p0 AND status IN ('pending','queued')",id)["n"]!.DeepClone(),
+            ["dead_letters"]=u.One("SELECT count(*) AS n FROM jobs WHERE run_id=@p0 AND status='dead'",id)["n"]!.DeepClone(),["broker"]=null,["ready"]=null
+        };
+        value["cursor"]=Database.Checksum(value.ToJsonString());return value;
+    });
     public JsonObject Submit(string key,JsonObject body,Audit? audit=null)=>ledger.Db.Transaction(u=>Submit(u,u.Run(),key,body,audit,settings.Quantum));
     public static JsonObject Submit(Unit u,JsonObject run,string key,JsonObject body,Audit? audit,double quantum,bool boundary=false) {
         Validate(body); var id=Ledger.Id(run); var due=Rules.Number(body["due_at"]);

@@ -31,6 +31,21 @@ final class Fulfilment
         $id=Rules::uuid4();$u->execute('INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES (?,?,?,?,?,?,?)',[$id,$r['id'],$r['epoch'],$key,$body['due_at'],$body['due_at'],['shipping'=>$body]]);
         $row=$u->one('INSERT INTO shipping_commands(id,run_id,body) VALUES (?,?,?) RETURNING *',[$id,$r['id'],$body]);Ledger::audit($u,$r['id'],$audit,'accepted',200,$id);return [...$row,'due_at'=>$body['due_at']];
     }
+    // Keep the run and its complete durable domain history behind the same writer lock.
+    public function projection():array {return $this->db->transaction(function($u){
+        $run=$u->run();$orders=[];
+        foreach($u->query('SELECT id FROM shipping_orders WHERE run_id=? ORDER BY id',[$run['id']]) as $order)$orders[]=$this->record($u,$run,$order['id']);
+        $snapshot=['run_id'=>$run['id'],'epoch'=>$run['epoch'],'orders'=>$orders,
+            'shipments'=>$u->query('SELECT s.* FROM shipping_shipments s JOIN shipping_orders o ON o.id=s.order_id WHERE o.run_id=? ORDER BY s.id',[$run['id']]),
+            'commands'=>$u->query('SELECT c.*,j.due_at,j.status AS job_status,j.attempts FROM shipping_commands c JOIN jobs j USING(id) WHERE c.run_id=? ORDER BY j.created_at,c.id',[$run['id']])];
+        $events=$u->query('SELECT h.*,o.correlation_id FROM shipping_history h JOIN shipping_orders o ON o.id=h.order_id WHERE h.run_id=? ORDER BY h.sequence',[$run['id']]);
+        foreach($events as &$event){$event['id']='shipping:history:'.$event['sequence'];$event['kind']='history';}unset($event);
+        $value=['version'=>1,'source'=>'shipping','effects'=>(int)$u->one('SELECT COALESCE(sum(quantity),0) AS n FROM effects WHERE run_id=?',[$run['id']])['n'],'run'=>$run,'snapshot'=>$snapshot,'events'=>$events];
+        $value['health']=['heartbeats'=>$u->query("SELECT role,seen_at,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats ORDER BY role"),
+            'pending_jobs'=>(int)$u->one("SELECT count(*) AS n FROM jobs WHERE run_id=? AND status IN ('pending','queued')",[$run['id']])['n'],
+            'dead_letters'=>(int)$u->one("SELECT count(*) AS n FROM jobs WHERE run_id=? AND status='dead'",[$run['id']])['n'],'broker'=>null,'ready'=>null];
+        $value['cursor']=hash('sha256',json_encode($value,JSON_THROW_ON_ERROR|JSON_PRESERVE_ZERO_FRACTION));return $value;
+    });}
     public function snapshot():array {return $this->db->transaction(function($u){$r=$u->run();$orders=[];foreach($u->query('SELECT id FROM shipping_orders WHERE run_id=? ORDER BY created_at DESC,id LIMIT 200',[$r['id']]) as $o)$orders[]=$this->record($u,$r,$o['id']);return ['run_id'=>$r['id'],'epoch'=>$r['epoch'],'orders'=>$orders,'shipments'=>$u->query('SELECT s.* FROM shipping_shipments s JOIN shipping_orders o ON o.id=s.order_id WHERE o.run_id=?',[$r['id']]),'commands'=>$u->query('SELECT c.*,j.due_at,j.status AS job_status,j.attempts FROM shipping_commands c JOIN jobs j USING(id) WHERE c.run_id=? ORDER BY j.created_at DESC,c.id DESC LIMIT 200',[$r['id']])];});}
     public function order(string $id):array {$id=Rules::uuid($id);return $this->db->transaction(fn($u)=>$this->record($u,$u->run(),$id));}
     private function record(Unit $u,array $r,string $id):array {$o=$u->query('SELECT * FROM shipping_orders WHERE id=? AND run_id=?',[$id,$r['id']])[0]??throw new Conflict('Order does not exist in this run');$o['lines']=$u->query('SELECT * FROM shipping_lines WHERE order_id=? ORDER BY sku',[$id]);$o['shipment']=$u->query('SELECT * FROM shipping_shipments WHERE order_id=?',[$id])[0]??null;$o['history']=$u->query('SELECT * FROM shipping_history WHERE order_id=? ORDER BY sequence',[$id]);$o['intents']=$u->query('SELECT * FROM shipping_intents WHERE order_id=? ORDER BY id',[$id]);return $o;}

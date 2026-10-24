@@ -62,3 +62,29 @@ def test_status_uses_iso_timestamps_and_source_credentials_never_exposed(setup):
     assert 'T' in status['run']['anchor'] and status['run']['anchor'].endswith('Z')
     assert status['providers']=={} and status['quantum']==1
     assert 'password' not in str(status)
+
+
+def test_twin_snapshot_cursor_permissions_and_reconnect(setup):
+    client, store = setup
+    from base64 import b64encode
+    headers = {'Authorization': 'Basic ' + b64encode(b'observer:observer-secret').decode()}
+    assert client.get('/api/twin').status_code == 401
+    first = client.get('/api/twin', headers=headers)
+    assert first.status_code == 200 and first.json['mode'] == 'live'
+    assert first.json['controls'] == []
+    reconnect = client.get('/api/twin/events?after=' + str(first.json['revision']), headers=headers)
+    assert reconnect.status_code == 200 and reconnect.json['revision'] == first.json['revision']
+    for cursor in ('-1', 'invalid', '1.5'):
+        assert client.get('/api/twin/events?after=' + cursor, headers=headers).status_code == 422
+    assert client.post('/api/twin/controls/hold', headers=headers).status_code in (403, 404, 405)
+
+
+def test_twin_process_health_refreshes_after_login(setup):
+    client,store=setup
+    from base64 import b64encode
+    headers={'Authorization':'Basic '+b64encode(b'observer:observer-secret').decode()}
+    store.heartbeat('projection')
+    assert next(h for h in client.get('/api/twin',headers=headers).json['heartbeats'] if h['role']=='projection')['healthy']
+    with store.transaction() as db:
+        db.execute("UPDATE heartbeats SET seen_at=clock_timestamp()-interval '30 seconds' WHERE role='projection'")
+    assert not next(h for h in client.get('/api/twin',headers=headers).json['heartbeats'] if h['role']=='projection')['healthy']

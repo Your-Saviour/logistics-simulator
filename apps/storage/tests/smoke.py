@@ -16,6 +16,9 @@ def check(path,body=None,code=200,**kw):
 def main():
     assert check('health/live',user=None)=={'application':'storage','alive':True}
     check('status',user=None,code=401)
+    check('projection',user=None,code=401)
+    projection=check('projection',user='service',password='service-smoke')
+    assert projection['version']==1 and projection['source']=='storage' and isinstance(projection['snapshot'],dict) and isinstance(projection['events'],list)
     status=check('status'); assert status['application']=='storage'
     check('control/hold',{},user='employee',password='employee-smoke',code=403)
     check('control/hold',{},user='service',password='service-smoke',code=403)

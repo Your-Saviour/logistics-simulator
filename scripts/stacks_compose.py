@@ -52,7 +52,7 @@ def generate(apps,connected=False,write=True):
              'DATABASE_URL':f'postgresql://{app}:{password}@{app}-db:5432/{app}',
              'AMQP_URL':f'amqp://{app}:{password}@{app}-broker:5672/%2f',
              'APP_USERNAME':app+'-operator','APP_PASSWORD':password,'APP_IDENTITIES':json.dumps(accounts),
-             'AUTONOMOUS_SAMPLE':'false','JAVA_TOOL_OPTIONS':'-Xmx256m','GOMAXPROCS':'2'}
+             'AUTONOMOUS_SAMPLE':'false','JAVA_TOOL_OPTIONS':'-Xmx256m -XX:ActiveProcessorCount=2','GOMAXPROCS':'2','DOTNET_PROCESSOR_COUNT':'2'}
         if app=='shipping':
             env.update(APP_KEY=identity['shipping_key'],APP_ENV='testing',APP_DEBUG='false',APP_URL='http://shipping-api:8000')
         services[app+'-db']={'image':'postgres:16.15-alpine',
