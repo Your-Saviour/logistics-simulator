@@ -20,3 +20,11 @@ it('shows durable rejection reasons and excludes mutations for observers',async(
   const page=mount(WarehousePanel,{props:{api:async()=>({...snapshot,commands:[{id:'rejected',command:{action:'reserve'},status:'rejected',error:'Insufficient available stock',due_at:3}]}),run,quantum:1,canWrite:false}});await flushPromises()
   expect(page.text()).toContain('Insufficient available stock');expect(page.find('[data-receive]').exists()).toBe(false);page.unmount()
 })
+it('plans one explicit whole unit and retains its identity on an uncertain retry',async()=>{
+  const calls:{body:Record<string,unknown>,key?:string}[]=[]
+  const api=async(path:string,body?:unknown,key?:string)=>{if(path==='warehouse')return snapshot;if(path==='status')return {run};calls.push({body:body as Record<string,unknown>,key});if(calls.length===1)throw new Error('Connection lost');return {id:'accepted'}}
+  const page=mount(WarehousePanel,{props:{api,run,quantum:1,canWrite:true}});await flushPromises()
+  await page.get('.warehouse-form input[type=number]').setValue('7');await page.get('.warehouse-form').trigger('submit');await flushPromises()
+  expect(calls[0].body.units).toEqual([{id:expect.stringMatching(/^[0-9a-f-]{36}$/),quantity:7}])
+  await page.get('[data-retry]').trigger('click');await flushPromises();expect(calls[1]).toEqual(calls[0]);page.unmount()
+})

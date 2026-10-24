@@ -48,6 +48,7 @@ def test_movement_contract_retains_identity_scope_endpoints_and_business_referen
     validator = contract('movement')
     movement = fixture('movement')
     validator.validate(movement)
+    validator.validate({**movement, 'correlation_id': '88888888-8888-4888-8888-888888888888'})
     for field in ('id', 'unit_id', 'barcode', 'sequence', 'run_id', 'epoch',
                   'origin', 'destination', 'simulation_time', 'references'):
         invalid = copy.deepcopy(movement)
@@ -158,3 +159,19 @@ def test_movement_validation_rejects_fabricated_endpoints_and_scope():
                    {'epoch': '33333333-3333-4333-8333-333333333333'}):
         with pytest.raises(ValueError):
             validate_movement({**value, **change}, value['run_id'], value['epoch'])
+
+
+def test_storage_boundary_requires_exact_unique_whole_unit_manifests():
+    from simulator.storage_contracts import transport_envelope
+    from pydantic import ValidationError as ModelError
+
+    event = json.loads((ROOT.parents[1] / 'v1/fixtures/storage-boundary.json').read_text())
+    event['payload']['units'] = [{'id': '11111111-1111-4111-8111-111111111111', 'quantity': 3}]
+    transport_envelope.validate_python(event)
+    for units in ([], event['payload']['units'] * 2,
+                  [{'id': '11111111-1111-4111-8111-111111111111', 'quantity': 2}]):
+        with pytest.raises(ModelError):
+            transport_envelope.validate_python({**event, 'payload': {**event['payload'], 'units': units}})
+    del event['payload']['units']
+    with pytest.raises(ModelError):
+        transport_envelope.validate_python(event)

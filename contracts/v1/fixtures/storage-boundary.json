@@ -15,5 +15,15 @@
   "effective_time": 1,
   "wall_time": "2026-10-24T00:00:00Z",
   "quantity_unit": "item",
-  "payload": {"sku": "COMPONENT", "location": "RAW-A", "quantity": 3}
+  "payload": {
+    "sku": "COMPONENT",
+    "location": "RAW-A",
+    "quantity": 3,
+    "units": [
+      {
+        "id": "70000000-0000-4000-8000-000000000001",
+        "quantity": 3
+      }
+    ]
+  }
 }

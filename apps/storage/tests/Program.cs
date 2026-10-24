@@ -120,6 +120,7 @@ if (Environment.GetEnvironmentVariable("STORAGE_INTEGRATION")=="true") {
         leaseProbe.Open();
         Check(new Unit(leaseProbe).One("SELECT pg_try_advisory_lock(8192102) AS held")["held"]!.GetValue<bool>(),"stopped controller releases lease to another physical session");
     }
+    await HandlingUnitTests.Run(ledger,settings,Check);
     await WarehouseTests.Run(ledger,settings,Check);
     WarehouseBoundaryTests.Run(ledger,settings,Check);
     Console.WriteLine($"{count} total checks passed (PostgreSQL and RabbitMQ)");

@@ -5,6 +5,7 @@ import time
 from uuid import uuid4
 import httpx
 from stack_acceptance import wait_for
+from simulator.handling_contracts import validate_snapshot, validate_movement
 
 
 def verify():
@@ -18,6 +19,8 @@ def verify():
         auth=(employee['username'],employee['password'])
         def submit(action,expected='completed',key=None,**fields):
             r=c.get('/api/status').json()
+            if action=='expect' and 'units' not in fields:
+                fields['units']=[{'id':str(uuid4()),'quantity':fields['quantity']}]
             body={'run_id':r['run']['id'],'epoch':r['run']['epoch'],'due_at':max(r['run']['granted'],r['run']['requested'])+2,'action':action,**fields}
             headers={'Idempotency-Key':key or uuid4().hex}
             res=c.post('/api/warehouse/commands',json=body,headers=headers,auth=auth)
@@ -27,16 +30,22 @@ def verify():
             snap=wait_for(c,'/api/warehouse',lambda s:any(x['id']==command['id'] and x['status'] in ('completed','rejected') for x in s['commands']))
             result=next(x for x in snap['commands'] if x['id']==command['id'])
             assert result['status']==expected,result
+            validate_snapshot(snap['handling']['units'], r['run']['id'], r['run']['epoch'])
+            for movement in snap['handling']['movements']:
+                validate_movement(movement, r['run']['id'], r['run']['epoch'])
             return command['id'],snap
         correlation=str(uuid4())
-        receipt,_=submit('expect',sku='COMPONENT',location='RAW-A',quantity=10,correlation_id=correlation)
+        receipt,_=submit('expect',sku='COMPONENT',location='RAW-A',quantity=10,correlation_id=correlation,units=[{'id':str(uuid4()),'quantity':6},{'id':str(uuid4()),'quantity':4}])
         _,snap=submit('receive',reference=receipt)
         assert next(s for s in snap['inventory'] if s['sku']=='COMPONENT' and s['location']=='RAW-A')['on_hand']==10
+        raw=snap['handling']['units']
+        assert len(raw)==2 and len({u['barcode'] for u in raw})==2
+        assert all(u['position'].startswith('storage.inbound.dock') for u in raw)
         submit('receive',reference=receipt,expected='rejected')
         reservation,_=submit('reserve',sku='COMPONENT',location='RAW-A',quantity=6,purpose='production',correlation_id=correlation)
         submit('reserve',sku='COMPONENT',location='RAW-A',quantity=5,purpose='production',correlation_id=str(uuid4()),expected='rejected')
         submit('issue',reference=reservation)
-        goods,_=submit('expect',sku='PRODUCT',location='FINISHED-A',quantity=8,correlation_id=correlation)
+        goods,_=submit('expect',sku='PRODUCT',location='FINISHED-A',quantity=8,correlation_id=correlation,units=[{'id':str(uuid4()),'quantity':5},{'id':str(uuid4()),'quantity':3}])
         submit('receive',reference=goods)
         pick,_=submit('reserve',sku='PRODUCT',location='FINISHED-A',quantity=5,purpose='customer',correlation_id=correlation)
         submit('pick',reference=pick)

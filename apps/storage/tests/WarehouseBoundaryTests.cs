@@ -7,6 +7,7 @@ public static class WarehouseBoundaryTests
         void Reset() { var r=ledger.Status()["run"]!.AsObject(); ledger.Control("reset",new JsonObject {["confirm_run_id"]=r["id"]!.DeepClone()},audit); }
         Reset(); var r=ledger.Status()["run"]!.AsObject(); var correlation=Guid.NewGuid();
         var envelope=new JsonObject {["schema_version"]="1.0",["type"]="storage.receipt.v1",["event_id"]=Guid.NewGuid().ToString(),["federation_id"]="warehouse-test",["run_id"]=r["id"]!.DeepClone(),["epoch"]=r["epoch"]!.DeepClone(),["correlation_id"]=correlation.ToString(),["causation_id"]=Guid.NewGuid().ToString(),["aggregate_id"]=Guid.NewGuid().ToString(),["aggregate_version"]=1,["source"]="supplier",["destination"]="storage",["boundary"]="supply",["effective_time"]=1.0,["quantity_unit"]="item",["payload"]=new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=3} };
+        envelope["payload"]!["units"]=new JsonArray(new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=3});
         Rules.Envelope(envelope); check(true,"domain receipt envelope validates without sample payload assumptions");
         var oldProviders=settings.Providers; var oldPeers=settings.Peers; var federation=settings.Federation;
         try {
@@ -52,14 +53,16 @@ public static class WarehouseBoundaryTests
         try {
             settings.Providers=new JsonObject { ["supply"]="helics",["requests"]="helics" }; settings.Federation="warehouse-test";
             settings.Peers=new JsonObject { ["requests"]=new JsonObject { ["endpoint"]="shipping/events",["source"]="shipping" } };
-            ledger.Db.Transaction(u=> { var r=u.Run(); Warehouse.Ensure(u,r); u.Exec("UPDATE runs SET mode='helics' WHERE id=@p0",runId); u.Exec("UPDATE warehouse_stock SET on_hand=10 WHERE run_id=@p0 AND sku='PRODUCT' AND location='FINISHED-A'",runId); return true; });
+            var initial=warehouse.Submit("peer-stock-receipt",new JsonObject {["run_id"]=run["id"]!.DeepClone(),["epoch"]=run["epoch"]!.DeepClone(),["due_at"]=++time,["action"]="expect",["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=10,["correlation_id"]=correlation.ToString(),["units"]=new JsonArray(new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=3},new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=2},new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=5})},audit);Execute(Ledger.Id(initial));
+            var received=warehouse.Submit("peer-stock-confirm",new JsonObject {["run_id"]=run["id"]!.DeepClone(),["epoch"]=run["epoch"]!.DeepClone(),["due_at"]=++time,["action"]="receive",["reference"]=Ledger.Id(initial).ToString()},audit);Execute(Ledger.Id(received));
+            ledger.Db.Transaction(u=> { u.Run();u.Exec("UPDATE runs SET mode='helics' WHERE id=@p0",runId);return true; });
             var reserved=Send("request",new JsonObject { ["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=3,["purpose"]="customer" });
             check(Fact(reserved.command)["causation_id"]?.ToString()==reserved.envelope["event_id"]!.ToString(),"completed boundary fact retains incoming event causation");
             ledger.Seed();
-            check(warehouse.Snapshot()["commands"]!.AsArray().Count==1&&warehouse.Snapshot()["reservations"]![0]!["status"]!.ToString()=="reserved","HELICS requests leave reservations for explicit peer decisions");
+            check(warehouse.Snapshot()["commands"]!.AsArray().Count==3&&warehouse.Snapshot()["reservations"]![0]!["status"]!.ToString()=="reserved","HELICS requests leave reservations for explicit peer decisions");
             var picked=Send("pick",new JsonObject { ["reference"]=reserved.command.ToString() });
             ledger.Seed();
-            check(warehouse.Snapshot()["commands"]!.AsArray().Count==2&&warehouse.Snapshot()["transfers"]!.AsArray().Count==0,"HELICS requests leave picked stock for explicit peer transfer");
+            check(warehouse.Snapshot()["commands"]!.AsArray().Count==4&&warehouse.Snapshot()["transfers"]!.AsArray().Count==0,"HELICS requests leave picked stock for explicit peer transfer");
             var transferred=Send("transfer",new JsonObject { ["reference"]=reserved.command.ToString(),["destination"]="DISPATCH" });
             check(Fact(picked.command)["causation_id"]!.ToString()==picked.envelope["event_id"]!.ToString()&&Fact(transferred.command)["causation_id"]!.ToString()==transferred.envelope["event_id"]!.ToString(),"pick and transfer facts match their incoming intents");
             check(warehouse.Snapshot()["transfers"]![0]!["status"]!.ToString()=="in_transit","explicit peer pick and transfer dispatch reserved goods");

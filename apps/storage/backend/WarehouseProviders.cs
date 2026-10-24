@@ -8,7 +8,7 @@ public static class WarehouseProviders
         var type=Rules.Text(envelope["type"]); var payload=envelope["payload"] as JsonObject??throw new Validation("Payload object required");
         string action,boundary;
         switch(type) {
-            case "storage.receipt.v1": action="expect"; boundary="supply"; Rules.Fields(payload,"sku","location","quantity"); break;
+            case "storage.receipt.v1": action="expect"; boundary="supply"; Rules.Fields(payload,"sku","location","quantity","units"); break;
             case "storage.request.v1": action="reserve"; boundary="requests"; Rules.Fields(payload,"sku","location","quantity","purpose"); break;
             case "storage.release.v1": action="release"; boundary="requests"; Rules.Fields(payload,"reference"); break;
             case "storage.pick.v1": action="pick"; boundary="requests"; Rules.Fields(payload,"reference"); break;
@@ -36,6 +36,7 @@ public static class WarehouseProviders
             key="warehouse:"+key;
             if(u.Query("SELECT 1 FROM jobs WHERE run_id=@p0 AND idempotency_key=@p1",id,key).Count>0) return;
             var body=(JsonObject)fields.DeepClone(); body["action"]=action; body["run_id"]=id.ToString(); body["epoch"]=run["epoch"]!.DeepClone(); body["due_at"]=due;
+            if(action=="expect") body["units"]=new JsonArray(new JsonObject {["id"]=Rules.Uuid5(id,key+":unit").ToString(),["quantity"]=body["quantity"]!.DeepClone()});
             Warehouse.Submit(u,run,key,body,new Audit(Guid.NewGuid(),"storage-synthetic","service","warehouse:"+action,key,"controller"),settings.Quantum,true);
         }
         var products=u.Query("SELECT sku,kind FROM warehouse_catalog WHERE run_id=@p0 ORDER BY sku",id);
@@ -51,9 +52,10 @@ public static class WarehouseProviders
             var fields=new JsonObject {["sku"]=sku,["location"]=location,["quantity"]=quantity,["correlation_id"]=correlation};
             if(settings.Providers["supply"]!.ToString()=="synthetic") Schedule($"supply:{sku}:{slot}","expect",fields,supplyDue);
             if(settings.Providers["requests"]!.ToString()=="synthetic") {
-                var stock=u.One("SELECT on_hand-reserved AS available FROM warehouse_stock WHERE run_id=@p0 AND sku=@p1 AND location=@p2",id,sku,location);
-                var available=stock["available"]!.GetValue<int>();
-                if(available>0) { fields["quantity"]=Math.Min(quantity,available); fields["purpose"]=kind=="raw"?"production":"customer"; Schedule($"demand:{sku}:{slot}","reserve",fields,supplyDue); }
+                // Generate demand from a real available whole unit. This is not
+                // a partial fulfilment of an existing request or an aggregate clamp.
+                var unit=u.Query("SELECT quantity FROM warehouse_handling_units WHERE run_id=@p0 AND sku=@p1 AND logical_location=@p2 AND state='available' ORDER BY id LIMIT 1",id,sku,location).FirstOrDefault();
+                if(unit is not null) { fields["quantity"]=unit["quantity"]!.DeepClone();fields["purpose"]=kind=="raw"?"production":"customer"; Schedule($"demand:{sku}:{slot}","reserve",fields,supplyDue); }
             }
         }
         // Advance only provider-owned records; employee work remains available

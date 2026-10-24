@@ -1272,6 +1272,21 @@
           "minimum": 1,
           "title": "Version",
           "type": "integer"
+        },
+        "unit_manifest": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/UnitManifest"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Manifest"
         }
       },
       "required": [
@@ -1305,12 +1320,22 @@
           "minimum": 1,
           "title": "Quantity",
           "type": "integer"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/$defs/UnitManifest"
+          },
+          "maxItems": 256,
+          "minItems": 1,
+          "title": "Units",
+          "type": "array"
         }
       },
       "required": [
         "sku",
         "location",
-        "quantity"
+        "quantity",
+        "units"
       ],
       "title": "ReceiptInput",
       "type": "object"
@@ -2243,6 +2268,28 @@
         "destination"
       ],
       "title": "TransferInput",
+      "type": "object"
+    },
+    "UnitManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "quantity"
+      ],
+      "title": "UnitManifest",
       "type": "object"
     }
   },

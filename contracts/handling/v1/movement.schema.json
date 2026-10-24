@@ -121,6 +121,10 @@
           ]
         }
       }
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid"
     }
   },
   "allOf": [

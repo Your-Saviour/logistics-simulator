@@ -37,10 +37,14 @@ if(storage) test('storage: employee receives, reserves, picks and confirms trans
   const form=page.locator('.warehouse-form');
   await form.getByRole('combobox',{name:'SKU',exact:true}).selectOption('PRODUCT');
   await form.getByRole('combobox',{name:'Location',exact:true}).selectOption('FINISHED-A');
-  await form.getByLabel('Quantity',{exact:true}).fill('7');
+  await form.getByLabel('Quantity',{exact:true}).fill('4');
   await form.getByRole('button',{name:'Plan receipt',exact:true}).click();
   await page.getByRole('button',{name:'Receive',exact:true}).click();
   const stock=page.locator('[data-inventory] tbody tr').filter({hasText:'FINISHED-A'}).filter({hasText:'PRODUCT'});
+  await expect(stock.locator('td').nth(2)).toHaveText('4');
+  await form.getByLabel('Quantity',{exact:true}).fill('3');
+  await form.getByRole('button',{name:'Plan receipt',exact:true}).click();
+  await page.getByRole('button',{name:'Receive',exact:true}).click();
   await expect(stock.locator('td').nth(2)).toHaveText('7');
   await form.getByRole('combobox',{name:'Action',exact:true}).selectOption('reserve');
   await form.getByLabel('Quantity',{exact:true}).fill('4');

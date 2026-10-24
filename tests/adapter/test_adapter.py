@@ -237,7 +237,7 @@ def test_storage_domain_fact_publication_and_boundary_input_survive_adapter_vali
     assert post(request).status_code==200 and len(native.sent)==1
     assert native.sent[0][0]['payload']['sku']=='PRODUCT'
     incoming={**envelope(setup),'type':'storage.receipt.v1','source':'supplier','destination':'storage',
-              'boundary':'supply','payload':{'sku':'COMPONENT','location':'RAW-A','quantity':3}}
+              'boundary':'supply','payload':{'sku':'COMPONENT','location':'RAW-A','quantity':3,'units':[{'id':'70000000-0000-4000-8000-000000000001','quantity':3}]}}
     native.incoming=[('supplier/events',incoming)]
     polled=post(command('poll'))
     assert polled.status_code==200,polled.json
@@ -253,7 +253,7 @@ def test_storage_domain_fact_publication_and_boundary_input_survive_adapter_vali
 def test_storage_transport_rejects_invalid_domain_payload(setup,changes):
     execute(setup)
     _,_,_,command,post,_=setup
-    event={**envelope(setup),'type':'storage.receipt.v1','destination':'storage','boundary':'supply','payload':{'sku':'COMPONENT','location':'RAW-A','quantity':3},**changes}
+    event={**envelope(setup),'type':'storage.receipt.v1','destination':'storage','boundary':'supply','payload':{'sku':'COMPONENT','location':'RAW-A','quantity':3,'units':[{'id':'70000000-0000-4000-8000-000000000001','quantity':3}]},**changes}
     assert post(command('publish',{'endpoint':'shipping/events','envelope':event})).status_code==422
 
 

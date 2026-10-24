@@ -8,7 +8,8 @@ public static class WarehouseTests
         void Reset() { var r=ledger.Status()["run"]!.AsObject(); ledger.Control("reset",new JsonObject {["confirm_run_id"]=r["id"]!.DeepClone()},audit); }
         Reset(); var warehouse=new Warehouse(ledger,settings); var correlation=Guid.NewGuid();
         JsonObject Body(string action,JsonObject? fields=null) {
-            var r=ledger.Status()["run"]!.AsObject(); var body=fields??new JsonObject(); body["action"]=action; body["run_id"]=r["id"]!.DeepClone(); body["epoch"]=r["epoch"]!.DeepClone(); body["due_at"]=Math.Max(Ledger.Num(r,"granted"),Ledger.Num(r,"requested"))+settings.Quantum; return body;
+            var r=ledger.Status()["run"]!.AsObject(); var body=fields??new JsonObject(); body["action"]=action; body["run_id"]=r["id"]!.DeepClone(); body["epoch"]=r["epoch"]!.DeepClone(); body["due_at"]=Math.Max(Ledger.Num(r,"granted"),Ledger.Num(r,"requested"))+settings.Quantum;
+            if(action=="expect"&&body["units"] is null) body["units"]=new JsonArray(new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=body["quantity"]!.DeepClone()});return body;
         }
         void Advance() { var r=ledger.Status()["run"]!.AsObject(); var next=Ledger.Num(r,"granted")+settings.Quantum; ledger.Heartbeat("controller"); check(ledger.Prepare(next,Ledger.Id(r,"epoch")),"warehouse barrier allows next quantum"); ledger.Grant(next,Ledger.Id(r,"epoch")); }
         JsonObject Stock(string sku,string loc)=>warehouse.Snapshot()["inventory"]!.AsArray().Select(x=>x!.AsObject()).Single(x=>x["sku"]!.ToString()==sku&&x["location"]!.ToString()==loc);
@@ -16,10 +17,10 @@ public static class WarehouseTests
         JsonObject Reference(Guid id)=>new() {["reference"]=id.ToString()};
         JsonObject Done(Guid id)=>warehouse.Snapshot()["commands"]!.AsArray().Select(x=>x!.AsObject()).Single(x=>Ledger.Id(x)==id);
         Guid Submit(string action,JsonObject fields) { var row=warehouse.Submit(Guid.NewGuid().ToString(),Body(action,fields),audit); var id=Ledger.Id(row); Advance(); check(ledger.Execute(id)=="completed","warehouse command settles through existing job worker path"); return id; }
-        Guid Expect(string sku,string loc,int qty)=>Submit("expect",Fields(sku,loc,qty));
-        void Receive(string sku,string loc,int qty) { var receipt=Expect(sku,loc,qty); Submit("receive",Reference(receipt)); }
+        Guid Expect(string sku,string loc,int qty,params int[] sizes) { var fields=Fields(sku,loc,qty);fields["units"]=new JsonArray((sizes.Length==0?[qty]:sizes).Select(q=>(JsonNode?)new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=q}).ToArray());return Submit("expect",fields); }
+        void Receive(string sku,string loc,int qty,params int[] sizes) { var receipt=Expect(sku,loc,qty,sizes); Submit("receive",Reference(receipt)); }
         check(warehouse.Snapshot()["inventory"]!.AsArray().All(x=>x!["on_hand"]!.GetValue<int>()==0),"new run starts with explicit empty inventory");
-        var receiptId=Expect("COMPONENT","RAW-A",10);
+        var receiptId=Expect("COMPONENT","RAW-A",10,7,2,1);
         var body=Body("receive",Reference(receiptId)); var key=Guid.NewGuid().ToString(); var command=warehouse.Submit(key,body,audit); var id=Ledger.Id(command);
         check(Ledger.Id(warehouse.Submit(key,body,audit))==id,"warehouse API replay retains command identity");
         check(ledger.Execute(id)=="waiting","warehouse effects wait for grant"); Advance();
@@ -33,7 +34,7 @@ public static class WarehouseTests
         var winner=contenders.Select(c=>Done(Ledger.Id(c))).Single(c=>c["status"]!.ToString()=="completed");
         check(contenders.Count(c=>Done(Ledger.Id(c))["status"]!.ToString()=="rejected")==1&&Stock("COMPONENT","RAW-A")["reserved"]!.GetValue<int>()==7,"concurrent reservations never double reserve");
         var issue=Submit("issue",Reference(Ledger.Id(winner))); check(Done(issue)["status"]!.ToString()=="completed"&&Stock("COMPONENT","RAW-A")["on_hand"]!.GetValue<int>()==3&&Stock("COMPONENT","RAW-A")["reserved"]!.GetValue<int>()==0,"material issue consumes exactly its reservation");
-        Receive("PRODUCT","FINISHED-A",10);
+        Receive("PRODUCT","FINISHED-A",10,6,4);
         var reservation=Submit("reserve",Fields("PRODUCT","FINISHED-A",6,"customer"));
         var invalid=Submit("issue",Reference(reservation)); check(Done(invalid)["status"]!.ToString()=="rejected"&&Stock("PRODUCT","FINISHED-A")["reserved"]!.GetValue<int>()==6,"invalid workflow leaves stock and reservation unchanged");
         Submit("pick",Reference(reservation));
@@ -69,7 +70,7 @@ public static class WarehouseTests
         var restart=warehouse.Submit(Guid.NewGuid().ToString(),Body("expect",Fields("COMPONENT","RAW-A",2)),audit); Advance();
         var replacement=new Ledger(ledger.Db,settings); check(replacement.Execute(Ledger.Id(restart))=="completed"&&ledger.Execute(Ledger.Id(restart))=="duplicate","replacement worker resumes durable warehouse command once");
         Reset();
-        Receive("COMPONENT","RAW-A",500);
+        Receive("COMPONENT","RAW-A",500,499,1);
         var ownedBody=Body("expect",Fields("COMPONENT","RAW-A",1));
         var owned=ledger.Db.Transaction(u=>Warehouse.Submit(u,u.Run(),"warehouse:test-owned",ownedBody,audit,settings.Quantum,true));
         Advance(); ledger.Execute(Ledger.Id(owned));

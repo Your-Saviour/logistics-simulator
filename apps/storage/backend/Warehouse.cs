@@ -21,10 +21,13 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
         Rules.Uuid(body["run_id"]); Rules.Uuid(body["epoch"]); if(Rules.Number(body["due_at"])<0) throw new Validation("Nonnegative due_at required");
         var action=Rules.Text(body["action"]);
         switch(action) {
-            case "expect": case "reserve":
-                Rules.Fields(body,"run_id","epoch","due_at","action","sku","location","quantity","correlation_id",action=="reserve"?"purpose":"correlation_id");
+            case "expect": case "reserve": case "convert":
+                Rules.Fields(body,"run_id","epoch","due_at","action","sku","location","quantity","correlation_id",action=="reserve"?"purpose":"units");
                 Code(body["sku"]); Code(body["location"]); Rules.Integer(body["quantity"],1,10000); Rules.Uuid(body["correlation_id"]);
-                if(action=="reserve"&&Rules.Text(body["purpose"]) is not ("production" or "customer")) throw new Validation("Reservation purpose must be production or customer"); break;
+                if(action=="reserve"&&Rules.Text(body["purpose"]) is not ("production" or "customer")) throw new Validation("Reservation purpose must be production or customer");
+                if(action is "expect" or "convert") HandlingUnits.ValidateManifest(body); break;
+            case "putaway": case "retrieve":
+                Rules.Fields(body,"run_id","epoch","due_at","action","unit_id","destination");Rules.Uuid(body["unit_id"]);Rules.Text(body["destination"]);break;
             case "receive": case "release": case "issue": case "pick": case "arrive": case "transfer":
                 Rules.Fields(body,"run_id","epoch","due_at","action","reference",action=="transfer"?"destination":"reference"); Rules.Uuid(body["reference"]); if(action=="transfer") Code(body["destination"]); break;
             default: throw new Validation("Unknown warehouse action");
@@ -42,7 +45,7 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
     }
     public JsonObject Snapshot()=>ledger.Db.Transaction(u=> { var run=u.Run(); Ensure(u,run); var id=Ledger.Id(run);
         return new JsonObject {
-            ["run_id"]=id.ToString(),["epoch"]=run["epoch"]!.DeepClone(),
+            ["run_id"]=id.ToString(),["epoch"]=run["epoch"]!.DeepClone(),["handling"]=HandlingUnits.Snapshot(u,run),
             ["inventory"]=Ledger.Array(u.Query("SELECT s.*,s.on_hand-s.reserved AS available,c.kind FROM warehouse_stock s JOIN warehouse_catalog c USING(run_id,sku) WHERE s.run_id=@p0 ORDER BY s.location,s.sku",id)),
             ["locations"]=Ledger.Array(u.Query("SELECT l.*,COALESCE(sum(s.on_hand),0) AS used FROM warehouse_locations l LEFT JOIN warehouse_stock s ON s.run_id=l.run_id AND s.location=l.code WHERE l.run_id=@p0 GROUP BY l.run_id,l.code ORDER BY l.code",id)),
             ["receipts"]=Ledger.Array(u.Query("SELECT * FROM warehouse_receipts WHERE run_id=@p0 ORDER BY id",id)),
@@ -57,7 +60,7 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
         var run=u.Run(); var id=Ledger.Id(run);
         var movements=u.Query("SELECT * FROM warehouse_movements WHERE run_id=@p0 ORDER BY simulation_time,id",id);
         var snapshot=new JsonObject {
-            ["run_id"]=id.ToString(),["epoch"]=run["epoch"]!.DeepClone(),
+            ["run_id"]=id.ToString(),["epoch"]=run["epoch"]!.DeepClone(),["handling"]=HandlingUnits.Snapshot(u,run),
             ["inventory"]=Ledger.Array(u.Query("SELECT s.*,s.on_hand-s.reserved AS available,c.kind FROM warehouse_stock s JOIN warehouse_catalog c USING(run_id,sku) WHERE s.run_id=@p0 ORDER BY s.location,s.sku",id)),
             ["locations"]=Ledger.Array(u.Query("SELECT l.*,COALESCE(sum(s.on_hand),0) AS used FROM warehouse_locations l LEFT JOIN warehouse_stock s ON s.run_id=l.run_id AND s.location=l.code WHERE l.run_id=@p0 GROUP BY l.run_id,l.code ORDER BY l.code",id)),
             ["receipts"]=Ledger.Array(u.Query("SELECT * FROM warehouse_receipts WHERE run_id=@p0 ORDER BY id",id)),
@@ -67,6 +70,7 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
             ["commands"]=Ledger.Array(u.Query("SELECT c.*,j.due_at,j.attempts,j.status AS job_status FROM warehouse_commands c JOIN jobs j USING(id) WHERE c.run_id=@p0 ORDER BY j.created_at,c.id",id))
         };
         var events=new JsonArray(); foreach(var movement in movements) { var e=(JsonObject)movement.DeepClone();e["id"]="storage:movement:"+movement["id"]!.ToString();e["kind"]="movement";events.Add(e); }
+        foreach(var movement in snapshot["handling"]!["movements"]!.AsArray()) { var e=(JsonObject)movement!.DeepClone();e["id"]="storage:unit-movement:"+e["id"]!.ToString();e["kind"]="unit_movement";events.Add(e); }
         var value=new JsonObject {["version"]=1,["source"]="storage",["effects"]=u.One("SELECT COALESCE(sum(quantity),0) AS n FROM effects WHERE run_id=@p0",id)["n"]!.DeepClone(),["run"]=run,["snapshot"]=snapshot,["events"]=events};
         value["health"]=new JsonObject {
             ["heartbeats"]=Ledger.Array(u.Query("SELECT role,seen_at,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats ORDER BY role")),
@@ -78,6 +82,7 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
     public JsonObject Submit(string key,JsonObject body,Audit? audit=null)=>ledger.Db.Transaction(u=>Submit(u,u.Run(),key,body,audit,settings.Quantum));
     public static JsonObject Submit(Unit u,JsonObject run,string key,JsonObject body,Audit? audit,double quantum,bool boundary=false) {
         Validate(body); var id=Ledger.Id(run); var due=Rules.Number(body["due_at"]);
+        if(body["action"]!.ToString()=="convert"&&(boundary||audit?.Role!="operator")) throw new Conflict("Only an operator may convert legacy stock with an explicit manifest");
         if(key.Length is <1 or >128) throw new Validation("Idempotency-Key length must be 1..128");
         if(!boundary&&new[]{"warehouse:","boundary:","synthetic:"}.Any(key.StartsWith)) throw new Conflict("Reserved idempotency key namespace");
         if(Rules.Uuid(body["run_id"])!=id||Rules.Uuid(body["epoch"])!=Ledger.Id(run,"epoch")) throw new Conflict("Warehouse command belongs to a different run/epoch; refresh before submitting");
@@ -112,15 +117,18 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
         // retaining any partial writes, or failing the simulation's clock barrier.
         u.Exec("SAVEPOINT warehouse_effect");
         try {
-            if(action is "expect" or "reserve") {
+            if(action=="convert") result=HandlingUnits.Convert(u,run,id,body);
+            else if(action is "putaway" or "retrieve") result=HandlingUnits.Move(u,run,id,body);
+            else if(action is "expect" or "reserve") {
                 var sku=Rules.Text(body["sku"]); var location=Rules.Text(body["location"]); var quantity=Rules.Integer(body["quantity"],1,10000);
                 var stock=u.Query("SELECT s.*,c.kind FROM warehouse_stock s JOIN warehouse_catalog c USING(run_id,sku) WHERE s.run_id=@p0 AND s.sku=@p1 AND s.location=@p2",runId,sku,location).FirstOrDefault()??throw new Conflict("Unknown SKU or location");
-                if(action=="expect") result=u.One("INSERT INTO warehouse_receipts(id,run_id,sku,location,quantity,correlation_id) VALUES (@p0,@p1,@p2,@p3,@p4,@p5) RETURNING *",id,runId,sku,location,quantity,Rules.Uuid(body["correlation_id"]));
+                if(action=="expect") result=u.One("INSERT INTO warehouse_receipts(id,run_id,sku,location,quantity,correlation_id,unit_manifest) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6) RETURNING *",id,runId,sku,location,quantity,Rules.Uuid(body["correlation_id"]),body["units"]!);
                 else {
                     var purpose=Rules.Text(body["purpose"]);
                     if(stock["kind"]!.ToString()!=(purpose=="production"?"raw":"finished")) throw new Conflict("Production requires raw materials; customer picks require finished goods");
                     if(stock["on_hand"]!.GetValue<int>()-stock["reserved"]!.GetValue<int>()<quantity) throw new Conflict("Insufficient available stock; complete quantities required");
                     result=u.One("INSERT INTO warehouse_reservations(id,run_id,sku,location,quantity,correlation_id,purpose) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6) RETURNING *",id,runId,sku,location,quantity,Rules.Uuid(body["correlation_id"]),purpose);
+                    HandlingUnits.Reserve(u,run,result);
                     Move(u,run,id,action,result,0,quantity);
                 }
             } else {
@@ -129,24 +137,25 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
                 result=Record(u,run,table,reference); var quantity=result["quantity"]!.GetValue<int>();
                 switch(action) {
                     case "receive":
-                        State(result,"expected"); Capacity(u,runId,result["location"]!.ToString(),quantity); Move(u,run,id,action,result,quantity,0);
+                        State(result,"expected"); Capacity(u,runId,result["location"]!.ToString(),quantity); HandlingUnits.Receive(u,run,id,result); Move(u,run,id,action,result,quantity,0);
                         u.Exec("UPDATE warehouse_receipts SET status='received',version=version+1 WHERE id=@p0",reference); result["status"]="received"; break;
                     case "release":
-                        State(result,"reserved"); Move(u,run,id,action,result,0,-quantity); u.Exec("UPDATE warehouse_reservations SET status='released',version=version+1 WHERE id=@p0",reference); result["status"]="released"; break;
+                        State(result,"reserved"); HandlingUnits.Release(u,result);Move(u,run,id,action,result,0,-quantity); u.Exec("UPDATE warehouse_reservations SET status='released',version=version+1 WHERE id=@p0",reference); result["status"]="released"; break;
                     case "issue":
                         State(result,"reserved"); if(result["purpose"]!.ToString()!="production") throw new Conflict("Only production materials can be issued");
-                        Move(u,run,id,action,result,-quantity,-quantity); u.Exec("UPDATE warehouse_reservations SET status='issued',version=version+1 WHERE id=@p0",reference); result["status"]="issued"; break;
+                        HandlingUnits.Depart(u,run,id,result);Move(u,run,id,action,result,-quantity,-quantity); u.Exec("UPDATE warehouse_reservations SET status='issued',version=version+1 WHERE id=@p0",reference); result["status"]="issued"; break;
                     case "pick":
                         State(result,"reserved"); if(result["purpose"]!.ToString()!="customer") throw new Conflict("Only customer goods can be picked");
-                        Move(u,run,id,action,result,0,0); u.Exec("UPDATE warehouse_reservations SET status='picked',version=version+1 WHERE id=@p0",reference); result["status"]="picked"; break;
+                        HandlingUnits.Pick(u,run,id,result);Move(u,run,id,action,result,0,0); u.Exec("UPDATE warehouse_reservations SET status='picked',version=version+1 WHERE id=@p0",reference); result["status"]="picked"; break;
                     case "transfer":
                         State(result,"picked"); var destination=Rules.Text(body["destination"]); var origin=result["location"]!.ToString(); if(destination==origin) throw new Conflict("Transfer destination must differ from origin");
                         if(u.Query("SELECT 1 FROM warehouse_locations WHERE run_id=@p0 AND code=@p1",runId,destination).Count==0) throw new Conflict("Unknown destination");
                         Move(u,run,id,action,result,-quantity,-quantity);
                         u.Exec("UPDATE warehouse_reservations SET status='transferred',version=version+1 WHERE id=@p0",reference);
-                        result=u.One("INSERT INTO warehouse_transfers(id,run_id,reservation_id,sku,origin,destination,quantity,correlation_id) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7) RETURNING *",id,runId,reference,result["sku"]!.ToString(),origin,destination,quantity,Ledger.Id(result,"correlation_id")); break;
+                        var reservation=(JsonObject)result.DeepClone();
+                        result=u.One("INSERT INTO warehouse_transfers(id,run_id,reservation_id,sku,origin,destination,quantity,correlation_id) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7) RETURNING *",id,runId,reference,result["sku"]!.ToString(),origin,destination,quantity,Ledger.Id(result,"correlation_id"));HandlingUnits.Depart(u,run,id,reservation,result); break;
                     case "arrive":
-                        State(result,"in_transit"); var target=result["destination"]!.ToString(); Capacity(u,runId,target,quantity); Move(u,run,id,action,result,quantity,0,target);
+                        State(result,"in_transit"); var target=result["destination"]!.ToString(); Capacity(u,runId,target,quantity); HandlingUnits.Arrive(u,run,id,result);Move(u,run,id,action,result,quantity,0,target);
                         u.Exec("UPDATE warehouse_transfers SET status='received',version=version+1 WHERE id=@p0",reference); result["status"]="received"; break;
                     default: throw new Validation("Unknown warehouse action");
                 }

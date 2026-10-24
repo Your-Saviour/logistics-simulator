@@ -1,7 +1,7 @@
 """Transport schemas only. Inventory execution remains in the C# department."""
 from typing import Annotated, Literal
 from uuid import UUID
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
 from .contracts import Envelope
 
 Code = Annotated[str, Field(pattern=r'^[A-Z0-9][A-Z0-9_-]{0,31}$')]
@@ -12,13 +12,30 @@ class Strict(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
 
-class ReceiptInput(Strict):
+class StockQuantity(Strict):
     sku: Code
     location: Code
     quantity: Quantity
 
 
-class RequestInput(ReceiptInput):
+class UnitManifest(Strict):
+    id: UUID
+    quantity: Quantity
+
+
+class ReceiptInput(StockQuantity):
+    units: list[UnitManifest] = Field(min_length=1, max_length=256)
+
+    @model_validator(mode='after')
+    def exact_whole_manifest(self):
+        if len({unit.id for unit in self.units}) != len(self.units):
+            raise ValueError('Duplicate whole-unit identity')
+        if sum(unit.quantity for unit in self.units) != self.quantity:
+            raise ValueError('Whole-unit manifest must match the exact receipt quantity')
+        return self
+
+
+class RequestInput(StockQuantity):
     purpose: Literal['production', 'customer']
 
 
@@ -26,15 +43,16 @@ class ArrivalInput(Strict):
     reference: UUID
 
 
-class ReceiptFact(ReceiptInput):
+class ReceiptFact(StockQuantity):
     id: UUID
     run_id: UUID
     correlation_id: UUID
     status: Literal['expected', 'received']
     version: int = Field(strict=True, ge=1)
+    unit_manifest: list[UnitManifest] | None = None
 
 
-class ReservationFact(ReceiptInput):
+class ReservationFact(StockQuantity):
     id: UUID
     run_id: UUID
     correlation_id: UUID
