@@ -16,9 +16,9 @@ OUT = ROOT / 'deploy' / 'generated'
 
 def credentials(app):
     path = OUT / f'{app}.secrets.json'
-    if path.exists():
-        return json.loads(path.read_text())
-    result = {name: secrets.token_hex(24) for name in ('database', 'broker', 'application')}
+    result=json.loads(path.read_text()) if path.exists() else {}
+    for name in ('database','broker','application','employee','observer'):
+        result.setdefault(name,secrets.token_hex(24))
     path.write_text(json.dumps(result))
     path.chmod(0o600)
     return result
@@ -38,12 +38,16 @@ def stack(app, suite=False):
     # External URLs override local container addresses without rebuilding images.
     # Compose does not publish database or broker ports by default.
     env = {key: '${' + app.upper() + '_' + key + ':-' + value + '}' for key, value in env.items()}
+    env['APP_IDENTITIES']=json.dumps([
+        {'username':app+'-employee','password':secret['employee'],'role':'employee'},
+        {'username':app+'-observer','password':secret['observer'],'role':'service','scopes':['status:read']},
+    ],separators=(',',':'))
     if app == 'twin':
         source_list = []
         if suite:
             for peer in APPS[:-1]:
                 peer_secret = credentials(peer)
-                source_list.append({'name': peer, 'url': f'http://{peer}-api:8000', 'username': peer+'-operator', 'password': peer_secret['application']})
+                source_list.append({'name': peer, 'url': f'http://{peer}-api:8000', 'username': peer+'-observer', 'password': peer_secret['observer']})
         env['TWIN_SOURCES'] = '${TWIN_SOURCES:-' + json.dumps(source_list, separators=(',', ':')) + '}'
     services = {
         service('db'): {'image': 'postgres:17-alpine', 'environment': {'POSTGRES_USER': app, 'POSTGRES_PASSWORD': secret['database'], 'POSTGRES_DB': app}, 'volumes': [service('data') + ':/var/lib/postgresql/data'], 'healthcheck': {'test': ['CMD-SHELL', f'pg_isready -U {app} -d {app}'], 'interval': '2s', 'timeout': '3s', 'retries': 40}},

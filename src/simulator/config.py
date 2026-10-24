@@ -25,6 +25,8 @@ class Settings:
     run_id: str = ''
     epoch: str = ''
     helics_config: str = ''
+    identities: list = field(default_factory=list)
+    scenario: dict = field(default_factory=dict)
 
     def __post_init__(self):
         if self.app not in BOUNDARIES or self.mode not in ('standalone', 'helics'):
@@ -44,6 +46,11 @@ class Settings:
             raise ValueError('Standalone boundaries must use explicit synthetic providers')
         if self.mode == 'helics' and expected and 'helics' not in self.providers.values():
             raise ValueError('Connected mode requires at least one HELICS peer')
+        from .scenario import Scenario
+        self.scenario=Scenario.model_validate(self.scenario).model_dump(mode='json')
+        if self.password or self.identities:
+            from .security import accounts
+            accounts(self)
 
     @classmethod
     def from_env(cls):
@@ -55,4 +62,6 @@ class Settings:
             quantum=float(os.getenv('HANDOFF_QUANTUM', '1')),
             federation_id=os.getenv('FEDERATION_ID', ''), run_id=os.getenv('FEDERATION_RUN_ID', ''),
             epoch=os.getenv('FEDERATION_EPOCH', ''), helics_config=os.getenv('HELICS_CONFIG', ''),
+            identities=json.loads(os.getenv('APP_IDENTITIES', '[]')),
+            scenario=json.loads(os.getenv('SCENARIO', '{}')),
         )

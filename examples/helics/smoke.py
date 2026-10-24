@@ -33,6 +33,7 @@ def business(name, url, broker, run_id, epoch, results):
         store = Store(url, 'helics', run_id, epoch)
         store.migrate()
         job = store.schedule('grant-gated', 1, {'quantity': 2})
+        future_job=store.schedule('future-after-interrupt',8,{'quantity':7})
         clock = HelicsClock(config(name, broker))
         clock.initialize()
         deadline = time.monotonic()+20
@@ -61,16 +62,18 @@ def business(name, url, broker, run_id, epoch, results):
         destination, boundary = ROUTES[name]
         settings=Settings(app=name,mode='helics',providers=PROVIDERS[name],federation_id='bootstrap-smoke')
         publish_boundaries(store,clock,settings,[{'destination':destination,'boundary':boundary,'endpoint':destination+'/events'}])
-        assert store.prepare_request(2)
+        assert store.prepare_request(5)
         clock.publish_value(2)
-        clock.request(2)
+        clock.request(5)
         grant = None
         while grant is None:
             grant = clock.poll()
             if time.monotonic() > deadline:
                 raise TimeoutError('Waiting for message grant')
             time.sleep(0.01)
+        assert grant==2 and grant<5, 'Peer message must interrupt the request for time 5'
         store.grant(grant)
+        assert store.execute(future_job['id'])=='waiting'
         received = clock.receive()
         assert len(received) == 1, f'{name} expected one peer message, got {len(received)}'
         sender, raw = received[0]
@@ -82,7 +85,7 @@ def business(name, url, broker, run_id, epoch, results):
         incoming_job = next(j for j in store.status()['jobs'] if j['idempotency_key'].startswith('boundary:'))
         assert store.execute(incoming_job['id']) == 'completed'
         assert store.status()['effects'] == 4
-        results.put((name, 'passed', 'delayed grant, typed 25 kW, peer event and deduplication'))
+        results.put((name, 'passed', 'delayed grant; requested 5, granted 2; typed 25 kW; peer event and deduplication'))
     except Exception as exc:
         traceback.print_exc()
         results.put((name, 'failed', repr(exc)))

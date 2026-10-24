@@ -30,6 +30,12 @@ type Run = {
   speed: number;
   error: string | null;
   blocked_reason: string | null;
+  scenario: {
+    time_zone: string;
+    seed: number;
+    business_open: string;
+    business_close: string;
+  };
 };
 type Job = {
   id: string;
@@ -39,8 +45,21 @@ type Job = {
   payload: { quantity: number };
   idempotency_key: string;
   error: string | null;
+  boundary_input: { kind: string; boundary: string } | null;
+};
+type AuditEvent = {
+  id: string;
+  actor: string;
+  role: string;
+  action: string;
+  outcome: string;
+  status_code: number;
+  recorded_at: string;
+  request_id: string;
 };
 type Status = {
+  identity: { username: string; role: string; scopes: string[] };
+  simulation_time: string;
   application: string;
   run: Run;
   jobs: Job[];
@@ -67,9 +86,15 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [filter, setFilter] = useState("");
-  const [section, setSection] = useState<"overview" | "operator">("overview");
+  const [section, setSection] = useState<"overview" | "operator" | "audit">(
+    "overview",
+  );
   const [resetting, setResetting] = useState(false);
   const isTwin = appName === "twin";
+  const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const canControl = status?.identity.scopes.includes("runs:control") ?? false;
+  const canSubmit = status?.identity.scopes.includes("jobs:write") ?? false;
+  const canAudit = status?.identity.scopes.includes("audit:read") ?? false;
 
   async function request<T>(
     path: string,
@@ -103,7 +128,12 @@ function App() {
       try {
         const data = await request<Status>("status");
         const sourceData = isTwin ? await request<Source[]>("sources") : [];
+        const auditData =
+          section === "audit" && data.identity.scopes.includes("audit:read")
+            ? await request<AuditEvent[]>("audit")
+            : [];
         if (alive) {
+          setAudit(auditData);
           setStatus(data);
           setSources(sourceData);
           setStale(false);
@@ -118,7 +148,7 @@ function App() {
       alive = false;
       clearInterval(timer);
     };
-  }, [auth]);
+  }, [auth, section]);
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -199,12 +229,22 @@ function App() {
             >
               {isTwin ? "Sources" : "Sample activity"}
             </button>
-            <button
-              aria-current={section === "operator" ? "page" : undefined}
-              onClick={() => setSection("operator")}
-            >
-              Operator
-            </button>
+            {canControl && (
+              <button
+                aria-current={section === "operator" ? "page" : undefined}
+                onClick={() => setSection("operator")}
+              >
+                Operator
+              </button>
+            )}
+            {canAudit && (
+              <button
+                aria-current={section === "audit" ? "page" : undefined}
+                onClick={() => setSection("audit")}
+              >
+                Audit history
+              </button>
+            )}
           </nav>
         )}
       </aside>
@@ -220,6 +260,8 @@ function App() {
                 setAuth("");
                 setStatus(null);
                 setError("");
+                setSection("overview");
+                setAudit([]);
               }}
             >
               Sign out
@@ -266,11 +308,13 @@ function App() {
               <div>
                 <p className="eyebrow">{descriptions[appName]}</p>
                 <h1>
-                  {section === "operator"
-                    ? "Run controls"
-                    : isTwin
-                      ? "Connected sources"
-                      : "Sample activity"}
+                  {section === "audit"
+                    ? "Command audit"
+                    : section === "operator"
+                      ? "Run controls"
+                      : isTwin
+                        ? "Connected sources"
+                        : "Sample activity"}
                 </h1>
               </div>
               <span className={"badge " + (stale ? "error" : "")}>
@@ -346,13 +390,17 @@ function App() {
                             .map((job) => (
                               <tr key={job.id}>
                                 <td title={job.id}>
-                                  {job.idempotency_key.startsWith("synthetic")
-                                    ? "Autonomous sample"
+                                  {job.boundary_input
+                                    ? job.boundary_input.kind + " input"
                                     : job.idempotency_key.startsWith(
-                                          "boundary:",
+                                          "synthetic",
                                         )
-                                      ? "Peer sample"
-                                      : "Employee sample"}
+                                      ? "Autonomous sample"
+                                      : job.idempotency_key.startsWith(
+                                            "boundary:",
+                                          )
+                                        ? "Peer sample"
+                                        : "Employee sample"}
                                   <small>
                                     {job.id.slice(0, 8)}
                                     {job.error && " · " + job.error}
@@ -466,7 +514,7 @@ function App() {
                 </p>
               </>
             )}
-            {section === "operator" && (
+            {section === "operator" && canControl && (
               <>
                 <section className="panel">
                   <h2>{isTwin ? "Projection health" : "Clock and run"}</h2>
@@ -495,11 +543,21 @@ function App() {
                           ? "Local hold can delay peers; it does not acknowledge a federation-wide pause."
                           : "Local hold freezes this simulator’s business time."}
                       </p>
+                      <p>
+                        Business time: {status?.simulation_time} ·{" "}
+                        {run?.scenario.time_zone}
+                      </p>
+                      <p>
+                        Seed {run?.scenario.seed}; business hours{" "}
+                        {run?.scenario.business_open}–
+                        {run?.scenario.business_close}
+                      </p>
                       <div className="controls">
                         <button
                           disabled={
                             busy ||
                             stale ||
+                            !canSubmit ||
                             !["running", "held"].includes(run?.state ?? "")
                           }
                           onClick={() =>
@@ -615,6 +673,45 @@ function App() {
               </>
             )}
           </>
+        )}
+        {auth && section === "audit" && canAudit && (
+          <section className="panel">
+            <h2>Accepted and rejected commands</h2>
+            <p>
+              Most recent 100 attempts across retained runs. Passwords and
+              request bodies are excluded.
+            </p>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Outcome</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {audit.map((event) => (
+                    <tr key={event.id}>
+                      <td>{new Date(event.recorded_at).toLocaleString()}</td>
+                      <td>
+                        {event.actor}
+                        <small>{event.role}</small>
+                      </td>
+                      <td>
+                        {event.action}
+                        <small>{event.request_id}</small>
+                      </td>
+                      <td>
+                        {event.outcome} ({event.status_code})
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
         <footer>
           {names[appName]} · Independent website · Simulation data only

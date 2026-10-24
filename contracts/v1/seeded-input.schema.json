@@ -1,0 +1,86 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "input_id": {
+      "format": "uuid",
+      "title": "Input Id",
+      "type": "string"
+    },
+    "run_id": {
+      "format": "uuid",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "epoch": {
+      "format": "uuid",
+      "title": "Epoch",
+      "type": "string"
+    },
+    "application": {
+      "enum": [
+        "manufacturing",
+        "storage",
+        "logistics",
+        "shipping"
+      ],
+      "title": "Application",
+      "type": "string"
+    },
+    "boundary": {
+      "minLength": 1,
+      "title": "Boundary",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "demand",
+        "supply",
+        "receiving",
+        "carrier"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "provider": {
+      "const": "synthetic",
+      "default": "synthetic",
+      "title": "Provider",
+      "type": "string"
+    },
+    "effective_time": {
+      "minimum": 0,
+      "title": "Effective Time",
+      "type": "number"
+    },
+    "quantity": {
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Quantity",
+      "type": "integer"
+    },
+    "quantity_unit": {
+      "const": "item",
+      "default": "item",
+      "title": "Quantity Unit",
+      "type": "string"
+    }
+  },
+  "required": [
+    "input_id",
+    "run_id",
+    "epoch",
+    "application",
+    "boundary",
+    "kind",
+    "effective_time",
+    "quantity"
+  ],
+  "title": "SeededInput",
+  "type": "object"
+}

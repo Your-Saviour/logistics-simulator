@@ -66,7 +66,7 @@ def main():
     settings = Settings.from_env()
     if settings.app == 'twin':
         raise ValueError('Twin has no business clock')
-    store = Store(settings.database_url, settings.mode, settings.run_id, settings.epoch)
+    store = Store(settings.database_url, settings.mode, settings.run_id, settings.epoch, scenario=settings.scenario)
     store.migrate()
     stop = False
 
@@ -130,10 +130,7 @@ def main():
                 # Seeded autonomous bootstrap work uses the exact same command
                 # validation as employee work. No V1 inventory effects are claimed.
                 if os.getenv('AUTONOMOUS_SAMPLE', 'true').lower() == 'true':
-                    slot = int(max(run['granted'], run['requested']) // 30) + 1
-                    due = slot * 30.0
-                    if due >= max(run['granted'], run['requested']) + settings.quantum:
-                        store.schedule(f'synthetic-sample:{slot}', due, {'quantity': 1})
+                    store.seed_boundaries(settings)
                 target = run['granted'] + settings.quantum
                 if clock and not clock.pending:
                     if store.prepare_request(target, expected_epoch=run['epoch']):

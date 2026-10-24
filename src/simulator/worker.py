@@ -40,7 +40,7 @@ def process_delivery(store, channel, method, body):
 def main():
     logging.basicConfig(level=logging.INFO)
     settings = Settings.from_env()
-    store = Store(settings.database_url, settings.mode, settings.run_id, settings.epoch)
+    store = Store(settings.database_url, settings.mode, settings.run_id, settings.epoch, scenario=settings.scenario)
     store.migrate()
     stopping = False
 

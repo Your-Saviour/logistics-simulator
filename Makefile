@@ -2,7 +2,7 @@ APP ?= storage
 COMPOSE = docker compose -f deploy/generated/$(APP).json
 TEST_COMPOSE = docker compose -f deploy/test.compose.yml
 
-.PHONY: configure build up down suite test federation-test web-check smoke recovery check clean-tests credentials
+.PHONY: configure build up down suite test federation-test web-check smoke recovery check clean-tests credentials schema-check
 configure:
 	python3 scripts/compose.py
 build: configure
@@ -25,7 +25,9 @@ smoke:
 	python3 scripts/smoke.py $(APP)
 recovery:
 	python3 scripts/recovery.py
-check: test federation-test web-check configure
+schema-check:
+	$(TEST_COMPOSE) run --build --rm tests python scripts/check_contracts.py
+check: test schema-check federation-test web-check configure
 	python3 scripts/check_compose.py
 clean-tests:
 	$(TEST_COMPOSE) down

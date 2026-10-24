@@ -13,6 +13,9 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from .contracts import Envelope, SamplePayload
+from .audit import write_audit
+from .scenario import Scenario, next_business_due
+from .providers import seeded_inputs, SeededInput
 
 
 class Conflict(ValueError):
@@ -20,8 +23,9 @@ class Conflict(ValueError):
 
 
 class Store:
-    def __init__(self, url, mode='standalone', run_id='', epoch=''):
+    def __init__(self, url, mode='standalone', run_id='', epoch='', scenario=None):
         self.url, self.mode, self.initial_run, self.initial_epoch = url, mode, run_id, epoch
+        self.initial_scenario=Scenario.model_validate(scenario or {}).model_dump(mode='json')
 
     def connect(self):
         return psycopg.connect(self.url, row_factory=dict_row, connect_timeout=5)
@@ -29,13 +33,16 @@ class Store:
     def migrate(self):
         with self.connect() as db:
             db.execute('SELECT pg_advisory_xact_lock(8192101)')
-            db.execute(Path('migrations/001_bootstrap.sql').read_text())
+            for migration in sorted(Path('migrations').glob('*.sql')):
+                db.execute(migration.read_text())
             if not db.execute('SELECT 1 FROM runs WHERE current').fetchone():
                 if self.mode == 'helics' and not (self.initial_run and self.initial_epoch):
                     raise Conflict('Federation owner must supply run and epoch IDs')
                 db.execute('INSERT INTO runs(id,epoch,mode) VALUES (%s,%s,%s)',
                            (self.initial_run or uuid4(), self.initial_epoch or uuid4(), self.mode))
             run = self._run(db)
+            if not run['scenario']:
+                db.execute('UPDATE runs SET scenario=%s WHERE id=%s',(Jsonb(self.initial_scenario),run['id']))
             if run['mode'] != self.mode:
                 raise Conflict('Persisted run mode differs; use a fresh deployment database')
             if self.mode == 'helics' and (str(run['id']) != self.initial_run or str(run['epoch']) != self.initial_epoch):
@@ -61,21 +68,27 @@ class Store:
             pending = db.execute('SELECT count(*) AS n FROM boundary_outbox WHERE run_id=%s AND sent_at IS NULL', (run['id'],)).fetchone()['n']
             return {'run': run, 'jobs': jobs, 'effects': effects, 'heartbeats': heartbeats, 'pending_boundary_outputs': pending}
 
-    def schedule(self, key, due_at, payload, quantum=1):
+    def schedule(self, key, due_at, payload, quantum=1, audit_context=None, boundary_input=None):
         payload = SamplePayload.model_validate(payload).model_dump()
+        boundary_input=SeededInput.model_validate(boundary_input).model_dump(mode='json') if boundary_input else None
         if not key or len(key) > 128 or not math.isfinite(due_at):
             raise Conflict('Valid idempotency key and finite due time required')
         with self.connect() as db:
             run = self._run(db)
+            if boundary_input and (boundary_input['run_id'],boundary_input['epoch']) != (str(run['id']),str(run['epoch'])):
+                raise Conflict('Seeded input belongs to a different run or epoch')
             old = db.execute('SELECT * FROM jobs WHERE run_id=%s AND idempotency_key=%s', (run['id'], key)).fetchone()
             if old:
-                if old['original_due_at'] != due_at or old['payload'] != payload:
+                if old['original_due_at'] != due_at or old['payload'] != payload or old['boundary_input'] != boundary_input:
                     raise Conflict('Idempotency key already used with a different command')
+                write_audit(db,run['id'],audit_context,'accepted',200,old['id'])
                 return old
             if run['state'] not in ('running', 'held') or due_at < max(run['granted'], run['requested']) + quantum:
                 raise Conflict('Schedule at least one quantum beyond granted/requested time in an active run')
-            return db.execute('INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING *',
-                              (uuid4(), run['id'], run['epoch'], key, due_at, due_at, Jsonb(payload))).fetchone()
+            job = db.execute('INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload,boundary_input) VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *',
+                              (uuid4(), run['id'], run['epoch'], key, due_at, due_at, Jsonb(payload), Jsonb(boundary_input) if boundary_input else None)).fetchone()
+            write_audit(db,run['id'],audit_context,'accepted',200,job['id'])
+            return job
 
     def execute(self, job_id):
         with self.connect() as db:
@@ -165,7 +178,7 @@ class Store:
             db.execute('UPDATE runs SET committed=granted,requested=%s WHERE id=%s', (target, run['id']))
             return True
 
-    def control(self, action, speed=1, expected_run_id=None):
+    def control(self, action, speed=1, expected_run_id=None, audit_context=None, scenario=None):
         with self.connect() as db:
             run = self._run(db)
             if action == 'reset':
@@ -174,7 +187,7 @@ class Store:
                 if run['mode'] == 'helics':
                     raise Conflict('Finalize the federation and allocate a new deployment run/epoch; live reset is forbidden')
                 db.execute('UPDATE runs SET current=false WHERE id=%s', (run['id'],))
-                db.execute('INSERT INTO runs(id,epoch,mode) VALUES (%s,%s,%s)', (uuid4(), uuid4(), self.mode))
+                db.execute('INSERT INTO runs(id,epoch,mode,scenario) VALUES (%s,%s,%s,%s)', (uuid4(), uuid4(), self.mode, Jsonb(Scenario.model_validate(scenario or run['scenario']).model_dump(mode='json'))))
             elif action in ('hold', 'resume'):
                 if run['state'] not in ('running', 'held'):
                     raise Conflict('Cannot resume a failed, stalled or finalized run')
@@ -189,7 +202,21 @@ class Store:
                 db.execute("UPDATE runs SET state='finalized' WHERE id=%s", (run['id'],))
             else:
                 raise Conflict('Unknown control')
+            write_audit(db,run['id'],audit_context,'accepted',200)
         return self.status()
+
+    def rejected_command(self, context, status_code):
+        with self.connect() as db:
+            run_id=context.get('run_id') or self._run(db)['id']
+            write_audit(db,run_id,context,'rejected',status_code)
+
+    def command_scope(self):
+        with self.connect() as db:
+            return self._run(db)['id']
+
+    def audit_events(self):
+        with self.connect() as db:
+            return db.execute('SELECT * FROM command_audit ORDER BY recorded_at DESC,id DESC LIMIT 100').fetchall()
 
     def heartbeat(self, role, detail=''):
         with self.connect() as db:
@@ -203,6 +230,8 @@ class Store:
                 return
             run = self._run(db)
             if expected_epoch is not None and run['epoch'] != expected_epoch:
+                return
+            if run['state'] in ('failed','finalized','stalled'):
                 return
             db.execute("UPDATE runs SET state='stalled',error=%s WHERE current", (str(error)[:1000],))
 
@@ -231,3 +260,36 @@ class Store:
         with self.connect() as db:
             db.execute('INSERT INTO source_snapshots(name,status,connected,observed_at,error) VALUES (%s,%s,%s,clock_timestamp(),%s) ON CONFLICT(name) DO UPDATE SET status=COALESCE(EXCLUDED.status,source_snapshots.status),connected=EXCLUDED.connected,observed_at=EXCLUDED.observed_at,error=EXCLUDED.error',
                        (name, Jsonb(status) if status else None, error is None, error))
+
+
+    def seed_boundaries(self, settings):
+        run=self.status()['run']
+        if run['state']!='running':
+            return []
+        scenario=Scenario.model_validate(run['scenario'])
+        threshold=max(run['granted'],run['requested'])+settings.quantum
+        slot=max(1,math.ceil(threshold/scenario.interval_seconds))
+        due=next_business_due(scenario,(slot-1)*scenario.interval_seconds,scenario.interval_seconds)
+        slot=math.ceil(due/scenario.interval_seconds)
+        values=seeded_inputs(settings.providers,settings.app,scenario,run['id'],run['epoch'],slot,due)
+        jobs=[]
+        for value in values:
+            context={'actor':settings.app+'-synthetic','role':'service','request_id':value.input_id,
+                     'action':'seed:'+value.kind,'idempotency_key':str(value.input_id),'peer':'controller'}
+            # Avoid an audit row every controller tick when the same seeded
+            # command is already present; schedule still enforces uniqueness.
+            with self.connect() as db:
+                current=self._run(db)
+                if current['epoch']!=run['epoch']:
+                    return []
+                if db.execute('SELECT 1 FROM jobs WHERE run_id=%s AND idempotency_key=%s',(run['id'],'synthetic:'+str(value.input_id))).fetchone():
+                    continue
+            try:
+                jobs.append(self.schedule('synthetic:'+str(value.input_id),due,{'quantity':value.quantity},
+                                          quantum=settings.quantum,audit_context=context,boundary_input=value.model_dump(mode='json')))
+            except Conflict:
+                current=self.status()['run']
+                if current['epoch']!=run['epoch'] or current['state']!='running':
+                    return []
+                raise
+        return jobs

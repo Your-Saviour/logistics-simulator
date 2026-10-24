@@ -12,6 +12,7 @@ Use `make suite` for all five, or select `manufacturing`, `storage`, `logistics`
 
 - [Start and verify the applications](docs/bootstrap.md)
 - [Verification record and limits](docs/verification.md)
+- [SIMU-1 acceptance, excluding SIMU-13](docs/simu-1-acceptance.md)
 - [API and boundary contracts](docs/contracts.md)
 - [Clock control, recovery and multi-host configuration](docs/operations.md)
 - [OFacT reuse decision](docs/research/2026-10-24-ofact-spike.md)

@@ -55,6 +55,24 @@ for (const [index, app] of apps.entries()) {
           .first(),
       ).toBeVisible();
     }
+    await page
+      .getByRole("button", { name: "Audit history", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Command audit", exact: true }),
+    ).toBeVisible();
+    if (app !== "twin")
+      await expect(
+        page
+          .getByRole("cell", { name: app + "-operator", exact: false })
+          .first(),
+      ).toBeVisible();
+    await page
+      .getByRole("button", {
+        name: app === "twin" ? "Sources" : "Sample activity",
+        exact: true,
+      })
+      .click();
     await page.screenshot({
       path: `../../.superpowers/simu-1/${app}-desktop.png`,
       fullPage: true,
@@ -79,5 +97,52 @@ for (const [index, app] of apps.entries()) {
     await expect(
       page.getByRole("heading", { name: "Sign in", exact: true }),
     ).toBeVisible();
+  });
+}
+
+for (const [index, app] of apps.entries()) {
+  test(`${app} employee has no operator controls`, async ({ page }) => {
+    const secret = JSON.parse(
+      readFileSync(
+        new URL(
+          `../../../deploy/generated/${app}.secrets.json`,
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ).employee;
+    await page.goto(`http://127.0.0.1:${8181 + index}`);
+    await page.getByLabel("Username", { exact: true }).fill(app + "-employee");
+    await page.getByLabel("Password", { exact: true }).fill(secret);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(
+      page.getByRole("heading", {
+        name: app === "twin" ? "Connected sources" : "Sample activity",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Operator", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Audit history", exact: true }),
+    ).toHaveCount(0);
+    if (app !== "twin") {
+      await page.getByLabel("Quantity", { exact: true }).fill("2");
+      const submitted = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/jobs") &&
+          response.request().method() === "POST",
+      );
+      await page
+        .getByRole("button", { name: "Schedule operation", exact: true })
+        .click();
+      const response = await submitted;
+      expect(response.status()).toBe(200);
+      const job = await response.json();
+      await expect(
+        page.getByText(job.id.slice(0, 8), { exact: true }),
+      ).toBeVisible();
+    }
   });
 }

@@ -26,7 +26,7 @@ Finalization stops new scheduling and requires current-time work to settle. A st
 
 ## Failure behavior
 
-- Database unavailable: transactions stop; no ACK or private-clock advancement. The broker redelivers after reconnect.
+- Database unavailable: transactions stop; no ACK or private-clock advancement. API readiness returns 503; unaccepted POST commands fail closed. If PostgreSQL cannot store a rejected audit, logs retain the request ID without credentials. Accepted command and audit transactions roll back together. The broker redelivers after reconnect.
 - RabbitMQ unavailable: jobs and outbox remain in PostgreSQL; the worker reconnects using wall-time delays. Current unfinished work prevents further grants.
 - Worker processing error: retry durably after two wall seconds, at most three attempts. Terminal failure marks the job dead and run failed and dead-letters its delivery. Inspect the UI error and `sample.jobs.dead.v1`; standalone recovery uses confirmed reset after investigation.
 - Malformed delivery: dead-letter immediately without crashing the worker. A duplicate/fenced delivery is acknowledged without another effect.
@@ -39,7 +39,7 @@ Finalization stops new scheduling and requires current-time work to settle. A st
 
 Generated manifests use local Compose DNS. It resolves only inside that one Docker network. To move a worker to another host, explicitly supply `DATABASE_URL`, `AMQP_URL`, `SIMULATOR`, `APP_USERNAME`, `APP_PASSWORD`, mode/provider and federation configuration as appropriate. Run the same backend image with `python -m simulator.worker`; no API container or shared business server is required on that worker host. Deploy only the selected roles; local dependency containers are not required by the process.
 
-For generated manifests, `<APP>_DATABASE_URL`, `<APP>_AMQP_URL`, `<APP>_APP_USERNAME`, `<APP>_APP_PASSWORD` and `<APP>_API_UPSTREAM` override addresses/identities (for example `STORAGE_DATABASE_URL`). Use a Compose override for role-specific environment, ports, volumes and `TWIN_SOURCES`. The latter is a JSON array of `{name,url,username,password}` for read-only source API polling; the server never returns those credentials to the browser. In a suite with overridden app credentials, update the twin's source credentials too.
+For generated manifests, `<APP>_DATABASE_URL`, `<APP>_AMQP_URL`, `<APP>_APP_USERNAME`, `<APP>_APP_PASSWORD` and `<APP>_API_UPSTREAM` override addresses/identities (for example `STORAGE_DATABASE_URL`). Use a Compose override for role-specific environment, ports, volumes and `TWIN_SOURCES`. The latter is a JSON array of `{name,url,username,password}` for read-only source API polling; the server never returns those credentials to the browser. If observer credentials are overridden, update the twin's matching source credentials too.
 
 Expose database/broker listener ports only on the intended lab interfaces and configure their service users/virtual hosts consistently with application URLs. Passwords in URLs must be percent-encoded; generated hex secrets require no escaping. Frontends proxy through their own configured API upstream, so source credentials are not embedded in JS bundles.
 

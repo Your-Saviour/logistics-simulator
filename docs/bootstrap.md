@@ -1,6 +1,6 @@
 # SIMU-1 application bootstrap
 
-Scope: application development only. CyberLab integration, cloud provisioning and departmental V1 workflows are excluded. The static previews remain in `docs/previews`; the running applications are React websites backed by Python services.
+Scope: SIMU-1 application development excluding SIMU-13. CyberLab integration, cloud provisioning and departmental V1 workflows are excluded. The static previews remain in `docs/previews`; the running applications are React websites backed by Python services.
 
 ## Start an application
 
@@ -12,7 +12,7 @@ make credentials APP=storage
 make smoke APP=storage
 ```
 
-Use `manufacturing`, `storage`, `logistics`, `shipping` or `twin`. Each starts only its own containers. The application username is `<application>-operator`; the generated password is displayed by the explicit credentials command. Credentials are unique per application and retained in git-ignored, mode-0600 files under `deploy/generated`. Do not regenerate/delete secrets against existing data volumes: PostgreSQL/RabbitMQ credentials are initialized only when their volumes are first created.
+Use `manufacturing`, `storage`, `logistics`, `shipping` or `twin`. Each starts only its own containers. The default operator username is `<application>-operator`; the generated password is displayed by the explicit credentials command. Independent employee and read-only observer identities are also generated: `python3 scripts/credentials.py storage employee` or `python3 scripts/credentials.py storage observer`. Credentials are unique per application and retained in git-ignored, mode-0600 files under `deploy/generated`. Do not regenerate/delete secrets against existing data volumes: PostgreSQL/RabbitMQ credentials are initialized only when their volumes are first created.
 
 | Application | Local website |
 | --- | --- |
@@ -32,7 +32,7 @@ Standalone and suite projects have separate database/broker volumes. Stop one de
 
 ## What is implemented
 
-Each business application exposes authenticated run state, sample jobs, an employee command form, run hold/resume, standalone speeds 1/5/20/60, confirmed reset and finalization. Autonomous sample commands arrive every 30 simulation seconds through the same validation as employee commands. Sample effects are persisted item counts, not completed warehouse, production, fleet or order workflows. The work ledger displays up to 100 recent jobs; it is a bootstrap view rather than a complete audit UI.
+Each business application exposes authenticated run state, sample jobs, an employee command form, run hold/resume, standalone speeds 1/5/20/60, confirmed reset and finalization. Deterministic demand, supply, receiving and carrier input adapters submit through the same validation as employee commands. They use the persisted scenario seed, a default 30-second interval, business hours 08:00–17:00 Monday–Friday and timezone Australia/Adelaide. Boundaries assigned to HELICS peers do not generate synthetic inputs. The scenario start date/time is configurable and persisted; simulation seconds remain elapsed UTC seconds across DST changes. Sample effects are persisted item counts, not completed warehouse, production, fleet or order workflows. The work ledger displays up to 100 recent jobs; operators can also view the latest 100 accepted/rejected command attempts across retained runs in Audit history. Accepted audits commit atomically with commands; rejected audits retain request-time run attribution.
 
 PostgreSQL owns runs, epochs, durable due jobs, inbox, effects and internal/boundary outboxes. A run row lock serializes transition boundaries across worker replicas. RabbitMQ delivers persistent job identifiers with publisher confirmations, mandatory routing and manual acknowledgements. A consumer acknowledges only after committing a result or retaining retry work durably. Three processing failures mark a job dead and its run failed; the terminal delivery goes to `sample.jobs.dead.v1`. Dependency outages do not spend the processing retry budget.
 
@@ -54,7 +54,7 @@ python3 scripts/connected_check.py   # disposable full-stack HELICS test
 make suite                          # restore the local review deployment
 ```
 
-`make recovery` intentionally restarts only simulator worker/broker containers and resets the storage sample run. `standalone_check.py` stops the simulator suite, starts each application alone and tears it down; `--restore-suite` restores the suite at the end. No other project is stopped. Tests use a separate `simu-tests` Compose project; `make clean-tests` removes its containers while retaining application deployments.
+`make recovery` intentionally restarts only simulator worker/broker/database/controller containers and resets the storage sample run. The database-outage check verifies run/epoch/scenario persistence, retained committed work, one queued/redelivered effect and an untouched processing retry budget. `standalone_check.py` stops the simulator suite, starts each application alone and tears it down; `--restore-suite` restores the suite at the end. No other project is stopped. Tests use a separate `simu-tests` Compose project; `make clean-tests` removes its containers while retaining application deployments.
 
 GitHub Actions runs these checks; a local successful run does not establish that a hosted Actions run has occurred. Native HELICS was verified in Linux ARM64 Docker. Linux AMD64 is covered by the configured Actions job when it runs; multiple physical hosts have not been exercised.
 

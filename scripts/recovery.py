@@ -3,6 +3,7 @@
 import json
 import subprocess
 import time
+from urllib.error import HTTPError, URLError
 from uuid import uuid4
 
 from smoke import call
@@ -36,6 +37,51 @@ def wait_job(job_id, status='completed'):
     raise AssertionError('Durable job did not recover')
 
 
+def database_recovery(committed_job):
+    call('storage','control/hold',{})
+    previous=call('storage','status')['run']
+    pending=call('storage','jobs',{'due_at':max(previous['requested'],previous['granted'])+2,'quantity':13},'database-recovery-'+uuid4().hex)
+    compose('stop','storage-worker')
+    publish(pending['id'])
+    try:
+        compose('stop','storage-db')
+        try:
+            call('storage','health/ready')
+        except HTTPError as exc:
+            assert exc.code==503
+        else:
+            raise AssertionError('API readiness did not fail closed during database outage')
+        compose('start','storage-worker')
+        time.sleep(2)
+    finally:
+        compose('start','storage-db')
+    deadline=time.monotonic()+60
+    while True:
+        try:
+            current=call('storage','status')['run']
+            break
+        except (HTTPError,URLError,TimeoutError):
+            if time.monotonic()>deadline: raise
+            time.sleep(.5)
+    assert current['id']==previous['id'] and current['epoch']==previous['epoch']
+    assert current['scenario']==previous['scenario']
+    compose('restart','storage-controller')
+    call('storage','control/resume',{})
+    wait_job(pending['id'])
+    publish(pending['id'])
+    time.sleep(.5)
+    output=compose('exec','-T','storage-api','python','-',script=f"""import os
+from simulator.store import Store
+with Store(os.environ['DATABASE_URL']).connect() as db:
+    for job_id,quantity in [('{committed_job}',11),('{pending['id']}',13)]:
+        row=db.execute('SELECT count(*) AS n,sum(quantity) AS quantity FROM effects WHERE job_id=%s',(job_id,)).fetchone()
+        assert row['n']==1 and row['quantity']==quantity
+    assert db.execute('SELECT attempts FROM jobs WHERE id=%s',('{pending['id']}',)).fetchone()['attempts']==0
+print('database outage preserved run/scenario and committed work; queued redelivery produced one effect without spending retries')
+""")
+    print(output.strip(),flush=True)
+
+
 def main():
     compose('up','-d','--scale','storage-worker=2','--no-recreate')
     call('storage','control/hold',{})
@@ -58,7 +104,8 @@ with Store(os.environ['DATABASE_URL']).connect() as db:
     assert row['n']==1 and row['quantity']==11, row
 print('one effect after redelivery and worker restart')
 """)
-    print(output.strip())
+    print(output.strip(),flush=True)
+    database_recovery(job['id'])
     compose('stop','storage-broker')
     run=call('storage','status')['run']
     queued=call('storage','jobs',{'due_at':max(run['requested'],run['granted'])+2,'quantity':5},'broker-recovery-'+uuid4().hex)
