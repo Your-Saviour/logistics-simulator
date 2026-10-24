@@ -1,6 +1,6 @@
 # SIMU-1 remaining framework migration
 
-Status: approved by the user; implementation in progress on feature/simu-framework-migration.
+Status: approved by the user; implementation and local container acceptance complete on feature/simu-framework-migration. Hosted CI and deployment are separate.
 
 ## Scope and evidence
 

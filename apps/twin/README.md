@@ -37,3 +37,13 @@ its PostgreSQL/RabbitMQ volumes and credentials, and start the new image with
 the same configuration. The shared numbered/checksummed SQL migrations are
 unchanged. No run is reset or data discarded by the Flask migration. Do not
 run old and new projection consumers concurrently during cutover.
+
+## Shared migration acceptance
+
+Production HTTP/identity checks and independent-only-dependency startup/browser
+checks passed. The mixed C#/Java/Go/PHP HELICS federation passed delayed/held
+grants, correlated durable handoffs, external power, optional Flask Twin source
+recovery, native acknowledgement/finalization and adapter-loss fencing. Business
+runtimes also passed real broker/database recovery and terminal-run reset checks.
+See [the shared verification record](../../docs/verification.md) for commands,
+actual evidence and the untested hosted/physical-host limits.

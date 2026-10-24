@@ -1,10 +1,69 @@
-# SIMU-1 application bootstrap
+# SIMU-1 framework bootstrap
+
+The selected backends and websites are Storage ASP.NET Core/Vue,
+Manufacturing Spring Boot/Angular, Logistics Gin/Svelte, Shipping Laravel with
+Blade/Livewire, and the optional Flask/React twin. Each application owns its
+backend, frontend and dependency locks under `apps/<application>`.
+
+## Current container verification
+
+Run from the repository root. All framework installation, builds and tests execute
+inside Docker; the host orchestrates them. `scripts/docker_guard.py` permits one
+workload at a time and enforces a default20GiB host disk reserve. Check free disk
+space before a full five-stack run. Hosted disposable runners use a documented
+10GiB reserve; the local default remains20GiB.
+
+```sh
+make stack-unit APP=storage
+make stack-check APP=storage
+# Repeat independently for manufacturing, logistics, shipping and twin.
+make mixed-check
+```
+
+`stack-unit` runs framework-native checks with only that application's test
+PostgreSQL/RabbitMQ dependencies. `stack-check` builds that application's production
+images sequentially, starts it alone, checks common HTTP fixtures, actual database/
+broker/worker recovery, and login/permissions/mobile width from a browser container.
+The twin starts with zero configured sources when selected alone. Browser artifacts
+are retained in `.superpowers/sdd/simu-framework-migration/browser-artifacts`.
+
+Generated manifests in `deploy/generated/migration-*.json` use private Docker
+networks, no host ports, separate credentials and test-owned state. Website origins
+inside those networks are `http://storage-web`, `http://manufacturing-web`,
+`http://logistics-web`, `http://shipping-api:8000` and `http://twin-web:8080`.
+Shipping serves its Blade/Livewire website and API from its own PHP image.
+
+`mixed-check` reuses the built images in fresh, disposable verification projects.
+It uses four department-owned adapters, the external power peer and optional twin;
+it does not run a shared Python business executor. The tests include a delayed
+power grant, correlated sample handoffs, source zero/subset/all recovery, orderly
+native finalization and a separate native-loss scenario. Test commands and outcomes
+must be read with [verification](verification.md); a configured check is not a
+claim that it passed.
+
+Each script stops only its own test project on exit. Successful mixed-federation
+scenarios remove only their unique disposable volumes; failed scenarios retain
+volumes for diagnosis. Application production data and existing review deployments
+are never attached to these checks. Unused build cache is bounded between image
+builds. Dependency cache/toolchain images can be removed after verification;
+do not use a blanket volume prune.
+
+For direct image entry points, supported versions, secrets and cutover, use the
+[application READMEs](../README.md). Preserve existing PostgreSQL/RabbitMQ volumes,
+credential files and run/epoch values. Quiesce old API writers/controllers/workers
+before applying additive migrations. Never silently reset a connected federation;
+its owner must coordinate a new native epoch when native state is lost.
+
+## Historical uniform bootstrap commands
+
+The following commands/documented URLs refer to the original FastAPI/React
+reference, retained for compatibility. They are not five-stack migration evidence.
 
 Scope: SIMU-1 application development excluding SIMU-13. CyberLab integration, cloud provisioning and departmental V1 workflows are excluded. The static previews remain in `docs/previews`; the running applications are React websites backed by Python services.
 
 ## Start an application
 
-Requires Docker Engine with Compose v2 and Python 3.12+ for generation scripts. Node 22 is needed only to run frontend checks outside Docker.
+Requires Docker Engine with Compose v2 and Python 3.12+ for generation scripts. The retained `make web-check` runs its frontend checks in Docker.
 
 ```sh
 make up APP=storage

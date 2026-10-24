@@ -1,6 +1,11 @@
 # Logistics and manufacturing simulator
 
-Status: proposed design for approval. No production simulator has been implemented.
+Status: historical design baseline. The approved 24 October framework matrix
+supersedes its uniform Python/FastAPI and React assumptions. See
+[the approved migration design](2026-10-24-simu-1-framework-migration-design.md)
+and [current verification](../../verification.md) for implementation evidence.
+The domain ownership, time, independence and recovery requirements below remain
+applicable; this file is retained as the original design record.
 
 ## Intent and agreed requirements
 

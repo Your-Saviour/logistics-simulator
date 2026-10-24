@@ -1,17 +1,22 @@
 # SIMU-1 application acceptance, excluding SIMU-13
 
-The user explicitly excluded SIMU-13. Its CyberLab/distributed-packaging task remains outside this delivery; the parent epic must not be described as fully closed while that child remains open.
+SIMU-13 and CyberLab/distributed packaging remain excluded. This delivery covers application foundations, not departmental V1 workflows under SIMU-2 through SIMU-6. The parent epic remains open while excluded work remains.
 
-| Included task | Implementation and verification |
+The selected runtimes are ASP.NET Core/Vue for Storage, Spring Boot/Angular for Manufacturing, Go/Gin/Svelte for Logistics, Laravel/Blade/Livewire for Shipping, and Flask/React for Twin. Business APIs, workers and controllers execute in their own backend language. Private Python adapters own native HELICS only. Existing Python application deployments remain a historical compatibility reference; cutover is explicit and preserves their databases.
+
+| Included task | Implementation and verification entry point |
 | --- | --- |
-| SIMU-7: five independent applications / CI | Separate website builds/origins and API/worker/controller/database state; CI runs schema parity/fixtures, Python tests, frontend builds/audit, five-site smoke/browser checks and independent startup. |
-| SIMU-8: contracts | Published runtime-matched boundary and seeded-input JSON Schemas, units/ownership/routes and positive handoff policy; analytics ingestion regression verifies no inbox/job/effect is written. |
-| SIMU-9: reliable background execution | Transactional jobs/inbox/outbox, confirmed durable RabbitMQ publication, manual ACK, retries/DLQ. Recovery script exercises duplicate delivery across worker restart, real PostgreSQL outage, broker outage, committed-work preservation and old epochs. |
-| SIMU-10: local/HELICS time | Persisted clock/run/jobs, singleton lease, current-time ledger, hold/speed/reset/finalization. Native federation proves delayed grants and explicitly requests 5 / receives 2 from peer messages while a due-at-8 job remains untouched. |
-| SIMU-11: standalone providers | Deterministic demand/supply/receiving/carrier inputs per selected synthetic boundary; connected peers never cause fallback. Scenario seed, start time, timezone, business hours/weekdays and cadence persist through restart/reset; DST gap/fold and old-epoch regressions pass. |
-| SIMU-12: identities and audits | Independent employee/operator identities; service credentials with explicit scopes. Employees/services cannot control/reset runs or read audits. Accepted command/audit are one transaction; rejected context retains request-time run. Operator audit UI and employee UI/API regressions cover all five apps. |
-| SIMU-14: OFacT assessment | Pinned source/license/dependency inspection and actual isolated upstream sales-generation example: 20 orders, 8 customers. Runtime reuse rejected for this bootstrap; no upstream code imported into app runtime. |
+| SIMU-45: native adapter | Authenticated versioned commands, durable operation journal, receive acknowledgement, time barriers and native-owner loss fencing. `apps/adapter/Dockerfile`, `tests/adapter`, `examples/helics/adapter_smoke.py`. |
+| SIMU-48: Storage | Application-owned C# ledger, workers, controller, adapter client and Vue UI. `sh scripts/check_stack_unit.sh storage`; `sh scripts/check_stacks.sh storage`. |
+| SIMU-49: Manufacturing | Application-owned Java ledger, workers, controller, adapter client and Angular UI. Same commands with `manufacturing`. |
+| SIMU-50: Logistics | Application-owned Go ledger, workers, controller, adapter client and Svelte UI. Same commands with `logistics`. |
+| SIMU-51: Shipping | Application-owned PHP ledger, workers, controller and Laravel session/Livewire UI; direct confirmed RabbitMQ AMQP rather than Redis queues. Same commands with `shipping`. |
+| SIMU-52: Twin | Flask read model and React UI, source projection and read-only identity enforcement. Same commands with `twin`. |
+| SIMU-46: cross-language verification | Shared HTTP fixtures in `contracts/http/v1`, independent production-container checks, actual PostgreSQL/RabbitMQ outages, duplicate deliveries and browser checks. `sh scripts/check_stacks.sh all`; mixed native federation and optional Twin source checks: `sh scripts/check_mixed_stacks.sh`. CI: [stacks.yml](../.github/workflows/stacks.yml). |
+| SIMU-47: documentation | Selected runtime/build matrix, adapter recovery, preserved-state cutover and verification evidence in [verification.md](verification.md), [operations.md](operations.md), [bootstrap.md](bootstrap.md) and each application's README. |
 
-This is bootstrap acceptance, not completion of departmental V1 workflows under SIMU-2 through SIMU-6. Role authentication uses deployment-provided secrets and HTTP Basic at the API; use TLS outside loopback development. Federation-wide pause/checkpoint recovery remains owned by an external federation controller as documented, not silently implemented by local controls.
+The earlier SIMU-7–12 foundations remain requirements: independent deployments/credentials; strict HTTP and boundary contracts; durable SQL inbox/outbox and confirmed RabbitMQ work; grant-gated local/native time; deterministic seeded calendar providers; scoped identities and atomic accepted/rejected audits. The new checks exercise these through each selected runtime. SIMU-14's [OFacT assessment](research/2026-10-24-ofact-spike.md) remains the reuse decision; no upstream application runtime was imported.
 
-Hosted checks are defined in [.github/workflows/ci.yml](../.github/workflows/ci.yml). The delivery report links the verified feature-branch run; [workflow history](https://github.com/Your-Saviour/logistics-simulator/actions/workflows/ci.yml) remains the authoritative hosted result.
+All service builds and tests run in Docker containers. Host scripts generate private disposable manifests and orchestrate Docker. Workloads run serially with a 20 GiB default free-space reserve. Test manifests expose no host ports and never reference live deployment volumes. See the verification record for actual results and limitations; a workflow definition is not evidence of a successful hosted run.
+
+API authentication uses independent deployment secrets and HTTP Basic; Shipping's browser uses Laravel sessions and CSRF protection. Production ingress requires TLS. Native finalization waits for acknowledgement before persisting `finalized`. Native state loss requires a coordinated new epoch; local controllers do not silently substitute synthetic peers or rewind a live federation.
