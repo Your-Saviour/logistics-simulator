@@ -1,0 +1,410 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": "1.0",
+      "title": "Version",
+      "type": "string"
+    },
+    "request_id": {
+      "format": "uuid",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "run_id": {
+      "format": "uuid",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "epoch": {
+      "format": "uuid",
+      "title": "Epoch",
+      "type": "string"
+    },
+    "session_id": {
+      "format": "uuid",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "operation": {
+      "enum": [
+        "initialize",
+        "poll",
+        "receive_ack",
+        "request_time",
+        "publish",
+        "publish_value",
+        "checkpoint",
+        "finalize"
+      ],
+      "title": "Operation",
+      "type": "string"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "version",
+    "request_id",
+    "run_id",
+    "epoch",
+    "session_id",
+    "operation",
+    "payload"
+  ],
+  "title": "Command",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:adapter:command:1.0",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "initialize"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {},
+            "title": "Empty",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "poll"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {},
+            "title": "Empty",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "receive_ack"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "event_ids": {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 10000,
+                "title": "Event Ids",
+                "type": "array"
+              }
+            },
+            "required": [
+              "event_ids"
+            ],
+            "title": "ReceiveAck",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "request_time"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "target": {
+                "minimum": 0,
+                "title": "Target",
+                "type": "number"
+              },
+              "committed": {
+                "minimum": 0,
+                "title": "Committed",
+                "type": "number"
+              },
+              "pending_work": {
+                "minimum": 0,
+                "title": "Pending Work",
+                "type": "integer"
+              },
+              "pending_outputs": {
+                "minimum": 0,
+                "title": "Pending Outputs",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "target",
+              "committed",
+              "pending_work",
+              "pending_outputs"
+            ],
+            "title": "TimeRequest",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "publish"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "endpoint": {
+                "maxLength": 256,
+                "minLength": 1,
+                "title": "Endpoint",
+                "type": "string"
+              },
+              "envelope": {
+                "$ref": "#/$defs/Envelope"
+              }
+            },
+            "required": [
+              "endpoint",
+              "envelope"
+            ],
+            "title": "Publication",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "publish_value"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {
+              "value": {
+                "title": "Value",
+                "type": "number"
+              },
+              "unit": {
+                "const": "item",
+                "title": "Unit",
+                "type": "string"
+              }
+            },
+            "required": [
+              "value",
+              "unit"
+            ],
+            "title": "ValuePublication",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "checkpoint"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {},
+            "title": "Empty",
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "finalize"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "additionalProperties": false,
+            "properties": {},
+            "title": "Empty",
+            "type": "object"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "Envelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "sample.completed.v1",
+          "default": "sample.completed.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "minLength": 1,
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "minLength": 1,
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/SamplePayload"
+        }
+      },
+      "required": [
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "Envelope",
+      "type": "object"
+    },
+    "SamplePayload": {
+      "additionalProperties": false,
+      "properties": {
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "quantity"
+      ],
+      "title": "SamplePayload",
+      "type": "object"
+    }
+  }
+}

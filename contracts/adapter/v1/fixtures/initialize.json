@@ -1,0 +1,9 @@
+{
+  "version": "1.0",
+  "request_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "run_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "epoch": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "session_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  "operation": "initialize",
+  "payload": {}
+}
