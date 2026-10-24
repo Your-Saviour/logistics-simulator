@@ -1,0 +1,27 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/shipping.php';
+use Shipping\{Fulfilment,Ledger,Rules};
+$settings=clone $s;$settings->providers=['orders'=>'helics','goods'=>'helics','carrier'=>'helics'];$settings->federationId='shipping-test';$settings->peers=['goods'=>[['source'=>'storage','endpoint'=>'storage/events'],['source'=>'manufacturing','endpoint'=>'manufacturing/events']],'carrier'=>['source'=>'logistics','endpoint'=>'logistics/events'],'orders'=>['source'=>'external-orders','endpoint'=>'orders/events']];
+$shipping=new Fulfilment($db,$settings);$ledger=new Ledger($db,$settings);
+$create=shippingSubmit(['action'=>'create','customer'=>'CONNECTED','destination'=>'CUSTOMER-A','lines'=>[['sku'=>'PRODUCT','quantity'=>2]]]);shippingDrain();shippingSubmit(['action'=>'fulfil','reference'=>$create['id']]);shippingDrain();
+$o=$shipping->order($create['id']);$intent=$o['intents'][0];$r=$ledger->status()['run'];
+$e=['schema_version'=>'1.0','type'=>'shipping.fact.v1','event_id'=>Rules::uuid4(),'federation_id'=>'shipping-test','run_id'=>$r['id'],'epoch'=>$r['epoch'],'correlation_id'=>$o['correlation_id'],'causation_id'=>$intent['id'],'aggregate_id'=>$o['id'],'aggregate_version'=>1,'source'=>'storage','destination'=>'shipping','boundary'=>'goods','effective_time'=>$r['granted']+1,'quantity_unit'=>'item','payload'=>['intent_id'=>$intent['id'],'owner'=>'storage','result'=>'reserved','reference'=>$o['id'],'sku'=>'PRODUCT','quantity'=>2,'destination'=>'CUSTOMER-A']];
+shippingReject(fn()=>$shipping->ingest($e,'intruder/events'),'connected fact rejects wrong endpoint');
+shippingCheck($shipping->ingest($e,'storage/events')==='accepted','matching future fact durably schedules');
+shippingCheck($shipping->ingest($e,'storage/events')==='duplicate','same event redelivery deduplicates');
+shippingReject(fn()=>$shipping->ingest([...$e,'effective_time'=>$e['effective_time']+1],'storage/events'),'same event changed body conflicts');
+shippingCheck($shipping->order($o['id'])['lines'][0]['reserved']===0,'future fact cannot mutate physical state before grant');
+$bad=[...$e,'event_id'=>Rules::uuid4(),'source'=>'manufacturing','payload'=>[...$e['payload'],'owner'=>'manufacturing']];shippingReject(fn()=>$shipping->ingest($bad,'manufacturing/events'),'manufacturing cannot assert stock outcome');
+$old=[...$e,'event_id'=>Rules::uuid4(),'epoch'=>Rules::uuid4()];shippingCheck($shipping->ingest($old,'storage/events')==='fenced','connected fact fences old epoch');
+$u=$db->transaction(fn($u)=>$u->query('SELECT envelope FROM boundary_outbox WHERE run_id=?',[$r['id']]));shippingCheck($u[0]['envelope']['type']==='storage.request.v1'&&$u[0]['envelope']['destination']==='storage','outgoing stock request is targeted and durable');
+echo "Shipping connected boundary checks passed\n";
+$peerReservation=Rules::uuid4();$typed=[...$e,'type'=>'storage.reserve.completed.v1','aggregate_id'=>$peerReservation,'payload'=>['id'=>$peerReservation,'run_id'=>$r['id'],'correlation_id'=>$o['correlation_id'],'sku'=>'PRODUCT','location'=>'FINISHED-A','quantity'=>2,'purpose'=>'customer','status'=>'reserved','version'=>1]];
+$f=$db->transaction(fn($u)=>Shipping\ShippingBoundary::fact($u,$r,$typed));shippingCheck($f['intent_id']===$intent['id']&&$f['peer_reference']===$peerReservation,'storage reservation maps exact pending intent and remote reference');
+$forged=[...$e,'type'=>'shipping.order.v1','source'=>'external-orders','boundary'=>'orders','payload'=>['action'=>'cancel','reference'=>$o['id']]];
+shippingReject(fn()=>Shipping\ShippingBoundary::validate($forged),'external customer payload cannot override command metadata');
+$customer=[...$e,'event_id'=>Rules::uuid4(),'type'=>'shipping.order.v1','source'=>'external-orders','boundary'=>'orders','aggregate_id'=>Rules::uuid4(),'correlation_id'=>Rules::uuid4(),'payload'=>['customer'=>'EXTERNAL-CORRELATION','destination'=>'CUSTOMER-A','lines'=>[['sku'=>'PRODUCT','quantity'=>1]]]];
+shippingCheck($shipping->ingest($customer,'orders/events')==='accepted','external customer order is durable');
+shippingReject(fn()=>$shipping->ingest([...$customer,'event_id'=>Rules::uuid4()],'orders/events'),'customer aggregate cannot duplicate under a new event identity');
+$db->transaction(fn($u)=>$u->execute('UPDATE boundary_outbox SET sent_at=clock_timestamp() WHERE run_id=?',[$r['id']]));shippingDrain();
+$external=array_values(array_filter($shipping->snapshot()['orders'],fn($order)=>$order['customer']==='EXTERNAL-CORRELATION'))[0];shippingCheck($external['correlation_id']===$customer['correlation_id'],'customer correlation survives order and shipment creation');

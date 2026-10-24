@@ -8,3 +8,13 @@ php /app/tests/controller_outage.php
 php /app/tests/feature.php
 php /app/tests/web.php
 php /app/tests/ui_scope.php
+php /app/tests/shipping.php
+php /app/tests/shipping_http.php
+php /app/tests/shipping_web.php
+php /app/tests/shipping_boundary.php
+php /app/tests/shipping_typed.php
+php /app/tests/shipping_cancellation.php
+php /app/tests/shipping_peer_identity.php
+php /app/tests/shipping_failures.php
+php /app/tests/shipping_web_replay.php
+php /app/tests/shipping_autonomous.php
