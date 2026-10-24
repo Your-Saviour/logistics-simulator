@@ -21,6 +21,38 @@ def fixture(name):
     return json.loads((ROOT / 'fixtures.json').read_text())[name]
 
 
+def test_http_projection_schema_validates_the_versioned_handling_extension():
+    schema = json.loads((ROOT.parents[1] / 'http/v1/twin-projection.schema.json').read_text())
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    unit = fixture('placed_unit')
+    value = {'version': 1, 'source': 'storage', 'cursor': 'handling-contract',
+             'run': {'id': unit['run_id'], 'epoch': unit['epoch'], 'state': 'running',
+                     'granted': 5, 'requested': 5, 'committed': 5, 'speed': 1,
+                     'anchor': '2026-01-01T00:00:00Z', 'scenario': {}},
+             'snapshot': {'handling': {'version': 1, 'catalog_version': 1,
+                 'units': [unit], 'movements': [], 'handoffs': [], 'lineage': [], 'quarantine': []}},
+             'events': []}
+    validator.validate(value)
+    invalid = copy.deepcopy(value)
+    invalid['snapshot']['handling']['units'][0]['contents'][0]['quantity'] = 0
+    with pytest.raises(ValidationError):
+        validator.validate(invalid)
+
+
+@pytest.mark.parametrize('source', ['storage', 'manufacturing', 'shipping', 'logistics'])
+def test_http_handling_schema_accepts_captured_native_bodies(source):
+    captured = json.loads((Path(__file__).resolve().parents[1] /
+        'apps/twin/tests/fixtures/handling-factory.json').read_text())
+    schema = json.loads((ROOT.parents[1] / 'http/v1/twin-projection.schema.json').read_text())
+    Draft202012Validator.check_schema(schema)
+    value = {'version': 1, 'source': source, 'cursor': 'native-handling-shape',
+             'run': {'id': captured['run_id'], 'epoch': captured['epoch'],
+                     'state': 'running', 'granted': 10000, 'requested': 10000,
+                     'committed': 10000, 'speed': 1, 'anchor': '2026-01-01T00:00:00Z', 'scenario': {}},
+             'snapshot': {'handling': captured['handling'][source]}, 'events': []}
+    Draft202012Validator(schema, format_checker=FormatChecker()).validate(value)
+
+
 def test_unit_contract_accepts_confirmed_and_pending_placement():
     validator = contract('unit')
     validator.validate(fixture('placed_unit'))

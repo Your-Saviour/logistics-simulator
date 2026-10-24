@@ -35,7 +35,7 @@
     },
     "effects": {"type": "integer", "minimum": 0, "description": "Sum of committed legacy sample effect quantities for the active run, preserving /api/status semantics."},
     "cursor": {"type": "string", "minLength": 1},
-    "snapshot": {"type": "object"},
+    "snapshot": {"type": "object", "properties": {"handling": {"$ref": "#/$defs/handling"}}},
     "events": {
       "type": "array",
       "items": {
@@ -48,6 +48,1056 @@
           "simulation_time": {"type": "number", "minimum": 0}
         }
       }
+    }
+  },
+  "$defs": {
+    "handling_unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "id",
+        "barcode",
+        "run_id",
+        "epoch",
+        "contents",
+        "category",
+        "state",
+        "owner",
+        "custody_generation",
+        "last_sequence",
+        "position",
+        "origin",
+        "destination",
+        "handoff_id"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "barcode": {
+          "type": "string",
+          "pattern": "^HU-[0-9A-F]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "contents": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sku",
+              "quantity"
+            ],
+            "properties": {
+              "sku": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "quantity": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              }
+            }
+          }
+        },
+        "category": {
+          "enum": [
+            "raw",
+            "finished"
+          ]
+        },
+        "state": {
+          "enum": [
+            "available",
+            "reserved",
+            "in_transit",
+            "consumed",
+            "dispatched",
+            "legacy_unplaced"
+          ]
+        },
+        "owner": {
+          "enum": [
+            "storage",
+            "manufacturing",
+            "logistics",
+            "shipping"
+          ]
+        },
+        "custody_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "last_sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "position": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "destination": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "handoff_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "available",
+                  "reserved"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "position": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+              },
+              "handoff_id": {
+                "type": "null"
+              },
+              "origin": {
+                "type": "null"
+              },
+              "destination": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "in_transit"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "position": {
+                "type": "null"
+              },
+              "origin": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+              },
+              "destination": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+              },
+              "handoff_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "consumed",
+                  "dispatched",
+                  "legacy_unplaced"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "position": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "handling_movement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "unit_id",
+        "barcode",
+        "run_id",
+        "epoch",
+        "sequence",
+        "custody_generation",
+        "origin",
+        "destination",
+        "simulation_time",
+        "action",
+        "references"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "unit_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "barcode": {
+          "type": "string",
+          "pattern": "^HU-[0-9A-F]{32}$"
+        },
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "custody_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "destination": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+        },
+        "simulation_time": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "enum": [
+            "receive",
+            "putaway",
+            "retrieve",
+            "load",
+            "depart",
+            "unload",
+            "consume",
+            "produce",
+            "dispatch"
+          ]
+        },
+        "references": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "transfer_id",
+            "batch_id",
+            "shipment_id"
+          ],
+          "properties": {
+            "transfer_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "batch_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "shipment_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "correlation_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "enum": [
+                  "putaway",
+                  "retrieve",
+                  "load",
+                  "depart",
+                  "unload",
+                  "dispatch"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "origin": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "handling_handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "run_id",
+        "epoch",
+        "source",
+        "destination_owner",
+        "origin",
+        "destination",
+        "state",
+        "unit",
+        "departure_token",
+        "receipt_id",
+        "reason"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source": {
+          "enum": [
+            "storage",
+            "manufacturing",
+            "logistics",
+            "shipping"
+          ]
+        },
+        "destination_owner": {
+          "enum": [
+            "storage",
+            "manufacturing",
+            "logistics",
+            "shipping"
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+        },
+        "destination": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+        },
+        "state": {
+          "enum": [
+            "offered",
+            "accepted",
+            "departed",
+            "received",
+            "acknowledged",
+            "quarantined"
+          ]
+        },
+        "unit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "id",
+            "barcode",
+            "run_id",
+            "epoch",
+            "contents",
+            "category",
+            "state",
+            "owner",
+            "custody_generation",
+            "last_sequence",
+            "position",
+            "origin",
+            "destination",
+            "handoff_id"
+          ],
+          "properties": {
+            "version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "barcode": {
+              "type": "string",
+              "pattern": "^HU-[0-9A-F]{32}$"
+            },
+            "run_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "epoch": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "contents": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sku",
+                  "quantity"
+                ],
+                "properties": {
+                  "sku": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  }
+                }
+              }
+            },
+            "category": {
+              "enum": [
+                "raw",
+                "finished"
+              ]
+            },
+            "state": {
+              "enum": [
+                "available",
+                "reserved",
+                "in_transit",
+                "consumed",
+                "dispatched",
+                "legacy_unplaced"
+              ]
+            },
+            "owner": {
+              "enum": [
+                "storage",
+                "manufacturing",
+                "logistics",
+                "shipping"
+              ]
+            },
+            "custody_generation": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "last_sequence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "position": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "origin": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "destination": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "handoff_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "enum": [
+                      "available",
+                      "reserved"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "position": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+                  },
+                  "handoff_id": {
+                    "type": "null"
+                  },
+                  "origin": {
+                    "type": "null"
+                  },
+                  "destination": {
+                    "type": "null"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "in_transit"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "position": {
+                    "type": "null"
+                  },
+                  "origin": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+                  },
+                  "destination": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+                  },
+                  "handoff_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "enum": [
+                      "consumed",
+                      "dispatched",
+                      "legacy_unplaced"
+                    ]
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "position": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "departure_token": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "handoff_id",
+                "unit_id",
+                "run_id",
+                "epoch",
+                "custody_generation",
+                "last_sequence",
+                "unit_version"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "handoff_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "unit_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "run_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "epoch": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "custody_generation": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "last_sequence": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "unit_version": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receipt_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "departed",
+                  "received",
+                  "acknowledged"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "departure_token": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "handoff_id",
+                  "unit_id",
+                  "run_id",
+                  "epoch",
+                  "custody_generation",
+                  "last_sequence",
+                  "unit_version"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "handoff_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "unit_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "run_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "epoch": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "custody_generation": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "last_sequence": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "unit_version": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "received",
+                  "acknowledged"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "receipt_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "quarantined"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "handling_lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "batch_id",
+        "run_id",
+        "epoch",
+        "product",
+        "input_unit_ids",
+        "output_unit_ids",
+        "recipe",
+        "batch_quantity",
+        "output_quantity",
+        "scrap_quantity",
+        "simulation_time"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "batch_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "product": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+        },
+        "input_unit_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 1
+        },
+        "output_unit_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "recipe": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "batch_quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "output_quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "scrap_quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "simulation_time": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "handling_quarantine": {
+      "type": "object",
+      "required": [
+        "id",
+        "event_id",
+        "run_id",
+        "epoch",
+        "endpoint",
+        "phase",
+        "reason",
+        "envelope",
+        "simulation_time"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "ingest",
+            "apply"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "envelope": {
+          "type": "object"
+        },
+        "simulation_time": {
+          "type": "number",
+          "minimum": 0
+        },
+        "command_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recorded_at": {
+          "type": "string"
+        }
+      }
+    },
+    "handling": {
+      "type": "object",
+      "required": [
+        "version",
+        "catalog_version",
+        "units",
+        "movements",
+        "handoffs",
+        "lineage"
+      ],
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "catalog_version": {
+          "type": "integer",
+          "const": 1
+        },
+        "units": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/handling_unit"
+          }
+        },
+        "movements": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/handling_movement"
+          }
+        },
+        "handoffs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/handling_handoff"
+          }
+        },
+        "lineage": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/handling_lineage"
+          }
+        },
+        "quarantine": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/handling_quarantine"
+          }
+        }
+      },
+      "description": "Additive complete handling extension. Native planning/context fields may coexist. Cross-record invariants and immutable retained history require semantic validation."
     }
   },
   "description": "GET /api/projection with Basic authentication and status:read. Run, snapshot and complete active-run durable history are read under one run lock. Cursor is opaque content identity, not an event or sequence. See twin-projection.md for source shapes and reconnect rules."

@@ -56,6 +56,44 @@ creating default warehouse stock, materials or vehicles. Configuration describes
 the run's configured/default model, not evidence that equipment or inventory
 has been initialized. Source health/staleness is the consumer's observation.
 
+## Handling extension version 1
+
+The additive `snapshot.handling` object has `version: 1`, `catalog_version: 1`
+and complete `units`, `movements`, `handoffs` and `lineage` arrays. `quarantine`
+retains rejected custody evidence when provided. The JSON schema embeds the
+shared unit, movement, handoff and lineage shapes from `contracts/handling/v1`.
+Existing snapshot fields remain available. Native planning/context fields such
+as `legacy_stock`, `input_allocations`, `unit_context` and `plans` remain owned
+by their department and may coexist with this extension.
+
+Each source reports its own retained unit records, including consumed and
+historically dispatched units. Unit IDs, barcodes, scope, category and contents
+are immutable. Per-unit sequences and custody generations never regress.
+Movements reference retained units and retain the latest recorded sequence;
+consumption is a terminal event at its original input endpoint, not travel to
+an invented position. Manufacturing owns recipe-conserving input/output lineage.
+
+Native movement events use `<source>:unit-movement:<movement UUID>` IDs.
+Manufacturing lineage events use `manufacturing:lineage:<lineage UUID>` IDs.
+These remain distinct from legacy quantity/history events. A client must not
+count both records as separate physical movements.
+
+Within an active scope, a source cannot omit an observed unit, movement,
+closed handoff, lineage or quarantine record on reconnect. Movement, lineage
+and quarantine identities retain their original bodies. Handoff phases cannot
+regress: offer/acceptance freeze the complete reserved manifest; departure
+advances its version, sequence and custody generation exactly once; receipt
+and acknowledgement retain that same transit manifest and departure proof.
+Twin validates these invariants before atomically replacing snapshot/events/cursor.
+Legacy responses without `handling` remain readable; after observing the
+extension it cannot disappear within the same run/epoch.
+
+Unknown endpoint IDs remain recorded strings without guessed coordinates.
+Known endpoints retain ownership/category/capacity validation. A missing catalog
+mapping is distinct from an empty warehouse. Quarantine uses the observing
+source run/epoch while retaining the original rejected envelope's claimed scope;
+it establishes neither receipt nor allocatable stock.
+
 ## Infrastructure and control retries
 
 The additive `health` object exposes persisted heartbeats (`role`, `seen_at`,

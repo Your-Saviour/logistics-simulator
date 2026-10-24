@@ -1,0 +1,1236 @@
+{
+  "origin": "Captured handling snapshots from make handling-factory-check, native run 55e83dc3-de74-48d1-a269-4f875f155308",
+  "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+  "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+  "handling": {
+    "storage": {
+      "version": 1,
+      "catalog_version": 1,
+      "units": [
+        {
+          "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "version": 8,
+          "custody_generation": 2,
+          "last_sequence": 5,
+          "category": "finished",
+          "state": "dispatched",
+          "owner": "storage",
+          "position": null,
+          "origin": "storage.outbound.dock01",
+          "destination": "shipping.outbound.dock01",
+          "handoff_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+          "contents": [
+            {
+              "sku": "PRODUCT",
+              "quantity": 1
+            }
+          ]
+        },
+        {
+          "id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+          "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "version": 6,
+          "custody_generation": 1,
+          "last_sequence": 3,
+          "category": "raw",
+          "state": "dispatched",
+          "owner": "storage",
+          "position": null,
+          "origin": "storage.raw.r01.b01.l04",
+          "destination": "manufacturing.cell01.input01",
+          "handoff_id": "3391463a-43af-5636-a266-bd9128468e8e",
+          "contents": [
+            {
+              "sku": "COMPONENT",
+              "quantity": 2
+            }
+          ]
+        }
+      ],
+      "movements": [
+        {
+          "id": "117bb2ee-bc42-47f1-9406-1416aa252f04",
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 3,
+          "custody_generation": 1,
+          "origin": "manufacturing.cell01.output01",
+          "destination": "storage.finished_receipt.dock01",
+          "simulation_time": 433,
+          "action": "receive",
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": null
+          },
+          "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c"
+        },
+        {
+          "id": "2af7453a-d083-4ae8-99fc-4dc2f039df00",
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 4,
+          "custody_generation": 1,
+          "origin": "storage.finished_receipt.dock01",
+          "destination": "storage.outbound.dock01",
+          "simulation_time": 438,
+          "action": "retrieve",
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": null
+          },
+          "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c"
+        },
+        {
+          "id": "74a0d834-2d62-4b4c-b9bd-fc7f6a9ce17d",
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 5,
+          "custody_generation": 2,
+          "origin": "storage.outbound.dock01",
+          "destination": "shipping.outbound.dock01",
+          "simulation_time": 459,
+          "action": "depart",
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": null
+          },
+          "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c"
+        },
+        {
+          "id": "d6bd1bba-d990-4059-b11b-0750149e4c90",
+          "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+          "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 1,
+          "custody_generation": 0,
+          "origin": null,
+          "destination": "storage.inbound.dock01",
+          "simulation_time": 270,
+          "action": "receive",
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": null
+          },
+          "correlation_id": "50791959-712a-4b62-9bb6-663c0c6b09a1"
+        },
+        {
+          "id": "a0e38500-8aad-46cc-a134-56b1cce27f41",
+          "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+          "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 2,
+          "custody_generation": 0,
+          "origin": "storage.inbound.dock01",
+          "destination": "storage.raw.r01.b01.l04",
+          "simulation_time": 272,
+          "action": "putaway",
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": null
+          },
+          "correlation_id": "50791959-712a-4b62-9bb6-663c0c6b09a1"
+        },
+        {
+          "id": "35f88435-89d3-41e8-8052-033e0a1e442f",
+          "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+          "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 3,
+          "custody_generation": 1,
+          "origin": "storage.raw.r01.b01.l04",
+          "destination": "manufacturing.cell01.input01",
+          "simulation_time": 348,
+          "action": "depart",
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": null
+          },
+          "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c"
+        }
+      ],
+      "quarantine": [
+        {
+          "id": "2fbb0997-be3c-4306-8993-310192e5e1da",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "event_id": "c4f703d3-1b27-477a-86d2-c73e9966e6dc",
+          "envelope": {
+            "type": "handling.acknowledged.v1",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "source": "manufacturing",
+            "payload": {
+              "id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+              "unit": {
+                "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+                "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                "owner": "manufacturing",
+                "state": "in_transit",
+                "origin": "manufacturing.cell01.output01",
+                "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                "barcode": "HU-29D7717C927953219F79F149057D73D2",
+                "version": 3,
+                "category": "finished",
+                "contents": [
+                  {
+                    "sku": "PRODUCT",
+                    "quantity": 1
+                  }
+                ],
+                "position": null,
+                "handoff_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+                "destination": "storage.finished_receipt.dock01",
+                "last_sequence": 2,
+                "custody_generation": 1
+              },
+              "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+              "state": "acknowledged",
+              "origin": "manufacturing.cell01.output01",
+              "reason": null,
+              "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+              "source": "manufacturing",
+              "receipt_id": "8bdd3f42-3b4a-4563-bffe-91f059cb0f49",
+              "destination": "storage.finished_receipt.dock01",
+              "departure_token": {
+                "id": "b9f28c9c-f5c5-53a6-a32a-3654eac4f279",
+                "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+                "handoff_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+                "unit_version": 3,
+                "last_sequence": 2,
+                "custody_generation": 1
+              },
+              "destination_owner": "storage"
+            },
+            "boundary": "supply",
+            "event_id": "c4f703d3-1b27-477a-86d2-c73e9966e6dc",
+            "wall_time": "2026-10-24T23:09:44.812176Z",
+            "destination": "storage",
+            "aggregate_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+            "causation_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+            "federation_id": "handling-factory-native",
+            "quantity_unit": "item",
+            "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c",
+            "effective_time": 594.0,
+            "schema_version": "1.0",
+            "aggregate_version": 3
+          },
+          "endpoint": "manufacturing/events",
+          "phase": "apply",
+          "reason": "Finished receipt proof changed",
+          "command_id": "3f802418-5937-4282-ae7a-69f00de4b1fb",
+          "simulation_time": 634,
+          "recorded_at": "2026-10-24T23:09:56.977443Z"
+        }
+      ],
+      "handoffs": [
+        {
+          "id": "3391463a-43af-5636-a266-bd9128468e8e",
+          "unit": {
+            "id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "owner": "storage",
+            "state": "in_transit",
+            "origin": "storage.raw.r01.b01.l04",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+            "version": 5,
+            "category": "raw",
+            "contents": [
+              {
+                "sku": "COMPONENT",
+                "quantity": 2
+              }
+            ],
+            "position": null,
+            "handoff_id": "3391463a-43af-5636-a266-bd9128468e8e",
+            "destination": "manufacturing.cell01.input01",
+            "last_sequence": 3,
+            "custody_generation": 1
+          },
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "state": "acknowledged",
+          "origin": "storage.raw.r01.b01.l04",
+          "reason": null,
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "source": "storage",
+          "receipt_id": "f25ab197-8b97-5063-bc3b-3f6ecbc8b338",
+          "destination": "manufacturing.cell01.input01",
+          "departure_token": {
+            "id": "ee93f3f3-1f34-5e6f-bc57-ba3dac13d285",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+            "handoff_id": "3391463a-43af-5636-a266-bd9128468e8e",
+            "unit_version": 5,
+            "last_sequence": 3,
+            "custody_generation": 1
+          },
+          "destination_owner": "manufacturing"
+        },
+        {
+          "id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+          "unit": {
+            "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "owner": "storage",
+            "state": "in_transit",
+            "origin": "storage.outbound.dock01",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "barcode": "HU-29D7717C927953219F79F149057D73D2",
+            "version": 7,
+            "category": "finished",
+            "contents": [
+              {
+                "sku": "PRODUCT",
+                "quantity": 1
+              }
+            ],
+            "position": null,
+            "handoff_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+            "destination": "shipping.outbound.dock01",
+            "last_sequence": 5,
+            "custody_generation": 2
+          },
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "state": "acknowledged",
+          "origin": "storage.outbound.dock01",
+          "reason": null,
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "source": "storage",
+          "receipt_id": "a8c13d46-90bd-59cb-921d-da11207794a3",
+          "destination": "shipping.outbound.dock01",
+          "departure_token": {
+            "id": "71f8efe2-51df-5b98-9117-8dee8329cc81",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "handoff_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+            "unit_version": 7,
+            "last_sequence": 5,
+            "custody_generation": 2
+          },
+          "destination_owner": "shipping"
+        },
+        {
+          "id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+          "unit": {
+            "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "owner": "manufacturing",
+            "state": "in_transit",
+            "origin": "manufacturing.cell01.output01",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "barcode": "HU-29D7717C927953219F79F149057D73D2",
+            "version": 3,
+            "category": "finished",
+            "contents": [
+              {
+                "sku": "PRODUCT",
+                "quantity": 1
+              }
+            ],
+            "position": null,
+            "handoff_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+            "destination": "storage.finished_receipt.dock01",
+            "last_sequence": 2,
+            "custody_generation": 1
+          },
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "state": "acknowledged",
+          "origin": "manufacturing.cell01.output01",
+          "reason": null,
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "source": "manufacturing",
+          "receipt_id": "3dbc2b0e-31dd-57b2-aa3e-a758d8795bad",
+          "destination": "storage.finished_receipt.dock01",
+          "departure_token": {
+            "id": "b9f28c9c-f5c5-53a6-a32a-3654eac4f279",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "handoff_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+            "unit_version": 3,
+            "last_sequence": 2,
+            "custody_generation": 1
+          },
+          "destination_owner": "storage"
+        }
+      ],
+      "lineage": [],
+      "legacy_stock": []
+    },
+    "manufacturing": {
+      "version": 1,
+      "catalog_version": 1,
+      "units": [
+        {
+          "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "version": 4,
+          "custody_generation": 1,
+          "last_sequence": 2,
+          "category": "finished",
+          "state": "dispatched",
+          "position": null,
+          "origin": "manufacturing.cell01.output01",
+          "destination": "storage.finished_receipt.dock01",
+          "handoff_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+          "owner": "manufacturing",
+          "contents": [
+            {
+              "quantity": 1,
+              "sku": "PRODUCT"
+            }
+          ]
+        },
+        {
+          "id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+          "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "version": 7,
+          "custody_generation": 1,
+          "last_sequence": 5,
+          "category": "raw",
+          "state": "consumed",
+          "position": null,
+          "origin": null,
+          "destination": null,
+          "handoff_id": null,
+          "owner": "manufacturing",
+          "contents": [
+            {
+              "quantity": 2,
+              "sku": "COMPONENT"
+            }
+          ]
+        }
+      ],
+      "movements": [
+        {
+          "id": "c8c495f7-c78a-533b-a3f5-24b6a050e1eb",
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 1,
+          "custody_generation": 0,
+          "action": "produce",
+          "origin": null,
+          "destination": "manufacturing.cell01.output01",
+          "simulation_time": 410.0,
+          "references": {
+            "batch_id": "8bf74bf5-60d0-456b-a816-40a37a58a64f",
+            "shipment_id": null,
+            "transfer_id": null
+          }
+        },
+        {
+          "id": "a5897a3a-546c-5a2a-9ce1-3333c778333f",
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 2,
+          "custody_generation": 1,
+          "action": "depart",
+          "origin": "manufacturing.cell01.output01",
+          "destination": "storage.finished_receipt.dock01",
+          "simulation_time": 432.0,
+          "references": {
+            "batch_id": "8bf74bf5-60d0-456b-a816-40a37a58a64f",
+            "shipment_id": null,
+            "transfer_id": null
+          }
+        },
+        {
+          "id": "33c32c9b-878c-5cb5-baf5-552ab00440a3",
+          "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+          "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 4,
+          "custody_generation": 1,
+          "action": "receive",
+          "origin": "storage.raw.r01.b01.l04",
+          "destination": "manufacturing.cell01.input01",
+          "simulation_time": 349.0,
+          "references": {
+            "batch_id": "8bf74bf5-60d0-456b-a816-40a37a58a64f",
+            "shipment_id": null,
+            "transfer_id": null
+          }
+        },
+        {
+          "id": "73c5fcf4-3b07-5ade-be06-101ae385c480",
+          "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+          "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 5,
+          "custody_generation": 1,
+          "action": "consume",
+          "origin": "manufacturing.cell01.input01",
+          "destination": "manufacturing.cell01.input01",
+          "simulation_time": 350.0,
+          "references": {
+            "batch_id": "8bf74bf5-60d0-456b-a816-40a37a58a64f",
+            "shipment_id": null,
+            "transfer_id": null
+          }
+        }
+      ],
+      "lineage": [
+        {
+          "id": "df933e27-dd5f-58ac-812d-cdd487d18e51",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "recipe": {
+            "COMPONENT": 2
+          },
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "product": "PRODUCT",
+          "batch_id": "8bf74bf5-60d0-456b-a816-40a37a58a64f",
+          "batch_quantity": 1,
+          "input_unit_ids": [
+            "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399"
+          ],
+          "scrap_quantity": 0,
+          "output_quantity": 1,
+          "output_unit_ids": [
+            "29d7717c-9279-5321-9f79-f149057d73d2"
+          ],
+          "simulation_time": 410.0
+        }
+      ],
+      "input_allocations": [
+        {
+          "batch_id": "8bf74bf5-60d0-456b-a816-40a37a58a64f",
+          "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+          "simulation_time": 350.0
+        }
+      ],
+      "legacy_stock": [],
+      "handoffs": [
+        {
+          "id": "3391463a-43af-5636-a266-bd9128468e8e",
+          "unit": {
+            "id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "owner": "storage",
+            "state": "in_transit",
+            "origin": "storage.raw.r01.b01.l04",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+            "version": 5,
+            "category": "raw",
+            "contents": [
+              {
+                "sku": "COMPONENT",
+                "quantity": 2
+              }
+            ],
+            "position": null,
+            "handoff_id": "3391463a-43af-5636-a266-bd9128468e8e",
+            "destination": "manufacturing.cell01.input01",
+            "last_sequence": 3,
+            "custody_generation": 1
+          },
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "state": "acknowledged",
+          "origin": "storage.raw.r01.b01.l04",
+          "reason": null,
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "source": "storage",
+          "receipt_id": "f25ab197-8b97-5063-bc3b-3f6ecbc8b338",
+          "destination": "manufacturing.cell01.input01",
+          "departure_token": {
+            "id": "ee93f3f3-1f34-5e6f-bc57-ba3dac13d285",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+            "handoff_id": "3391463a-43af-5636-a266-bd9128468e8e",
+            "unit_version": 5,
+            "last_sequence": 3,
+            "custody_generation": 1
+          },
+          "destination_owner": "manufacturing"
+        },
+        {
+          "id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+          "unit": {
+            "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "owner": "manufacturing",
+            "state": "in_transit",
+            "origin": "manufacturing.cell01.output01",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "barcode": "HU-29D7717C927953219F79F149057D73D2",
+            "version": 3,
+            "category": "finished",
+            "contents": [
+              {
+                "sku": "PRODUCT",
+                "quantity": 1
+              }
+            ],
+            "position": null,
+            "handoff_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+            "destination": "storage.finished_receipt.dock01",
+            "last_sequence": 2,
+            "custody_generation": 1
+          },
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "state": "acknowledged",
+          "origin": "manufacturing.cell01.output01",
+          "reason": null,
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "source": "manufacturing",
+          "receipt_id": "3dbc2b0e-31dd-57b2-aa3e-a758d8795bad",
+          "destination": "storage.finished_receipt.dock01",
+          "departure_token": {
+            "id": "b9f28c9c-f5c5-53a6-a32a-3654eac4f279",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "handoff_id": "133451de-76d8-52b8-a3e3-e214ddc64f94",
+            "unit_version": 3,
+            "last_sequence": 2,
+            "custody_generation": 1
+          },
+          "destination_owner": "storage"
+        }
+      ],
+      "quarantine": [
+        {
+          "id": "0b9e9a3e-37b6-4e3f-802b-4fe574152cf0",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "event_id": "c461b2a5-4c3d-48cc-b956-61255d615eb5",
+          "envelope": {
+            "type": "handling.acknowledged.v1",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "source": "storage",
+            "payload": {
+              "id": "3391463a-43af-5636-a266-bd9128468e8e",
+              "unit": {
+                "id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+                "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                "owner": "storage",
+                "state": "in_transit",
+                "origin": "storage.raw.r01.b01.l04",
+                "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                "barcode": "HU-CD7C9C4F06A64CFC8EB147FC3A2E0399",
+                "version": 5,
+                "category": "raw",
+                "contents": [
+                  {
+                    "sku": "COMPONENT",
+                    "quantity": 2
+                  }
+                ],
+                "position": null,
+                "handoff_id": "3391463a-43af-5636-a266-bd9128468e8e",
+                "destination": "manufacturing.cell01.input01",
+                "last_sequence": 3,
+                "custody_generation": 1
+              },
+              "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+              "state": "acknowledged",
+              "origin": "storage.raw.r01.b01.l04",
+              "reason": null,
+              "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+              "source": "storage",
+              "receipt_id": "b7b41311-b3d1-4aa5-91f4-390e84644783",
+              "destination": "manufacturing.cell01.input01",
+              "departure_token": {
+                "id": "ee93f3f3-1f34-5e6f-bc57-ba3dac13d285",
+                "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                "unit_id": "cd7c9c4f-06a6-4cfc-8eb1-47fc3a2e0399",
+                "handoff_id": "3391463a-43af-5636-a266-bd9128468e8e",
+                "unit_version": 5,
+                "last_sequence": 3,
+                "custody_generation": 1
+              },
+              "destination_owner": "manufacturing"
+            },
+            "boundary": "materials",
+            "event_id": "c461b2a5-4c3d-48cc-b956-61255d615eb5",
+            "wall_time": "2026-10-24T23:08:34.596229Z",
+            "destination": "manufacturing",
+            "aggregate_id": "3391463a-43af-5636-a266-bd9128468e8e",
+            "causation_id": "3391463a-43af-5636-a266-bd9128468e8e",
+            "federation_id": "handling-factory-native",
+            "quantity_unit": "item",
+            "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c",
+            "effective_time": 369.0,
+            "schema_version": "1.0",
+            "aggregate_version": 5
+          },
+          "endpoint": "storage/events",
+          "phase": "apply",
+          "reason": "Conflicting receipt proof",
+          "command_id": "e30cafb1-1b94-4bd8-a69d-f3bd6fb23c4a",
+          "simulation_time": 632.0,
+          "recorded_at": "2026-10-24T23:09:55.785762Z"
+        }
+      ]
+    },
+    "shipping": {
+      "version": 1,
+      "catalog_version": 1,
+      "quarantine": [
+        {
+          "id": "1de65798-9691-4b17-b104-56aa5c734055",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "event_id": "f8199a75-e905-45b1-9cda-1c13c499cc66",
+          "envelope": {
+            "type": "handling.acknowledged.v1",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "source": "storage",
+            "payload": {
+              "id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+              "unit": {
+                "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+                "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                "owner": "storage",
+                "state": "in_transit",
+                "origin": "storage.outbound.dock01",
+                "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                "barcode": "HU-29D7717C927953219F79F149057D73D2",
+                "version": 7,
+                "category": "finished",
+                "contents": [
+                  {
+                    "sku": "PRODUCT",
+                    "quantity": 1
+                  }
+                ],
+                "position": null,
+                "handoff_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+                "destination": "shipping.outbound.dock01",
+                "last_sequence": 5,
+                "custody_generation": 2
+              },
+              "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+              "state": "acknowledged",
+              "origin": "storage.outbound.dock01",
+              "reason": null,
+              "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+              "source": "storage",
+              "receipt_id": "78105c7b-b924-4e01-9fb5-6cf123010fa7",
+              "destination": "shipping.outbound.dock01",
+              "departure_token": {
+                "id": "71f8efe2-51df-5b98-9117-8dee8329cc81",
+                "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+                "handoff_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+                "unit_version": 7,
+                "last_sequence": 5,
+                "custody_generation": 2
+              },
+              "destination_owner": "shipping"
+            },
+            "boundary": "goods",
+            "event_id": "f8199a75-e905-45b1-9cda-1c13c499cc66",
+            "wall_time": "2026-10-24T23:09:33.926963Z",
+            "destination": "shipping",
+            "aggregate_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+            "causation_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+            "federation_id": "handling-factory-native",
+            "quantity_unit": "item",
+            "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c",
+            "effective_time": 562,
+            "schema_version": "1.0",
+            "aggregate_version": 7
+          },
+          "endpoint": "storage/events",
+          "phase": "apply",
+          "reason": "Acknowledgement changed receipt identity",
+          "command_id": "ae1dea66-4b9b-4824-8210-b79d430df22b",
+          "simulation_time": 637,
+          "recorded_at": "2026-10-24 23:09:58.315753+00"
+        }
+      ],
+      "units": [
+        {
+          "owner": "shipping",
+          "contents": [
+            {
+              "sku": "PRODUCT",
+              "quantity": 1
+            }
+          ],
+          "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "version": 10,
+          "last_sequence": 7,
+          "custody_generation": 3,
+          "category": "finished",
+          "state": "dispatched",
+          "position": null,
+          "origin": "shipping.outbound.dock01",
+          "destination": "logistics.outbound.staging01",
+          "handoff_id": "ec65ea14-abfb-5527-b722-6f450abb1c66"
+        }
+      ],
+      "movements": [
+        {
+          "id": "4173173d-5c0a-4282-a31f-fa246ab4f10d",
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 6,
+          "custody_generation": 2,
+          "action": "receive",
+          "origin": "storage.outbound.dock01",
+          "destination": "shipping.outbound.dock01",
+          "simulation_time": 460,
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": null
+          },
+          "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c"
+        },
+        {
+          "id": "6d0f67bd-5ece-4f46-ada0-eba3b2b4b833",
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "sequence": 7,
+          "custody_generation": 3,
+          "action": "load",
+          "origin": "shipping.outbound.dock01",
+          "destination": "logistics.outbound.staging01",
+          "simulation_time": 488,
+          "references": {
+            "batch_id": null,
+            "shipment_id": "90e1b299-7cbc-402b-8d85-bc42f9da8da6",
+            "transfer_id": null
+          },
+          "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c"
+        }
+      ],
+      "goods_reservations": [
+        {
+          "id": "0af57c99-fb38-4fe1-8e7e-75f1990c460f",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "line_id": "e128b451-6f0b-5d8e-8b3f-0a42c654cdff",
+          "fact": {
+            "type": "storage.reserve.completed.v1",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "source": "storage",
+            "payload": {
+              "id": "0af57c99-fb38-4fe1-8e7e-75f1990c460f",
+              "sku": "PRODUCT",
+              "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+              "status": "reserved",
+              "purpose": "customer",
+              "version": 1,
+              "location": "FINISHED-A",
+              "quantity": 1,
+              "unit_manifest": [
+                {
+                  "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+                  "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                  "owner": "storage",
+                  "state": "reserved",
+                  "origin": null,
+                  "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                  "barcode": "HU-29D7717C927953219F79F149057D73D2",
+                  "version": 5,
+                  "category": "finished",
+                  "contents": [
+                    {
+                      "sku": "PRODUCT",
+                      "quantity": 1
+                    }
+                  ],
+                  "position": "storage.finished_receipt.dock01",
+                  "handoff_id": null,
+                  "destination": null,
+                  "last_sequence": 3,
+                  "custody_generation": 1
+                }
+              ],
+              "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c"
+            },
+            "boundary": "goods",
+            "event_id": "db1ed942-e333-44b5-ac20-deb68a3c66e2",
+            "wall_time": "2026-10-24T23:08:53.752388Z",
+            "destination": "shipping",
+            "aggregate_id": "0af57c99-fb38-4fe1-8e7e-75f1990c460f",
+            "causation_id": "ae79bee7-06b9-4406-ab8a-2d27330c5fb6",
+            "federation_id": "handling-factory-native",
+            "quantity_unit": "item",
+            "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c",
+            "effective_time": 436,
+            "schema_version": "1.0",
+            "aggregate_version": 1
+          },
+          "state": "admitted",
+          "reason": null
+        }
+      ],
+      "plans": [
+        {
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "line_id": "e128b451-6f0b-5d8e-8b3f-0a42c654cdff",
+          "sku": "PRODUCT",
+          "quantity": 1,
+          "provider": "storage",
+          "state": "received",
+          "reservation_id": "0af57c99-fb38-4fe1-8e7e-75f1990c460f",
+          "source_manifest": {
+            "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "owner": "storage",
+            "state": "reserved",
+            "origin": null,
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "barcode": "HU-29D7717C927953219F79F149057D73D2",
+            "version": 5,
+            "category": "finished",
+            "contents": [
+              {
+                "sku": "PRODUCT",
+                "quantity": 1
+              }
+            ],
+            "position": "storage.finished_receipt.dock01",
+            "handoff_id": null,
+            "destination": null,
+            "last_sequence": 3,
+            "custody_generation": 1
+          },
+          "destination": "shipping.outbound.dock01"
+        }
+      ],
+      "handoffs": [
+        {
+          "id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+          "unit": {
+            "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "owner": "storage",
+            "state": "in_transit",
+            "origin": "storage.outbound.dock01",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "barcode": "HU-29D7717C927953219F79F149057D73D2",
+            "version": 7,
+            "category": "finished",
+            "contents": [
+              {
+                "sku": "PRODUCT",
+                "quantity": 1
+              }
+            ],
+            "position": null,
+            "handoff_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+            "destination": "shipping.outbound.dock01",
+            "last_sequence": 5,
+            "custody_generation": 2
+          },
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "state": "acknowledged",
+          "origin": "storage.outbound.dock01",
+          "reason": null,
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "source": "storage",
+          "receipt_id": "a8c13d46-90bd-59cb-921d-da11207794a3",
+          "destination": "shipping.outbound.dock01",
+          "departure_token": {
+            "id": "71f8efe2-51df-5b98-9117-8dee8329cc81",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "handoff_id": "7ef1bb36-2da2-541f-bdd8-2a629ff2c3c7",
+            "unit_version": 7,
+            "last_sequence": 5,
+            "custody_generation": 2
+          },
+          "destination_owner": "shipping"
+        },
+        {
+          "id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+          "unit": {
+            "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "owner": "shipping",
+            "state": "in_transit",
+            "origin": "shipping.outbound.dock01",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "barcode": "HU-29D7717C927953219F79F149057D73D2",
+            "version": 9,
+            "category": "finished",
+            "contents": [
+              {
+                "sku": "PRODUCT",
+                "quantity": 1
+              }
+            ],
+            "position": null,
+            "handoff_id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+            "destination": "logistics.outbound.staging01",
+            "last_sequence": 7,
+            "custody_generation": 3
+          },
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "state": "acknowledged",
+          "origin": "shipping.outbound.dock01",
+          "reason": null,
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "source": "shipping",
+          "receipt_id": "bc97e787-ef8a-5e72-aa5b-d7565f83bf55",
+          "destination": "logistics.outbound.staging01",
+          "departure_token": {
+            "id": "94d18c71-ad90-5f0b-bdf1-3abf98596531",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "handoff_id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+            "unit_version": 9,
+            "last_sequence": 7,
+            "custody_generation": 3
+          },
+          "destination_owner": "logistics"
+        }
+      ],
+      "lineage": []
+    },
+    "logistics": {
+      "catalog_version": 1,
+      "handoffs": [
+        {
+          "departure_token": {
+            "custody_generation": 3,
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "handoff_id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+            "id": "94d18c71-ad90-5f0b-bdf1-3abf98596531",
+            "last_sequence": 7,
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "unit_version": 9
+          },
+          "destination": "logistics.outbound.staging01",
+          "destination_owner": "logistics",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+          "origin": "shipping.outbound.dock01",
+          "reason": null,
+          "receipt_id": "bc97e787-ef8a-5e72-aa5b-d7565f83bf55",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "source": "shipping",
+          "state": "acknowledged",
+          "unit": {
+            "barcode": "HU-29D7717C927953219F79F149057D73D2",
+            "category": "finished",
+            "contents": [
+              {
+                "quantity": 1,
+                "sku": "PRODUCT"
+              }
+            ],
+            "custody_generation": 3,
+            "destination": "logistics.outbound.staging01",
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "handoff_id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+            "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+            "last_sequence": 7,
+            "origin": "shipping.outbound.dock01",
+            "owner": "shipping",
+            "position": null,
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "state": "in_transit",
+            "version": 9
+          }
+        }
+      ],
+      "lineage": [],
+      "movements": [
+        {
+          "action": "receive",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c",
+          "custody_generation": 3,
+          "destination": "logistics.outbound.staging01",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "id": "057570a7-5e3a-4066-8606-cef0d9fc4cc8",
+          "origin": "shipping.outbound.dock01",
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": null
+          },
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "sequence": 8,
+          "simulation_time": 489,
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2"
+        },
+        {
+          "action": "load",
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c",
+          "custody_generation": 3,
+          "destination": "logistics.outbound.truck02.slot01",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "id": "99238c50-53d4-4a5d-855c-acd0b037001b",
+          "origin": "logistics.outbound.staging01",
+          "references": {
+            "batch_id": null,
+            "shipment_id": null,
+            "transfer_id": "bf00e225-0688-46e6-baba-cc292beec1ec"
+          },
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "sequence": 9,
+          "simulation_time": 490,
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2"
+        }
+      ],
+      "quarantine": [
+        {
+          "command_id": "ba4ae1e0-98a3-4cc2-9cb7-c3580ff49db3",
+          "endpoint": "shipping/events",
+          "envelope": {
+            "aggregate_id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+            "aggregate_version": 9,
+            "boundary": "transport",
+            "causation_id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+            "correlation_id": "1f6a10bd-0977-4089-8a97-c8d3ba5cd46c",
+            "destination": "logistics",
+            "effective_time": 523,
+            "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+            "event_id": "cde1b9c9-b102-46ce-a65c-f2d245af4daa",
+            "federation_id": "handling-factory-native",
+            "payload": {
+              "departure_token": {
+                "custody_generation": 3,
+                "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                "handoff_id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+                "id": "94d18c71-ad90-5f0b-bdf1-3abf98596531",
+                "last_sequence": 7,
+                "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2",
+                "unit_version": 9
+              },
+              "destination": "logistics.outbound.staging01",
+              "destination_owner": "logistics",
+              "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+              "id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+              "origin": "shipping.outbound.dock01",
+              "reason": null,
+              "receipt_id": "1349d1cd-ecc1-4481-bafe-ca99208ada77",
+              "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+              "source": "shipping",
+              "state": "acknowledged",
+              "unit": {
+                "barcode": "HU-29D7717C927953219F79F149057D73D2",
+                "category": "finished",
+                "contents": [
+                  {
+                    "quantity": 1,
+                    "sku": "PRODUCT"
+                  }
+                ],
+                "custody_generation": 3,
+                "destination": "logistics.outbound.staging01",
+                "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+                "handoff_id": "ec65ea14-abfb-5527-b722-6f450abb1c66",
+                "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+                "last_sequence": 7,
+                "origin": "shipping.outbound.dock01",
+                "owner": "shipping",
+                "position": null,
+                "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+                "state": "in_transit",
+                "version": 9
+              }
+            },
+            "quantity_unit": "item",
+            "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+            "schema_version": "1.0",
+            "source": "shipping",
+            "type": "handling.acknowledged.v1",
+            "wall_time": "2026-10-24T23:09:22.723403Z"
+          },
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "event_id": "cde1b9c9-b102-46ce-a65c-f2d245af4daa",
+          "id": "4d18c7d0-f3f5-4a48-9104-a317699ba505",
+          "phase": "apply",
+          "reason": "Conflicting custody receipt proof",
+          "recorded_at": "2026-10-24T23:09:59.351232+00:00",
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "simulation_time": 639
+        }
+      ],
+      "unit_context": [
+        {
+          "logical_location": "DISPATCH",
+          "transfer_id": null,
+          "unit_id": "29d7717c-9279-5321-9f79-f149057d73d2"
+        }
+      ],
+      "units": [
+        {
+          "barcode": "HU-29D7717C927953219F79F149057D73D2",
+          "category": "finished",
+          "contents": [
+            {
+              "quantity": 1,
+              "sku": "PRODUCT"
+            }
+          ],
+          "custody_generation": 3,
+          "destination": "external.customer",
+          "epoch": "9748c6f4-bbf4-4414-8217-4a3b0feae053",
+          "handoff_id": "bf00e225-0688-46e6-baba-cc292beec1ec",
+          "id": "29d7717c-9279-5321-9f79-f149057d73d2",
+          "last_sequence": 9,
+          "origin": "logistics.outbound.truck02.slot01",
+          "owner": "logistics",
+          "position": null,
+          "run_id": "55e83dc3-de74-48d1-a269-4f875f155308",
+          "state": "dispatched",
+          "version": 13
+        }
+      ],
+      "version": 1
+    }
+  }
+}

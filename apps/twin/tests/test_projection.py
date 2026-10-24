@@ -1,5 +1,7 @@
 """Projection regressions use the real owned PostgreSQL ledger."""
 import os
+import json
+from pathlib import Path
 from copy import deepcopy
 from uuid import uuid4
 
@@ -32,6 +34,139 @@ def snapshot():
             'snapshot': {'orders': [{'id': 'order-1', 'status': 'in_transit'}]},
             'events': [{'id': 'event-1', 'correlation_id': 'order-1',
                         'simulation_time': 5, 'action': 'dispatch'}]}
+
+
+def handling_source():
+    config = {**source(), 'name': 'storage', 'url': 'http://storage-api:8000'}
+    value = snapshot()
+    value['source'] = 'storage'
+    identity = str(uuid4())
+    unit = {'id': identity, 'barcode': 'HU-' + identity.replace('-', '').upper(),
+            'run_id': value['run']['id'], 'epoch': value['run']['epoch'],
+            'version': 1, 'custody_generation': 0, 'last_sequence': 1,
+            'owner': 'storage', 'category': 'raw', 'state': 'available',
+            'contents': [{'sku': 'COMPONENT', 'quantity': 2}],
+            'position': 'storage.raw.r01.b01.l01', 'origin': None,
+            'destination': None, 'handoff_id': None}
+    move = {'id': str(uuid4()), 'unit_id': identity, 'barcode': unit['barcode'],
+            'run_id': unit['run_id'], 'epoch': unit['epoch'], 'sequence': 1,
+            'custody_generation': 0, 'action': 'receive', 'origin': None,
+            'destination': unit['position'], 'simulation_time': 5,
+            'references': {'transfer_id': None, 'batch_id': None, 'shipment_id': None}}
+    value['snapshot']['handling'] = {'version': 1, 'catalog_version': 1,
+        'units': [unit], 'movements': [move], 'handoffs': [], 'lineage': [], 'quarantine': []}
+    value['events'].append({**move, 'id': 'unit-movement:' + move['id'], 'kind': 'unit-movement'})
+    return config, value
+
+
+def capacity_source():
+    config, value = handling_source()
+    handling = value['snapshot']['handling']
+    unit = handling['units'][0]
+    unit.update(state='reserved', version=2)
+    handling['handoffs'] = [{'id': str(uuid4()), 'run_id': unit['run_id'],
+        'epoch': unit['epoch'], 'source': 'storage', 'destination_owner': 'manufacturing',
+        'origin': unit['position'], 'destination': 'manufacturing.cell01.input01',
+        'state': 'accepted', 'unit': deepcopy(unit), 'departure_token': None,
+        'receipt_id': None, 'reason': None}]
+    return config, value
+
+
+def test_invalid_handling_snapshot_cannot_advance_cursor_or_change_units(projection):
+    config, value = handling_source()
+    projection.configure([config]); projection.accept(config, value)
+    before = projection.view()
+    for field, change in [('barcode', 'HU-' + '0' * 32), ('owner', 'shipping'),
+                          ('epoch', str(uuid4())), ('contents', [{'sku': 'COMPONENT', 'quantity': 0}]),
+                          ('position', 'shipping.receiving.dock01')]:
+        bad = deepcopy(value); bad['cursor'] = 'invalid-handling'
+        bad['snapshot']['handling']['units'][0][field] = change
+        with pytest.raises(ValueError): projection.accept(config, bad)
+        current = projection.view()
+        assert current['sources'][0]['snapshot'] == before['sources'][0]['snapshot']
+        assert current['sources'][0]['cursor'] == before['sources'][0]['cursor']
+        assert current['revision'] == before['revision']
+
+
+def test_handling_identity_and_complete_unit_history_survive_restarts(projection):
+    config, value = handling_source()
+    projection.configure([config]); projection.accept(config, value)
+    restarted = ProjectionStore(projection.store)
+    bad = deepcopy(value); bad['cursor'] = 'changed-contents'
+    bad['snapshot']['handling']['units'][0]['contents'][0]['quantity'] = 3
+    bad['snapshot']['handling']['units'][0]['version'] = 2
+    with pytest.raises(ValueError): restarted.accept(config, bad)
+    missing = deepcopy(value); missing['snapshot']['handling']['movements'] = []
+    with pytest.raises(ValueError): restarted.accept(config, missing)
+    omitted = deepcopy(value); omitted['snapshot']['handling']['units'] = []
+    omitted['snapshot']['handling']['movements'] = []
+    with pytest.raises(ValueError): restarted.accept(config, omitted)
+    assert restarted.view()['sources'][0]['snapshot'] == value['snapshot']
+
+
+def test_unknown_handling_endpoint_is_retained_without_inventing_coordinates(projection):
+    config, value = handling_source()
+    value['snapshot']['handling']['units'][0]['position'] = 'storage.future.rack99.slot01'
+    value['snapshot']['handling']['movements'][0]['destination'] = 'storage.future.rack99.slot01'
+    value['events'][-1]['destination'] = 'storage.future.rack99.slot01'
+    projection.configure([config]); projection.accept(config, value)
+    saved = projection.view()['sources'][0]['snapshot']['handling']['units'][0]
+    assert saved['position'] == 'storage.future.rack99.slot01'
+    assert 'coordinates' not in saved
+
+
+def test_same_grant_cannot_reverse_an_observed_capacity_acceptance(projection):
+    config, value = handling_source()
+    handling = value['snapshot']['handling']
+    unit = handling['units'][0]
+    unit.update(state='reserved', version=2)
+    handling['handoffs'] = [{'id': str(uuid4()), 'run_id': unit['run_id'],
+        'epoch': unit['epoch'], 'source': 'storage', 'destination_owner': 'manufacturing',
+        'origin': unit['position'], 'destination': 'manufacturing.cell01.input01',
+        'state': 'accepted', 'unit': deepcopy(unit), 'departure_token': None,
+        'receipt_id': None, 'reason': None}]
+    projection.configure([config]); projection.accept(config, value)
+    older = deepcopy(value); older['cursor'] = 'old-offer'
+    older['snapshot']['handling']['handoffs'][0]['state'] = 'offered'
+    with pytest.raises(ValueError): projection.accept(config, older)
+    assert projection.view()['sources'][0]['cursor'] == value['cursor']
+
+
+@pytest.mark.parametrize('field', ['version', 'last_sequence', 'custody_generation'])
+def test_accepted_capacity_cannot_rewrite_its_reserved_manifest(projection, field):
+    config, value = capacity_source()
+    projection.configure([config]); projection.accept(config, value)
+    bad = deepcopy(value); bad['cursor'] = 'changed-capacity'
+    bad['snapshot']['handling']['handoffs'][0]['unit'][field] += 1
+    with pytest.raises(ValueError): projection.accept(config, bad)
+    assert projection.view()['sources'][0]['cursor'] == value['cursor']
+
+
+@pytest.mark.parametrize('increment', [1, 2])
+def test_departure_continues_the_exact_accepted_manifest(projection, increment):
+    config, value = capacity_source()
+    projection.configure([config]); projection.accept(config, value)
+    departed = deepcopy(value); departed['cursor'] = 'departure'
+    handling = departed['snapshot']['handling']; handoff = handling['handoffs'][0]
+    unit = handling['units'][0]
+    for field in ('version', 'last_sequence', 'custody_generation'):
+        unit[field] += increment
+    unit.update(state='in_transit', position=None, origin=handoff['origin'],
+                destination=handoff['destination'], handoff_id=handoff['id'])
+    handoff.update(state='departed', unit=deepcopy(unit))
+    handoff['departure_token'] = {'id': str(uuid4()), 'handoff_id': handoff['id'],
+        'unit_id': unit['id'], 'run_id': unit['run_id'], 'epoch': unit['epoch'],
+        'unit_version': unit['version'], 'last_sequence': unit['last_sequence'],
+        'custody_generation': unit['custody_generation']}
+    move = {**handling['movements'][0], 'id': str(uuid4()), 'action': 'depart',
+            'sequence': unit['last_sequence'], 'custody_generation': unit['custody_generation'],
+            'origin': unit['origin'], 'destination': unit['destination']}
+    handling['movements'].append(move)
+    departed['events'].append({**move, 'id': 'storage:unit-movement:' + move['id'], 'kind': 'unit_movement'})
+    if increment == 1:
+        assert projection.accept(config, departed)
+    else:
+        with pytest.raises(ValueError): projection.accept(config, departed)
 
 
 def test_restart_replay_and_atomic_snapshot_cursor_events(projection):
@@ -252,3 +387,17 @@ def test_equivalent_native_timestamp_encodings_share_aligned_watermark(projectio
     other['run'].update(granted=4,committed=4)
     projection.configure([config,second]); projection.accept(config,value); projection.accept(second,other)
     assert projection.view()['aligned']['committed']==4
+
+
+@pytest.mark.parametrize('name', ['storage', 'manufacturing', 'shipping', 'logistics'])
+def test_handling_validation_accepts_captured_native_factory_snapshots(name):
+    from twin.handling_projection import validate_handling
+
+    captured = json.loads((Path(__file__).parent / 'fixtures/handling-factory.json').read_text())
+    handling = captured['handling'][name]
+    times = [row['simulation_time'] for key in ('movements', 'lineage', 'quarantine')
+             for row in handling.get(key, [])]
+    # The fixture retains native handling bodies; the synthetic envelope grant
+    # simply covers their recorded times for this isolated validation test.
+    run = {'id': captured['run_id'], 'epoch': captured['epoch'], 'granted': max(times, default=0)}
+    assert validate_handling(name, run, handling) == handling

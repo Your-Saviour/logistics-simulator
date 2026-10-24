@@ -34,7 +34,7 @@ def check(name, value):
         raise ValueError(f'Invalid handling {name}: {error.message}') from error
 
 
-def validate_unit(unit):
+def validate_unit(unit, *, allow_unmapped=False):
     check('unit', unit)
     if unit['barcode'] != 'HU-' + UUID(unit['id']).hex.upper():
         raise ValueError('Barcode must identify the immutable unit UUID')
@@ -43,15 +43,15 @@ def validate_unit(unit):
         raise ValueError('Unit contents must have one quantity per SKU')
     if unit['position'] is not None:
         location = catalog().get(unit['position'])
-        if not location or location['owner'] != unit['owner'] or unit['category'] not in location['compatible']:
+        if not location and not allow_unmapped or location and (location['owner'] != unit['owner'] or unit['category'] not in location['compatible']):
             raise ValueError('Incompatible or unknown confirmed position')
     return unit
 
 
-def validate_snapshot(units, run_id=None, epoch=None):
+def validate_snapshot(units, run_id=None, epoch=None, *, allow_unmapped=False):
     identities, barcodes, occupancy = set(), set(), {}
     for unit in units:
-        validate_unit(unit)
+        validate_unit(unit, allow_unmapped=allow_unmapped)
         if run_id is not None and unit['run_id'] != run_id or epoch is not None and unit['epoch'] != epoch:
             raise ValueError('Unit scope mismatch')
         if unit['id'] in identities or unit['barcode'] in barcodes:
@@ -61,12 +61,13 @@ def validate_snapshot(units, run_id=None, epoch=None):
         if unit['position'] is not None:
             key = (unit['run_id'], unit['epoch'], unit['position'])
             occupancy[key] = occupancy.get(key, 0) + 1
-            if occupancy[key] > catalog()[unit['position']]['capacity']:
+            location = catalog().get(unit['position'])
+            if location and occupancy[key] > location['capacity']:
                 raise ValueError('Physical endpoint capacity exceeded')
     return units
 
 
-def validate_movement(movement, run_id, epoch):
+def validate_movement(movement, run_id, epoch, *, allow_unmapped=False):
     check('movement', movement)
     if movement['run_id'] != run_id or movement['epoch'] != epoch:
         raise ValueError('Movement scope mismatch')
@@ -77,7 +78,7 @@ def validate_movement(movement, run_id, epoch):
             raise ValueError('Consumption must retain its recorded input endpoint')
     elif movement['origin'] == movement['destination']:
         raise ValueError('Movement must change physical position')
-    if movement['destination'] not in catalog() or movement['origin'] is not None and movement['origin'] not in catalog():
+    if not allow_unmapped and (movement['destination'] not in catalog() or movement['origin'] is not None and movement['origin'] not in catalog()):
         raise ValueError('Unknown movement endpoint')
     return movement
 
@@ -118,15 +119,15 @@ def allocate_whole(units, quantities):
     raise ValueError('No exact available whole-unit allocation; units cannot be split')
 
 
-def validate_handoff(handoff, run_id, epoch):
+def validate_handoff(handoff, run_id, epoch, *, allow_unmapped=False):
     check('handoff', handoff)
-    unit = validate_unit(handoff['unit'])
+    unit = validate_unit(handoff['unit'], allow_unmapped=allow_unmapped)
     if any(row['run_id'] != run_id or row['epoch'] != epoch for row in (handoff, unit)):
         raise ValueError('Handoff scope mismatch; quarantine required')
     origin, destination = (catalog().get(handoff[key]) for key in ('origin', 'destination'))
-    if not origin or not destination or origin['owner'] != handoff['source'] or destination['owner'] != handoff['destination_owner']:
+    if (not origin or not destination) and not allow_unmapped or origin and origin['owner'] != handoff['source'] or destination and destination['owner'] != handoff['destination_owner']:
         raise ValueError('Handoff endpoint ownership mismatch')
-    if handoff['source'] == handoff['destination_owner'] or unit['category'] not in destination['compatible']:
+    if handoff['source'] == handoff['destination_owner'] or destination and unit['category'] not in destination['compatible']:
         raise ValueError('Handoff requires compatible distinct departments')
     if unit['owner'] != handoff['source']:
         raise ValueError('Handoff manifest must retain source custody provenance')
@@ -144,14 +145,14 @@ def validate_handoff(handoff, run_id, epoch):
     return handoff
 
 
-def validate_lineage(lineage, units, run_id, epoch):
+def validate_lineage(lineage, units, run_id, epoch, *, allow_unmapped=False):
     """Check completed recipe accounting against retained immutable unit contents."""
     check('lineage', lineage)
     if lineage['run_id'] != run_id or lineage['epoch'] != epoch:
         raise ValueError('Lineage scope mismatch')
     by_id = {}
     for unit in units:
-        validate_unit(unit)
+        validate_unit(unit, allow_unmapped=allow_unmapped)
         if unit['id'] in by_id:
             raise ValueError('Duplicate unit identity in lineage input')
         by_id[unit['id']] = unit

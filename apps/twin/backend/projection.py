@@ -16,6 +16,7 @@ from psycopg.types.json import Jsonb
 
 from simulator.config import Settings
 from simulator.store import Store
+from .handling_projection import validate_handling, retain_handling
 
 NAMES = {'manufacturing', 'storage', 'logistics', 'shipping'}
 RUN_FIELDS = {'id', 'epoch', 'mode', 'state', 'granted', 'requested', 'committed',
@@ -67,6 +68,8 @@ def validate(config, value):
         raise ValueError('Opaque source cursor required')
     if not isinstance(value.get('snapshot'), dict) or not isinstance(value.get('events'), list):
         raise ValueError('Complete snapshot and event list required')
+    if 'handling' in value['snapshot']:
+        validate_handling(config['name'], run, value['snapshot']['handling'])
     seen = set()
     for event in value['events']:
         if not isinstance(event, dict) or not isinstance(event.get('id'), str) or not 1 <= len(event['id']) <= 256 or event['id'] in seen:
@@ -157,6 +160,7 @@ class ProjectionStore:
             if old and (old['id'], old['epoch']) == tuple(scope):
                 if any(run[key] < old[key] for key in ('granted', 'committed')):
                     raise ValueError('Source watermark regressed')
+                retain_handling(previous['snapshot'], value['snapshot'])
                 # Full history cannot forget previously observed committed facts.
                 ids = [e['id'] for e in value['events']]
                 if db.execute('SELECT 1 FROM twin_events WHERE source=%s AND run_id=%s AND epoch=%s AND NOT(id=ANY(%s)) LIMIT 1',

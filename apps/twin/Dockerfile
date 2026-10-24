@@ -3,6 +3,7 @@ WORKDIR /app
 COPY apps/twin/requirements.lock /tmp/requirements.lock
 RUN pip install --no-cache-dir -r /tmp/requirements.lock
 COPY src/simulator /app/src/simulator
+COPY contracts/handling /app/contracts/handling
 COPY migrations /app/migrations
 COPY apps/twin/backend /app/twin
 COPY apps/twin/tests /app/tests
