@@ -1,0 +1,5 @@
+FROM serversideup/php:8.4-frankenphp@sha256:c44f4a10b8bd83238b6e71eb5d223c6a08745ef643c6b7aff899e66672e5d20f
+USER root
+RUN install-php-extensions sockets
+USER www-data
+WORKDIR /app

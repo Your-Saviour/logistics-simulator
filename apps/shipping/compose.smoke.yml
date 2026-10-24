@@ -1,0 +1,38 @@
+name: shipping-foundation-smoke
+services:
+  shipping-db:
+    image: postgres:17-alpine
+    environment: {POSTGRES_DB: shipping, POSTGRES_USER: shipping, POSTGRES_PASSWORD: shipping-smoke}
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -U shipping'], interval: 2s, timeout: 3s, retries: 30}
+    volumes: [shipping-test-data:/var/lib/postgresql/data]
+  shipping-broker:
+    image: rabbitmq:4.3.6-alpine
+    user: rabbitmq
+    environment: {RABBITMQ_DEFAULT_USER: shipping, RABBITMQ_DEFAULT_PASS: shipping-smoke, RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'}
+    healthcheck: {test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672'], interval: 3s, timeout: 3s, retries: 30, start_period: 45s}
+  shipping-api:
+    image: logistics-simulator:shipping
+    build: {context: ../.., dockerfile: apps/shipping/Dockerfile}
+    env_file: [tests/smoke.env]
+    environment: {ROLE: api}
+    depends_on:
+      shipping-db: {condition: service_healthy}
+      shipping-broker: {condition: service_healthy}
+    volumes: [shipping-test-sessions:/app/storage/framework/sessions]
+  shipping-worker:
+    image: logistics-simulator:shipping
+    env_file: [tests/smoke.env]
+    environment: {ROLE: worker}
+    depends_on:
+      shipping-db: {condition: service_healthy}
+      shipping-broker: {condition: service_healthy}
+  shipping-controller:
+    image: logistics-simulator:shipping
+    env_file: [tests/smoke.env]
+    environment: {ROLE: controller}
+    depends_on:
+      shipping-db: {condition: service_healthy}
+      shipping-broker: {condition: service_healthy}
+volumes:
+  shipping-test-data:
+  shipping-test-sessions:

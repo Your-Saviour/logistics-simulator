@@ -1,0 +1,16 @@
+{
+  "name": "simulator/shipping",
+  "description": "Independent Laravel shipping simulation foundation",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": "^8.4",
+    "laravel/framework": "^13.0",
+    "livewire/livewire": "^4.0",
+    "php-amqplib/php-amqplib": "3.7.5"
+  },
+  "autoload": {"psr-4": {"Shipping\\": "src/"}},
+  "config": {"sort-packages": true, "allow-plugins": {}, "platform": {"php": "8.4.0"}},
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
