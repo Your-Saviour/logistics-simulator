@@ -1,0 +1,79 @@
+name: simu-flask-twin-test
+services:
+  unit-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: twin_test
+      POSTGRES_PASSWORD: isolated-twin-test
+      POSTGRES_DB: twin_unit
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U twin_test -d twin_unit]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: twin_test
+      POSTGRES_PASSWORD: isolated-twin-test
+      POSTGRES_DB: twin_test
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U twin_test -d twin_test]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  tests:
+    build:
+      context: ../..
+      dockerfile: apps/twin/Dockerfile
+    image: logistics-simulator:twin
+    environment:
+      ROLE: test
+      TEST_DATABASE_URL: postgresql://twin_test:isolated-twin-test@unit-db:5432/twin_unit
+    depends_on:
+      unit-db:
+        condition: service_healthy
+  broker:
+    image: rabbitmq:4.3.6-alpine
+    user: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: twin_test
+      RABBITMQ_DEFAULT_PASS: isolated-twin-test
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'
+    healthcheck:
+      test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 45s
+  api:
+    image: logistics-simulator:twin
+    environment: &twin_environment
+      SIMULATOR: twin
+      DATABASE_URL: postgresql://twin_test:isolated-twin-test@db:5432/twin_test
+      AMQP_URL: amqp://twin_test:isolated-twin-test@broker:5672/%2F
+      APP_USERNAME: twin-operator
+      APP_PASSWORD: isolated-twin-operator
+      APP_IDENTITIES: '[{"username":"twin-employee","password":"isolated-employee","role":"employee"},{"username":"twin-observer","password":"isolated-observer","role":"service","scopes":["status:read"]}]'
+      TWIN_SOURCES: '[]'
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+  projection:
+    image: logistics-simulator:twin
+    environment:
+      <<: *twin_environment
+      ROLE: projection
+    depends_on:
+      db:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+  web:
+    image: logistics-simulator:twin-web
+    environment:
+      API_UPSTREAM: http://api:8000
+    depends_on:
+      - api
