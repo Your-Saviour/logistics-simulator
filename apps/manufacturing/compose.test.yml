@@ -1,0 +1,32 @@
+name: manufacturing-foundation-test
+services:
+  database:
+    image: postgres:17-alpine
+    environment: {POSTGRES_USER: manufacturing, POSTGRES_PASSWORD: test-only, POSTGRES_DB: manufacturing}
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -U manufacturing'], interval: 2s, timeout: 2s, retries: 30}
+  broker:
+    image: rabbitmq:4.3.6-alpine
+    user: rabbitmq
+    environment: {RABBITMQ_DEFAULT_USER: manufacturing, RABBITMQ_DEFAULT_PASS: test-only, RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'}
+    healthcheck: {test: [CMD, nc, -z, -w, '2', '127.0.0.1', '5672'], interval: 3s, timeout: 3s, retries: 30, start_period: 45s}
+  backend-test:
+    image: maven:3.9.11-eclipse-temurin-21
+    working_dir: /work
+    volumes: ['./backend:/work', 'maven-cache:/root/.m2']
+    environment:
+      MAVEN_OPTS: -Xmx256m
+      MANUFACTURING_TEST_DATABASE: postgresql://manufacturing:test-only@database/manufacturing
+      MANUFACTURING_TEST_AMQP: amqp://manufacturing:test-only@broker:5672/%2f
+    command: [mvn, -B, -q, verify]
+    depends_on:
+      database: {condition: service_healthy}
+      broker: {condition: service_healthy}
+  frontend-test:
+    image: node:24-alpine
+    working_dir: /work
+    volumes: ['./frontend:/work', 'frontend-modules:/work/node_modules', 'npm-cache:/root/.npm']
+    command: [sh, -c, 'npm ci && npm test && npm run build']
+volumes:
+  maven-cache:
+  frontend-modules:
+  npm-cache:

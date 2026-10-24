@@ -1,0 +1,48 @@
+name: manufacturing-foundation-smoke
+x-backend: &backend
+  image: simu-manufacturing-foundation:smoke
+  build:
+    context: ../..
+    dockerfile: apps/manufacturing/backend/Dockerfile
+  environment: &environment
+    SIMULATOR: manufacturing
+    ROLE: api
+    CLOCK_MODE: standalone
+    DATABASE_URL: postgresql://manufacturing:smoke-only@manufacturing-db/manufacturing
+    AMQP_URL: amqp://manufacturing:smoke-only@manufacturing-broker:5672/%2f
+    APP_USERNAME: operator
+    APP_PASSWORD: smoke-operator-only
+    APP_IDENTITIES: '[{"username":"employee","password":"smoke-employee-only","role":"employee"},{"username":"observer","password":"smoke-observer-only","role":"service","scopes":["status:read"]}]'
+    AUTONOMOUS_SAMPLE: 'false'
+    JAVA_TOOL_OPTIONS: -Xmx256m
+  depends_on:
+    manufacturing-db: {condition: service_healthy}
+    manufacturing-broker: {condition: service_healthy}
+services:
+  manufacturing-db:
+    image: postgres:17-alpine
+    environment: {POSTGRES_USER: manufacturing, POSTGRES_PASSWORD: smoke-only, POSTGRES_DB: manufacturing}
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -U manufacturing'], interval: 2s, timeout: 2s, retries: 30}
+  manufacturing-broker:
+    image: rabbitmq:4.3.6-alpine
+    user: rabbitmq
+    environment: {RABBITMQ_DEFAULT_USER: manufacturing, RABBITMQ_DEFAULT_PASS: smoke-only, RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'}
+    healthcheck: {test: [CMD, nc, -z, -w, '2', '127.0.0.1', '5672'], interval: 3s, timeout: 3s, retries: 30, start_period: 45s}
+  manufacturing-api: *backend
+  manufacturing-worker:
+    <<: *backend
+    environment: {<<: *environment, ROLE: worker}
+  manufacturing-controller:
+    <<: *backend
+    environment: {<<: *environment, ROLE: controller}
+  manufacturing-web:
+    image: simu-manufacturing-web:smoke
+    build: {context: ../.., dockerfile: apps/manufacturing/frontend/Dockerfile}
+    environment: {API_UPSTREAM: 'manufacturing-api:8000'}
+    depends_on: [manufacturing-api]
+  smoke:
+    image: python:3.12-alpine
+    volumes: ['./tests:/tests:ro']
+    command: [python, /tests/http_smoke.py]
+    depends_on: [manufacturing-api, manufacturing-worker, manufacturing-controller, manufacturing-web]
+    profiles: [test]

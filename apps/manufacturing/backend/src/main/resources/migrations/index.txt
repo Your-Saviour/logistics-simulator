@@ -1,0 +1,5 @@
+001_bootstrap.sql
+002_security.sql
+003_scenarios.sql
+004_manufacturing_adapter.sql
+005_manufacturing_native_barrier.sql
