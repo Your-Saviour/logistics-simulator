@@ -16,7 +16,7 @@ final class MaterialPlans {
    // This endpoint is only a structural validation probe; planning chooses the batch cell.
    var h=Json.M.createObjectNode();h.set("id",event.get("aggregate_id"));h.set("run_id",event.get("run_id"));h.set("epoch",event.get("epoch"));h.put("source","storage");h.put("destination_owner","manufacturing");h.set("origin",unit.get("position"));h.put("destination","manufacturing.cell01.input01");h.put("state","offered");h.set("unit",unit);for(var key:List.of("departure_token","receipt_id","reason"))h.putNull(key);
    var probe=(ObjectNode)event.deepCopy();probe.put("type","handling.offered.v1");probe.set("causation_id",event.get("aggregate_id"));probe.set("aggregate_version",unit.get("version"));probe.set("payload",h);Custody.validate(probe);
-   if(unit.path("version").asInt()>Integer.MAX_VALUE-3)throw new Conflict("Selected material counters lack departure, receipt and consumption headroom");
+   if(unit.path("version").asInt()>Integer.MAX_VALUE-3||unit.path("last_sequence").asInt()>Integer.MAX_VALUE-3)throw new Conflict("Selected material counters lack departure, receipt and consumption headroom");
    if(!ids.add(Policy.uuid(unit.get("id")))||!unit.path("contents").get(0).path("sku").equals(payload.path("sku")))throw new Conflict("Selected unit identity or SKU mismatch");total+=unit.path("contents").get(0).path("quantity").asInt();
   }
   if(total!=payload.path("quantity").asInt())throw new Conflict("Selected units must exactly match reserved quantity");

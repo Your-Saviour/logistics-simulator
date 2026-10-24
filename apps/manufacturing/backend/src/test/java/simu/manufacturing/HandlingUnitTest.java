@@ -24,6 +24,11 @@ class HandlingUnitTest {
   var handling=fixture.get().path("handling");assertEquals(3,handling.path("units").size());
   var input=java.util.stream.StreamSupport.stream(handling.path("units").spliterator(),false).filter(u->u.path("id").asText().equals(four.toString())).findFirst().orElseThrow();
   assertEquals("consumed",input.path("state").asText());assertTrue(input.path("position").isNull());
+  var consumed=java.util.stream.StreamSupport.stream(handling.path("movements").spliterator(),false).filter(m->m.path("unit_id").asText().equals(four.toString())&&m.path("action").asText().equals("consume")).toList();
+  assertEquals(1,consumed.size(),"Whole input consumption needs a durable unit history record");
+  var consume=consumed.get(0);assertEquals(input.path("barcode"),consume.path("barcode"));assertEquals(batch.toString(),consume.path("references").path("batch_id").asText());
+  assertEquals("manufacturing.cell01.input02",consume.path("origin").asText());assertEquals(consume.path("origin"),consume.path("destination"));
+  assertEquals(2,consume.path("sequence").asInt());assertEquals(consume.path("sequence"),input.path("last_sequence"));
   var output=java.util.stream.StreamSupport.stream(handling.path("units").spliterator(),false).filter(u->u.path("category").asText().equals("finished")).findFirst().orElseThrow();
   assertNotEquals(four.toString(),output.path("id").asText());assertNotEquals(six.toString(),output.path("id").asText());
   assertEquals("HU-"+output.path("id").asText().replace("-","").toUpperCase(Locale.ROOT),output.path("barcode").asText());
@@ -54,6 +59,13 @@ class HandlingUnitTest {
  @Test void exhaustedUnitVersionDefersProductionWithoutConsumingStock(){
   UUID unit=UUID.randomUUID();fixture.command(Map.of("action","supply","sku","COMPONENT","quantity",2,"units",List.of(Map.of("id",unit,"quantity",2))));fixture.advance(2);
   fixture.store.tx(c->{Store.sql(c,"UPDATE production_handling_units SET version=? WHERE id=?",Integer.MAX_VALUE,unit);return null;});
+  UUID batch=fixture.create(1);fixture.command(Map.of("action","release","reference",batch));fixture.advance(6);fixture.advance(7);
+  assertEquals("ready",fixture.order(batch).path("status").asText());assertTrue(fixture.order(batch).path("blocked_reason").asText().contains("counter"));
+  assertEquals(2,fixture.get().path("materials").get(0).path("quantity").asInt());assertEquals("available",fixture.get().path("handling").path("units").get(0).path("state").asText());
+ }
+ @Test void exhaustedUnitMovementSequenceDefersWithoutConsumingStock(){
+  UUID unit=UUID.randomUUID();fixture.command(Map.of("action","supply","sku","COMPONENT","quantity",2,"units",List.of(Map.of("id",unit,"quantity",2))));fixture.advance(2);
+  fixture.store.tx(c->{Store.sql(c,"UPDATE production_handling_units SET last_sequence=? WHERE id=?",Integer.MAX_VALUE,unit);return null;});
   UUID batch=fixture.create(1);fixture.command(Map.of("action","release","reference",batch));fixture.advance(6);fixture.advance(7);
   assertEquals("ready",fixture.order(batch).path("status").asText());assertTrue(fixture.order(batch).path("blocked_reason").asText().contains("counter"));
   assertEquals(2,fixture.get().path("materials").get(0).path("quantity").asInt());assertEquals("available",fixture.get().path("handling").path("units").get(0).path("state").asText());

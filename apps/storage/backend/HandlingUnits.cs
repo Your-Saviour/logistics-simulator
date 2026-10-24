@@ -88,7 +88,7 @@ public static class HandlingUnits
         var target=reservation["quantity"]!.GetValue<int>();var paths=new Dictionary<int,List<JsonObject>> {[0]=[]};
         var production=reservation["purpose"]!.ToString()=="production";var maximum=production?4:8;
         foreach(var candidate in candidates) {
-            if(candidate["version"]!.GetValue<int>()>int.MaxValue-4||candidate["last_sequence"]!.GetValue<int>()>int.MaxValue-(production?2:3)||production&&candidate["custody_generation"]!.GetValue<int>()>int.MaxValue-1)continue;
+            if(candidate["version"]!.GetValue<int>()>int.MaxValue-4||candidate["last_sequence"]!.GetValue<int>()>int.MaxValue-3||production&&candidate["custody_generation"]!.GetValue<int>()>int.MaxValue-1)continue;
             var quantity=candidate["quantity"]!.GetValue<int>();
             foreach(var entry in paths.ToArray()) {var next=entry.Key+quantity;var count=entry.Value.Count+1;if(next<=target&&(count<=maximum)&&(!paths.TryGetValue(next,out var old)||count<old.Count))paths[next]=[..entry.Value,candidate];}
         }

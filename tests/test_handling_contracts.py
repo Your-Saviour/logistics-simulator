@@ -161,6 +161,19 @@ def test_movement_validation_rejects_fabricated_endpoints_and_scope():
             validate_movement({**value, **change}, value['run_id'], value['epoch'])
 
 
+def test_consumption_records_the_actual_input_endpoint_without_a_fabricated_journey():
+    from simulator.handling_contracts import validate_movement
+
+    value = {**fixture('movement'), 'action': 'consume',
+             'origin': 'manufacturing.cell01.input01',
+             'destination': 'manufacturing.cell01.input01'}
+    assert validate_movement(value, value['run_id'], value['epoch']) == value
+    for change in ({'action': 'retrieve'}, {'action': 'depart'},
+                   {'origin': None}, {'destination': 'manufacturing.cell01.input02'}):
+        with pytest.raises(ValueError):
+            validate_movement({**value, **change}, value['run_id'], value['epoch'])
+
+
 def test_storage_boundary_requires_exact_unique_whole_unit_manifests():
     from simulator.storage_contracts import transport_envelope
     from pydantic import ValidationError as ModelError

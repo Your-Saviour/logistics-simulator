@@ -60,8 +60,15 @@ final class HandlingUnits {
  static String consume(Connection c,Map<String,Object> run,Map<String,Object> order,JsonNode product,JsonNode config)throws SQLException{
   var selected=new ArrayList<Map<String,Object>>();String cell=cell(config,order.get("line").toString());var fields=product.path("bom").fields();
   while(fields.hasNext()){var field=fields.next();int needed=field.getValue().asInt()*((Number)order.get("quantity")).intValue();var units=exact(c,run,field.getKey(),needed,cell,order.get("id"),!Boolean.TRUE.equals(order.get("materials_requested")),Integer.MAX_VALUE);if(units==null)return "No exact whole-unit inputs assigned to this batch at "+cell+": "+field.getKey()+" needs "+needed+"; units cannot be split";selected.addAll(units);}
-  for(var unit:selected)if(((Number)unit.get("version")).intValue()==Integer.MAX_VALUE)return "Handling-unit counter exhausted; reconcile before consumption";
-  for(var unit:selected){sql(c,"INSERT INTO production_unit_inputs(batch_id,unit_id,simulation_time) VALUES (?,?,?)",order.get("id"),unit.get("id"),run.get("granted"));if(sql(c,"UPDATE production_handling_units SET state='consumed',position=NULL,version=version+1 WHERE id=? AND state IN ('available','reserved')",unit.get("id"))!=1)throw new Conflict("Whole recipe input changed before consumption");}return null;
+  for(var unit:selected)if(((Number)unit.get("version")).intValue()==Integer.MAX_VALUE||((Number)unit.get("last_sequence")).intValue()==Integer.MAX_VALUE)return "Handling-unit counter exhausted; reconcile before consumption";
+  var references=new LinkedHashMap<String,Object>();references.put("transfer_id",null);references.put("batch_id",order.get("id"));references.put("shipment_id",null);
+  for(var unit:selected){
+   sql(c,"INSERT INTO production_unit_inputs(batch_id,unit_id,simulation_time) VALUES (?,?,?)",order.get("id"),unit.get("id"),run.get("granted"));
+   if(sql(c,"UPDATE production_handling_units SET state='consumed',position=NULL,version=version+1,last_sequence=last_sequence+1 WHERE id=? AND state IN ('available','reserved')",unit.get("id"))!=1)throw new Conflict("Whole recipe input changed before consumption");
+   // Consumption happens at the recorded input endpoint. This is a terminal
+   // lifecycle event, not a journey to a fabricated processing coordinate.
+   sql(c,"INSERT INTO production_unit_movements(id,unit_id,barcode,run_id,epoch,sequence,custody_generation,action,origin,destination,simulation_time,\"references\") VALUES (?,?,?,?,?,?,?,'consume',?,?,?,?::jsonb)",uuid5(uuid(order.get("id")),"consume:"+unit.get("id")),unit.get("id"),unit.get("barcode"),run.get("id"),run.get("epoch"),((Number)unit.get("last_sequence")).intValue()+1,unit.get("custody_generation"),unit.get("position"),unit.get("position"),run.get("granted"),Json.write(references));
+  }return null;
  }
  static String outputPosition(Connection c,Map<String,Object> run,Map<String,Object> order,JsonNode config)throws SQLException{return free(c,run,cell(config,order.get("line").toString())+".output");}
  static void finish(Connection c,Map<String,Object> run,Map<String,Object> job,Map<String,Object> order,JsonNode product,int output,int scrap,String position)throws SQLException{

@@ -85,6 +85,11 @@ def main():
         accepted('storage','manufacturing',raw)
         wait(lambda:unit('manufacturing',raw),lambda v:v['state']=='consumed','native recipe consumes the exact imported input')
         assert row('manufacturing','SELECT count(*) n FROM production_unit_inputs WHERE batch_id=%s AND unit_id=%s',batch['id'],raw)['n']==1
+        consumption=[v for v in get('manufacturing','production')['handling']['movements'] if v['unit_id']==raw and v['action']=='consume']
+        assert len(consumption)==1 and consumption[0]['references']['batch_id']==str(batch['id']),consumption
+        assert consumption[0]['origin']==consumption[0]['destination'] and consumption[0]['origin'].startswith('manufacturing.cell'),consumption
+        assert consumption[0]['sequence']==unit('manufacturing',raw)['last_sequence'],consumption
+        record['input_consumption']=consumption[0]
         close('storage','manufacturing',raw)
         output=wait(lambda:row('manufacturing','SELECT * FROM production_output_custody WHERE batch_id=%s',batch['id']),bool,'durable finish creates fresh output offer');finished=str(output['unit_id']);assert finished!=raw;record['output_unit_id']=finished
         accepted('manufacturing','storage',finished)

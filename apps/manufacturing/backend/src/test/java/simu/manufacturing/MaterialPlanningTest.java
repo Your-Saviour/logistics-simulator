@@ -26,6 +26,12 @@ class MaterialPlanningTest {
  void twoMaterials(int other){var cfg=(ObjectNode)peer.fixture.get().path("config").deepCopy();((ObjectNode)cfg.path("products").get(0)).set("bom",Json.M.valueToTree(Map.of("COMPONENT",2,"OTHER",other)));peer.fixture.store.control("reset",1,store().run().get("id").toString(),null,Scenario.normalize(Json.M.valueToTree(Map.of("manufacturing",cfg))));peer.fixture.get();}
  void connected(){store().tx(c->{var r=current(c);sql(c,"UPDATE runs SET mode='helics' WHERE id=?",r.get("id"));return null;});}
  int issueCount(){return store().tx(c->rows(c,"SELECT id FROM boundary_outbox WHERE run_id=? AND envelope->>'type'='storage.issue.v1'",store().run().get("id")).size());}
+ @Test void selectedMaterialSequenceIncludesConsumptionHeadroom(){
+  UUID batch=peer.fixture.create(1);connected();var request=release(batch);var unit=(ObjectNode)peer.offer().path("unit");unit.put("last_sequence",Integer.MAX_VALUE-2);var fact=reserved(request,unit);
+  assertThrows(Conflict.class,()->MaterialPlans.manifest(fact),"Source departure, receipt and consumption each require a sequence");
+  ((ObjectNode)fact.path("payload").path("unit_manifest").get(0)).put("last_sequence",Integer.MAX_VALUE-3);
+  assertDoesNotThrow(()->MaterialPlans.manifest(fact));
+ }
  @Test void wholeRecipeAdmissionPreventsTwoBatchesFromBlockingEachOther(){
   twoMaterials(2);UUID a=peer.fixture.create(1),b=peer.fixture.create(1);connected();var ar=requests(release(a));var br=requests(release(b));
   var aa=reserved(ar.get(0),units("COMPONENT",2));var sibling=execute(aa,"waiting");assertEquals(0,issueCount(),"partial BOM cannot acquire cell slots");

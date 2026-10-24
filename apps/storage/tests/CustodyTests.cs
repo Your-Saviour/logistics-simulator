@@ -18,6 +18,11 @@ public static class CustodyTests
         var manifest=new JsonArray(new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=2},new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=2});
         var receipt=Submit("expect",new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=4,["correlation_id"]=correlation.ToString(),["units"]=manifest});Submit("receive",new JsonObject {["reference"]=receipt.ToString()});
         var oldVersion=ledger.Db.Transaction(u=>u.One("SELECT version FROM warehouse_handling_units WHERE id=@p0",Rules.Uuid(manifest[0]!["id"]))["version"]!.GetValue<int>());
+        var oldSequence=ledger.Db.Transaction(u=>u.One("SELECT last_sequence FROM warehouse_handling_units WHERE id=@p0",Rules.Uuid(manifest[0]!["id"]))["last_sequence"]!.GetValue<int>());
+        ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_handling_units SET last_sequence=@p0 WHERE id=@p1",int.MaxValue-2,Rules.Uuid(manifest[0]!["id"]));return true;});
+        var unsafeSequence=Submit("reserve",new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=4,["purpose"]="production",["correlation_id"]=correlation.ToString()});
+        check(Command(unsafeSequence)["status"]!.ToString()=="rejected"&&Stock()["reserved"]!.GetValue<int>()==0,"production reservation leaves sequence room for departure, receipt and consumption");
+        ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_handling_units SET last_sequence=@p0 WHERE id=@p1",oldSequence,Rules.Uuid(manifest[0]!["id"]));return true;});
         ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_handling_units SET version=@p0 WHERE id=@p1",int.MaxValue-3,Rules.Uuid(manifest[0]!["id"]));return true;});
         var unsafeReservation=Submit("reserve",new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=4,["purpose"]="production",["correlation_id"]=correlation.ToString()});
         check(Command(unsafeReservation)["status"]!.ToString()=="rejected"&&Stock()["reserved"]!.GetValue<int>()==0,"production reservation checks downstream departure counter headroom before freezing its manifest");
@@ -35,6 +40,11 @@ public static class CustodyTests
             settings.Outputs=new JsonArray();var unrouted=Submit("issue",Issue());
             check(Command(unrouted)["status"]!.ToString()=="rejected"&&Handling()["units"]!.AsArray().All(n=>n!["position"] is not null),"unconfigured connected issue cannot silently fall back to synthetic departure");
             settings.Outputs=new JsonArray(new JsonObject {["destination"]="manufacturing",["boundary"]="materials",["endpoint"]="manufacturing/events"});
+            var issueSequence=ledger.Db.Transaction(u=>u.One("SELECT last_sequence FROM warehouse_handling_units WHERE id=@p0",Rules.Uuid(manifest[0]!["id"]))["last_sequence"]!.GetValue<int>());
+            ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_handling_units SET last_sequence=@p0 WHERE id=@p1",int.MaxValue-2,Rules.Uuid(manifest[0]!["id"]));return true;});
+            var exhaustedUnit=Submit("issue",Issue());
+            check(Command(exhaustedUnit)["status"]!.ToString()=="rejected"&&Handling()["handoffs"]!.AsArray().Count==0,"source issue rejects exhausted downstream consumption sequences before offering capacity");
+            ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_handling_units SET last_sequence=@p0 WHERE id=@p1",issueSequence,Rules.Uuid(manifest[0]!["id"]));return true;});
             var version=Command(reservation)["result"]!["version"]!.GetValue<int>();
             ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_reservations SET version=@p0 WHERE id=@p1",int.MaxValue,reservation);return true;});
             var exhausted=Submit("issue",Issue());

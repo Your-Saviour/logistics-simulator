@@ -72,7 +72,10 @@ def validate_movement(movement, run_id, epoch):
         raise ValueError('Movement scope mismatch')
     if movement['barcode'] != 'HU-' + UUID(movement['unit_id']).hex.upper():
         raise ValueError('Movement barcode identity mismatch')
-    if movement['origin'] == movement['destination']:
+    if movement['action'] == 'consume':
+        if movement['origin'] is None or movement['origin'] != movement['destination']:
+            raise ValueError('Consumption must retain its recorded input endpoint')
+    elif movement['origin'] == movement['destination']:
         raise ValueError('Movement must change physical position')
     if movement['destination'] not in catalog() or movement['origin'] is not None and movement['origin'] not in catalog():
         raise ValueError('Unknown movement endpoint')

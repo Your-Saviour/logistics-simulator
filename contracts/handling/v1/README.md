@@ -32,6 +32,13 @@ single-slot occupancy, exact allocation and handoff scope/token consistency.
 Native backends must enforce the same rules in their transactions and database
 constraints; a projection validator is not an allocation lock.
 
+Per-unit history also records terminal `consume` events. Consumption retains the
+actual input endpoint as both origin and destination, advances the unit sequence,
+and references the batch in the same transaction that clears live placement and
+decrements materials. It does not describe travel to another coordinate. Other
+location-changing actions must change endpoints. Raw custody admission reserves
+sequence and version headroom for departure, destination receipt and consumption.
+
 ## Whole-unit allocation and recipes
 
 Reserve an exact subset of available whole units under the owning run lock.
