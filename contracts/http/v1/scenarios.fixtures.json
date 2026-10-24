@@ -1,0 +1,28 @@
+{
+  "version": "1.0",
+  "calendar": [
+    {
+      "name": "Adelaide weekend crosses spring DST",
+      "scenario": {"start_at":"2026-10-02T16:59:50+09:30","time_zone":"Australia/Adelaide","business_open":"08:00:00","business_close":"17:00:00","business_weekdays":[0,1,2,3,4]},
+      "after_seconds":0,"minimum_delay":30,"due_at":223210,
+      "instant":"2026-10-05T08:00:00+10:30"
+    },
+    {
+      "name": "New York repeated business opening",
+      "scenario": {"start_at":"2026-11-01T01:44:00-04:00","time_zone":"America/New_York","business_open":"01:00:00","business_close":"01:30:00","business_weekdays":[6]},
+      "after_seconds":0,"minimum_delay":1,"due_at":960,
+      "instant":"2026-11-01T01:00:00-05:00"
+    }
+  ],
+  "invalid": [
+    {"time_zone":"missing/zone"},
+    {"start_at":"2026-01-01T08:00:00"},
+    {"business_open":"17:00:00","business_close":"08:00:00"},
+    {"business_weekdays":[0,0]},
+    {"business_weekdays":[true]},
+    {"business_weekdays":[]},
+    {"seed":-1},
+    {"interval_seconds":0},
+    {"unknown_calendar_field":true}
+  ]
+}

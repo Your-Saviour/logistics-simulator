@@ -1,8 +1,15 @@
 APP ?= storage
+.DEFAULT_GOAL := configure
 COMPOSE = docker compose -f deploy/generated/$(APP).json
 TEST_COMPOSE = docker compose -f deploy/test.compose.yml
 
-.PHONY: configure build up down suite test federation-test web-check smoke recovery check clean-tests credentials schema-check
+.PHONY: configure build up down suite test federation-test web-check smoke recovery check clean-tests credentials schema-check stack-unit stack-check mixed-check
+stack-unit:
+	sh scripts/check_stack_unit.sh $(APP)
+stack-check:
+	sh scripts/check_stacks.sh $(APP)
+mixed-check:
+	sh scripts/check_mixed_stacks.sh
 configure:
 	python3 scripts/compose.py
 build: configure
@@ -18,9 +25,8 @@ test:
 federation-test:
 	$(TEST_COMPOSE) run --build --rm tests python examples/helics/smoke.py
 web-check:
-	npm ci --prefix apps/web
-	npm run build --prefix apps/web
-	npm audit --prefix apps/web --audit-level=moderate
+	docker build --target build --build-arg SIMULATOR=storage -t logistics-simulator:web-check -f apps/web/Dockerfile .
+	docker run --rm logistics-simulator:web-check npm audit --audit-level=moderate
 smoke:
 	python3 scripts/smoke.py $(APP)
 recovery:

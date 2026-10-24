@@ -1,0 +1,113 @@
+{
+  "version": "1.0",
+  "description": "due_at is replaced with current max(granted,requested)+quantum for commands marked relative_time",
+  "valid": [
+    {
+      "name": "one item",
+      "body": {
+        "due_at": 1,
+        "quantity": 1
+      }
+    },
+    {
+      "name": "maximum quantity",
+      "body": {
+        "due_at": 1,
+        "quantity": 10000
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "boolean quantity",
+      "body": {
+        "due_at": 1,
+        "quantity": true
+      }
+    },
+    {
+      "name": "string quantity",
+      "body": {
+        "due_at": 1,
+        "quantity": "2"
+      }
+    },
+    {
+      "name": "fractional quantity",
+      "body": {
+        "due_at": 1,
+        "quantity": 1.5
+      }
+    },
+    {
+      "name": "zero quantity",
+      "body": {
+        "due_at": 1,
+        "quantity": 0
+      }
+    },
+    {
+      "name": "oversized quantity",
+      "body": {
+        "due_at": 1,
+        "quantity": 10001
+      }
+    },
+    {
+      "name": "unknown field",
+      "body": {
+        "due_at": 1,
+        "quantity": 1,
+        "unexpected": true
+      }
+    },
+    {
+      "name": "missing quantity",
+      "body": {
+        "due_at": 1
+      }
+    },
+    {
+      "name": "negative simulation time",
+      "body": {
+        "due_at": -1,
+        "quantity": 1
+      }
+    },
+    {
+      "name": "missing simulation time",
+      "body": {
+        "quantity": 1
+      }
+    },
+    {
+      "name": "null body",
+      "body": null
+    },
+    {
+      "name": "boolean body",
+      "body": true
+    },
+    {
+      "name": "array body",
+      "body": []
+    },
+    {
+      "name": "string body",
+      "body": "job"
+    },
+    {
+      "name": "floating integer quantity",
+      "body": {
+        "due_at": 1,
+        "quantity": 1.0
+      }
+    }
+  ],
+  "invalid_json": [
+    "{\"due_at\":1,\"quantity\":1} {}",
+    "{\"due_at\":1,\"quantity\":1} trailing",
+    "{\"due_at\":1,\"quantity\":",
+    ""
+  ]
+}

@@ -1,0 +1,53 @@
+name: Migrated application stacks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [storage, manufacturing, logistics, shipping, twin]
+    env:
+      # Hosted runners are disposable; local orchestration defaults to20GiB.
+      SIMULATOR_MINIMUM_FREE_GIB: '10'
+      COMPOSE_PARALLEL_LIMIT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native framework checks
+        run: sh scripts/check_stack_unit.sh '${{ matrix.app }}'
+      - name: Independent API and browser acceptance
+        run: sh scripts/check_stacks.sh '${{ matrix.app }}'
+      - name: Retain browser and verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: '${{ matrix.app }}-verification'
+          path: .superpowers/sdd/simu-framework-migration/browser-artifacts
+          if-no-files-found: ignore
+          include-hidden-files: true
+      - name: Resource report
+        if: always()
+        run: |
+          df -h .
+          docker system df
+  mixed-federation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: application
+    env:
+      SIMULATOR_MINIMUM_FREE_GIB: '10'
+      COMPOSE_PARALLEL_LIMIT: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mixed-language HELICS and optional twin
+        run: sh scripts/check_mixed_stacks.sh
+      - name: Resource report
+        if: always()
+        run: |
+          df -h .
+          docker system df

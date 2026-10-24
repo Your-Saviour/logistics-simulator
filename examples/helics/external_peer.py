@@ -1,5 +1,6 @@
 """Small independent power peer, replaceable by an external simulator."""
 import os
+from pathlib import Path
 import signal
 import time
 from simulator.clocks import HelicsClock
@@ -20,6 +21,11 @@ def main():
                 return
             time.sleep(.05)
         clock.publish_value(float(os.getenv('AVAILABLE_POWER_KW','25')))
+        gate=os.getenv('PEER_GATE_FILE')
+        while gate and not Path(gate).exists():
+            if stop:
+                return
+            time.sleep(.05)
         target=1
         # Delayed requests demonstrate that participants cannot process future
         # work just because wall time passed. This is a pacing example only.

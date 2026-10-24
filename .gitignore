@@ -10,3 +10,14 @@ dist/
 deploy/generated/
 apps/web/test-results/
 apps/web/playwright-report/
+**/bin/
+**/obj/
+**/target/
+**/vendor/
+**/.angular/
+**/.svelte-kit/
+**/coverage/
+**/test-results/
+**/playwright-report/
+apps/shipping/storage/
+apps/shipping/bootstrap/cache/

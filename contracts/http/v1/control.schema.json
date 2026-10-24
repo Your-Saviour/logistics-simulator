@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:http:control-command:1.0",
+  "title": "Run control command v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "speed": {"type": "integer", "default": 1, "description": "For speed actions only, supported standalone values are 1, 5, 20, 60."},
+    "confirm_run_id": {"type": ["string", "null"], "format": "uuid"},
+    "scenario": {"type": ["object", "null"], "additionalProperties": false,
+      "properties": {
+        "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "time_zone": {"type": "string", "minLength": 1, "description": "Supported IANA timezone name, validated by each backend."},
+        "start_at": {"type": "string", "format": "date-time"},
+        "business_open": {"type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9](:00)?$"},
+        "business_close": {"type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9](:00)?$"},
+        "business_weekdays": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 6}},
+        "interval_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}
+      }
+    }
+  },
+  "description": "Action is in the URL. Reset requires current confirm_run_id; scenario may change only on reset; connected reset/speed are forbidden; finalization requires SQL and native completion barriers. Business close must be later than open within one local day. These state/cross-field conditions are enforced by each backend."
+}

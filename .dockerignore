@@ -9,3 +9,13 @@ __pycache__
 .pytest_cache
 .env
 deploy/generated/
+**/bin
+**/obj
+**/target
+**/.angular
+**/.svelte-kit
+**/test-results
+**/playwright-report
+**/vendor
+apps/shipping/storage
+apps/shipping/bootstrap/cache
