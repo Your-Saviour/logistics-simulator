@@ -11,7 +11,7 @@ public static class StorageCustody
         Complete(h,"id","run_id","epoch","source","destination_owner","origin","destination","state","unit","departure_token","receipt_id","reason");
         foreach(var key in new[]{"id","run_id","epoch"})Rules.Uuid(h[key]);
         var unit=h["unit"] as JsonObject??throw new Validation("Whole-unit proof required");
-        Complete(unit,"id","barcode","run_id","epoch","contents","category","state","owner","version","custody_generation","last_sequence","position","origin","destination","handoff_id");
+        Complete(unit,"id","barcode","run_id","epoch","contents","category","state","owner","version","custody_generation","last_sequence","position","origin","destination","handoff_id");foreach(var key in new[]{"source","destination_owner","origin","destination","state"})Rules.Text(h[key]);foreach(var key in new[]{"owner","category","state","barcode"})Rules.Text(unit[key]);
         var id=Rules.Uuid(unit["id"]);var state=Rules.Text(h["state"]);var owner=Rules.Text(h["destination_owner"]);var category=owner=="shipping"?"finished":"raw";
         if(state is not ("accepted" or "received")||e["type"]!.ToString()!="handling."+state+".v1"||e["source"]!.ToString()!=owner||e["destination"]!.ToString()!="storage"||e["boundary"]!.ToString()!="requests"||h["source"]!.ToString()!="storage"||owner is not ("manufacturing" or "shipping")||unit["owner"]!.ToString()!="storage"||unit["category"]!.ToString()!=category)throw new Conflict("Unsupported source custody route or transition");
         foreach(var key in new[]{"run_id","epoch"})if(!JsonNode.DeepEquals(h[key],e[key])||!JsonNode.DeepEquals(unit[key],h[key]))throw new Conflict("Custody scope mismatch");
@@ -62,7 +62,7 @@ public static class StorageCustody
             if(old is not null) { if(!JsonNode.DeepEquals(old["envelope"],e))throw new Conflict("Custody event identity changed");if(run["state"]!.ToString() is "running" or "held")Replay(u,run,e);return "duplicate"; }
             if(run["state"]!.ToString() is not ("running" or "held"))throw new Conflict("Inactive source custody run");
             var id=Guid.NewGuid();var due=Math.Max(Ledger.Num(run,"granted"),Ledger.Num(e,"effective_time"));
-            u.Exec("INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6)",id,Ledger.Id(run),Ledger.Id(run,"epoch"),"boundary:"+Ledger.Id(e,"event_id"),due,Ledger.Num(e,"effective_time"),new JsonObject {["custody"]=e.DeepClone()});
+            u.Exec("INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6)",id,Ledger.Id(run),Ledger.Id(run,"epoch"),"boundary:"+Ledger.Id(e,"event_id"),due,Ledger.Num(e,"effective_time"),new JsonObject {["custody"]=e.DeepClone(),["custody_endpoint"]=endpoint});
             u.Exec("INSERT INTO warehouse_commands(id,run_id,command) VALUES (@p0,@p1,@p2)",id,Ledger.Id(run),new JsonObject {["action"]="custody",["handoff_id"]=h["id"]!.DeepClone()});
             u.Exec("INSERT INTO warehouse_custody_events VALUES (@p0,@p1,@p2,@p3)",Ledger.Id(e,"event_id"),Ledger.Id(run),e,id);return "accepted";
         });
@@ -70,7 +70,7 @@ public static class StorageCustody
     public static void Execute(Unit u,JsonObject run,Settings settings,JsonObject job) {
         u.Exec("SAVEPOINT custody_effect");
         try { var result=Apply(u,run,settings,Ledger.Id(job),job["payload"]!["custody"]!.AsObject());u.Exec("UPDATE warehouse_commands SET status='completed',result=@p0,completed_at=@p1 WHERE id=@p2",result,Ledger.Num(run,"granted"),Ledger.Id(job)); }
-        catch(Exception error) when(error is Conflict or Validation) {u.Exec("ROLLBACK TO SAVEPOINT custody_effect");u.Exec("UPDATE warehouse_commands SET status='rejected',error=@p0,completed_at=@p1 WHERE id=@p2",error.Message,Ledger.Num(run,"granted"),Ledger.Id(job));}
+        catch(Exception error) when(error is Conflict or Validation) {u.Exec("ROLLBACK TO SAVEPOINT custody_effect");CustodyQuarantine.Record(u,run,job["payload"]!["custody"]!.AsObject(),job["payload"]?["custody_endpoint"]?.ToString()??"","apply",error.Message,Ledger.Id(job));u.Exec("UPDATE warehouse_commands SET status='rejected',error=@p0,completed_at=@p1 WHERE id=@p2",error.Message,Ledger.Num(run,"granted"),Ledger.Id(job));}
     }
     static JsonObject Apply(Unit u,JsonObject run,Settings settings,Guid command,JsonObject e) {
         var h=Validate(e);var row=u.Query("SELECT * FROM warehouse_custody_sources WHERE id=@p0 AND run_id=@p1 AND epoch=@p2",Ledger.Id(h),Ledger.Id(run),Ledger.Id(run,"epoch")).FirstOrDefault()??throw new Conflict("Unknown source handoff");

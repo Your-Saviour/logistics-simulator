@@ -102,7 +102,11 @@ func handlingSnapshot(ctx context.Context, tx pgx.Tx, run row) (row, error) {
 		h["state"] = record["state"]
 		records = append(records, h)
 	}
-	return row{"version": 1, "catalog_version": 1, "units": values, "unit_context": contexts, "movements": movements, "handoffs": records, "lineage": []row{}}, nil
+	quarantine, err := objects(ctx, tx, "SELECT * FROM transport_custody_quarantine WHERE run_id=$1 AND epoch=$2 ORDER BY recorded_at,id", run["id"], run["epoch"])
+	if err != nil {
+		return nil, err
+	}
+	return row{"version": 1, "catalog_version": 1, "quarantine": quarantine, "units": values, "unit_context": contexts, "movements": movements, "handoffs": records, "lineage": []row{}}, nil
 }
 
 const handlingMaxCounter = 2147483647

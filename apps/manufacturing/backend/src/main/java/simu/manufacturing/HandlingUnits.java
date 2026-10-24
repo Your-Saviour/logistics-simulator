@@ -79,6 +79,6 @@ final class HandlingUnits {
   result.put("lineage",rows(c,"SELECT payload FROM production_unit_lineage WHERE run_id=? AND epoch=? ORDER BY id",run.get("id"),run.get("epoch")).stream().map(row->json(row.get("payload"))).toList());
   result.put("input_allocations",rows(c,"SELECT i.* FROM production_unit_inputs i JOIN production_orders o ON o.id=i.batch_id WHERE o.run_id=? ORDER BY i.batch_id,i.unit_id",run.get("id")));
   result.put("legacy_stock",rows(c,"SELECT m.sku,m.quantity-COALESCE(sum(u.quantity) FILTER(WHERE u.state IN ('available','reserved')),0) AS unplaced_quantity FROM production_materials m LEFT JOIN production_handling_units u ON u.run_id=m.run_id AND u.sku=m.sku AND u.category='raw' WHERE m.run_id=? GROUP BY m.run_id,m.sku,m.quantity HAVING m.quantity<>COALESCE(sum(u.quantity) FILTER(WHERE u.state IN ('available','reserved')),0) ORDER BY m.sku",run.get("id")));
-  var handoffs=Custody.snapshot(c,run);handoffs.addAll(OutputCustody.snapshot(c,run));result.put("handoffs",handoffs);return result;
+  var handoffs=Custody.snapshot(c,run);handoffs.addAll(OutputCustody.snapshot(c,run));result.put("handoffs",handoffs);result.put("quarantine",CustodyQuarantine.snapshot(c,run));return result;
  }
 }

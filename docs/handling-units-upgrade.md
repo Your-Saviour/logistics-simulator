@@ -236,6 +236,27 @@ onward delivery and newer custody generations. This is local single-order
 acceptance; renderer performance and broader outage/upgrade acceptance remain
 separate checks.
 
+## Custody quarantine
+
+Each department exposes durable rejected custody evidence in its existing API
+and projection under `handling.quarantine`. Records retain the original envelope,
+peer endpoint, reason, ingest/application phase, observation time and optional
+command reference. The record's `run_id` and `epoch` identify the observing run;
+the original envelope retains its claimed scope, including a rejected old epoch.
+
+Configured peers with valid envelope headers can produce inspectable quarantine
+cases for stale scope, changed event identity, malformed custody payloads and
+contradictory proofs. Unknown peers and invalid headers remain transport errors.
+Application quarantine commits after the failed business savepoint is rolled
+back. Capacity waits retain their normal retry path. Repeating the same rejected
+frame does not allocate another unit, create more work or replace accepted
+history. Quarantine records are evidence for reconciliation; they do not restore
+source stock or authorize a new receipt.
+
+`handling-factory-check` also sends contradictory receipt acknowledgements over
+the real native transport to all four receivers and verifies retained cases,
+unchanged units and continuing execution.
+
 ## Twin instructions pending
 
 Twin upgrade instructions will be added with its native implementation. The shared protocol is in

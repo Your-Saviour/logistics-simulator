@@ -40,7 +40,7 @@ class CustodyTest {
   ingress.tx(c->{sql(c,"UPDATE boundary_outbox SET sent_at=clock_timestamp()-interval '10 seconds' WHERE run_id=?",fixture.store.run().get("id"));return null;});
   assertEquals("duplicate",ingress.ingest(first,"storage/events"));
   assertEquals(original,ingress.tx(c->json(one(c,"SELECT envelope FROM boundary_outbox WHERE sent_at IS NULL AND run_id=?",fixture.store.run().get("id")).get("envelope"))));
-  var changed=first.deepCopy();((ObjectNode)changed.path("payload")).put("reason","changed");assertThrows(Store.Conflict.class,()->ingress.ingest(changed,"storage/events"));
+  var changed=first.deepCopy();((ObjectNode)changed.path("payload")).put("reason","changed");assertEquals("quarantined",ingress.ingest(changed,"storage/events"));
  }
 
  @Test void legacyConversionCannotOccupyAnAcceptedIncomingEndpoint(){
@@ -57,6 +57,12 @@ class CustodyTest {
   ingress.tx(c->{sql(c,"UPDATE boundary_outbox SET sent_at=clock_timestamp()-interval '10 seconds' WHERE run_id=?",run.get("id"));return null;});
   assertEquals(Integer.valueOf(1),ingress.tx(c->Custody.recover(c,current(c))));assertEquals(Integer.valueOf(0),ingress.tx(c->Custody.recover(c,current(c))));
   assertEquals(original,ingress.tx(c->json(one(c,"SELECT envelope FROM boundary_outbox WHERE run_id=? AND sent_at IS NULL",run.get("id")).get("envelope"))));
+ }
+
+ @Test void staleAndChangedCustodyFramesAreDurableQuarantineWithoutStock(){
+  var stale=wire(offer());String epoch=UUID.randomUUID().toString();stale.put("epoch",epoch);((ObjectNode)stale.path("payload")).put("epoch",epoch);((ObjectNode)stale.path("payload").path("unit")).put("epoch",epoch);
+  assertEquals("quarantined",ingress.ingest(stale,"storage/events"));assertEquals("quarantined",ingress.ingest(stale,"storage/events"));assertEquals(1,fixture.get().path("handling").path("quarantine").size());assertEquals(0,fixture.get().path("handling").path("units").size());
+  var accepted=wire(offer());assertEquals("accepted",ingress.ingest(accepted,"storage/events"));execute(accepted);var changed=accepted.deepCopy();changed.put("correlation_id",UUID.randomUUID().toString());assertEquals("quarantined",ingress.ingest(changed,"storage/events"));assertEquals(2,fixture.get().path("handling").path("quarantine").size());assertEquals(1,fixture.get().path("handling").path("handoffs").size());assertEquals(0,fixture.get().path("materials").get(0).path("quantity").asInt());
  }
 
 }

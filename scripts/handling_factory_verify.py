@@ -8,6 +8,7 @@ import httpx
 import psycopg
 from psycopg.rows import dict_row
 from simulator.handling_contracts import validate_snapshot, validate_movement, validate_handoff, validate_lineage
+from simulator.wire_contracts import transport_envelope
 
 
 def wait(fetch,predicate,label,timeout=150):
@@ -101,6 +102,26 @@ def main():
         wait(lambda:row('shipping',"SELECT count(*) n FROM shipping_intents WHERE order_id=%s AND kind='receive' AND state='completed'",order),lambda v:v['n']==1,'late source business confirmation settles historical goods receipt')
         assert get('shipping','shipping/orders/'+order)['status']=='delivered' and unit('shipping',finished)['version']==shipping_version,'Late goods echo reversed onward delivery'
         storage_version=unit('storage',finished)['version'];close('manufacturing','storage',finished);assert unit('storage',finished)['version']==storage_version,'Old-generation Manufacturing acknowledgement changed onward Storage custody'
+        # Contradictory, schema-valid acknowledgements traverse the real native
+        # transport. Only transport outbox rows are injected, never business rows.
+        quarantined={}
+        for source,target in legs:
+            original=row(source,"SELECT envelope FROM boundary_outbox WHERE run_id=%s AND envelope->>'type'='handling.acknowledged.v1' AND envelope->'payload'->>'destination_owner'=%s LIMIT 1",run,target)['envelope']
+            invalid=json.loads(json.dumps(original));invalid['event_id']=str(uuid4());invalid['payload']['receipt_id']=str(uuid4())
+            # The private adapter serializes its typed envelope (including UTC
+            # timestamps) before delivery. Quarantine retains that received body.
+            delivered_invalid=transport_envelope.validate_python(invalid).model_dump(mode='json')
+            before=get(target,domains[target])['handling']['units']
+            db[source].execute('INSERT INTO boundary_outbox(id,run_id,envelope) VALUES (%s,%s,%s::jsonb)',(str(uuid4()),run,json.dumps(invalid)))
+            case=wait(lambda:get(target,domains[target])['handling']['quarantine'],lambda rows:any(v['event_id']==invalid['event_id'] for v in rows),target+' retains contradictory receipt')
+            case=next(v for v in case if v['event_id']==invalid['event_id'])
+            assert case['phase']=='apply' and case['endpoint']==source+'/events' and case['reason'],case
+            assert case['envelope']==delivered_invalid,{'retained':case['envelope'],'delivered':delivered_invalid}
+            assert get(target,domains[target])['handling']['units']==before,'Quarantine changed stock, counters or placement'
+            assert get(target,'status')['run']['state']=='running','Bad proof stalled an independent native department'
+            quarantined[target]={'event_id':invalid['event_id'],'reason':case['reason']}
+        record['quarantined_receipts']=quarantined
+        save('all four native receivers retained contradictory receipts without changing units or stopping execution')
         frames=[];drops={};snapshots={}
         for app in clients:
             snapshot=get(app,domains[app]);handling=snapshot['handling'];validate_snapshot(handling['units'],run,epoch)

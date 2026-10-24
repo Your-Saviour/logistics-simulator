@@ -66,7 +66,7 @@ func TestCustodyReceiptRequiresDurableDepartureAndPreservesWholeIdentity(t *test
 	}
 	directTruck := copyCustody(offer)
 	directTruck["destination"] = "logistics.outbound.truck02.slot01"
-	if _, err := s.IngestTransport(ctx, wire(directTruck), "shipping/events"); err == nil {
+	if result, err := s.IngestTransport(ctx, wire(directTruck), "shipping/events"); err != nil || result != "quarantined" {
 		t.Fatal("peer receipt bypassed assigned vehicle loading and capacity checks")
 	}
 	for _, test := range []struct {
@@ -77,7 +77,7 @@ func TestCustodyReceiptRequiresDurableDepartureAndPreservesWholeIdentity(t *test
 		badUnit[test.field] = test.value
 		bad := copyCustody(offer)
 		bad["unit"] = badUnit
-		if _, err := s.IngestTransport(ctx, wire(bad), "shipping/events"); err == nil {
+		if result, err := s.IngestTransport(ctx, wire(bad), "shipping/events"); err != nil || result != "quarantined" {
 			t.Fatalf("unsupported counter accepted: %s=%v", test.field, test.value)
 		}
 	}
@@ -130,12 +130,29 @@ func TestCustodyReceiptRequiresDurableDepartureAndPreservesWholeIdentity(t *test
 	badToken := copyCustody(departed["departure_token"].(row))
 	badToken["unit_id"] = uuid.NewString()
 	invalid["departure_token"] = badToken
-	if _, err := s.IngestTransport(ctx, wire(invalid), "shipping/events"); err == nil {
+	if result, err := s.IngestTransport(ctx, wire(invalid), "shipping/events"); err != nil || result != "quarantined" {
 		t.Fatal("token for another unit authorized receipt")
 	}
 	if len(transportSnapshot(t, s)["handling"].(map[string]any)["units"].([]any)) != 0 {
 		t.Fatal("invalid proof placed stock")
 	}
+	corrupt := copyCustody(departed)
+	corruptUnit := copyCustody(departedUnit)
+	corruptUnit["contents"] = []row{{"sku": "PRODUCT", "quantity": 4}}
+	corrupt["unit"] = corruptUnit
+	corruptRaw := wire(corrupt)
+	if result, err := s.IngestTransport(ctx, corruptRaw, "shipping/events"); err != nil || result != "accepted" {
+		t.Fatalf("corrupt proof admission: %s %v", result, err)
+	}
+	execute(corruptRaw)
+	quarantineHandling := transportSnapshot(t, s)["handling"].(map[string]any)
+	if cases, ok := quarantineHandling["quarantine"].([]any); !ok || len(cases) == 0 {
+		t.Fatal("rejected custody proof must be retained in the quarantine read model")
+	}
+	if result, err := s.IngestTransport(ctx, corruptRaw, "shipping/events"); err != nil || result != "quarantined" {
+		t.Fatalf("rejected proof replay: %s %v", result, err)
+	}
+
 	raw = wire(departed)
 	if result, err := s.IngestTransport(ctx, raw, "shipping/events"); err != nil || result != "accepted" {
 		t.Fatalf("departure: %s %v", result, err)
@@ -230,7 +247,7 @@ func TestCustodyReceiptRequiresDurableDepartureAndPreservesWholeIdentity(t *test
 	payload["epoch"] = epoch
 	payload["unit"].(map[string]any)["epoch"] = epoch
 	staleRaw, _ := json.Marshal(stale)
-	if result, err := s.IngestTransport(ctx, staleRaw, "shipping/events"); err != nil || result != "fenced" {
+	if result, err := s.IngestTransport(ctx, staleRaw, "shipping/events"); err != nil || result != "quarantined" {
 		t.Fatalf("stale custody scope: %s %v", result, err)
 	}
 

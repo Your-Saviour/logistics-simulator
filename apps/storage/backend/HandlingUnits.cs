@@ -41,7 +41,7 @@ public static class HandlingUnits
         ["version"]=1,["catalog_version"]=1,
         ["units"]=new JsonArray(u.Query("SELECT * FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 ORDER BY id",Ledger.Id(run),Ledger.Id(run,"epoch")).Select(r=>(JsonNode?)Contract(r)).ToArray()),
         ["movements"]=Ledger.Array(u.Query("SELECT id,unit_id,barcode,run_id,epoch,sequence,custody_generation,origin,destination,simulation_time,action,\"references\",correlation_id FROM warehouse_unit_movements WHERE run_id=@p0 AND epoch=@p1 ORDER BY unit_id,sequence",Ledger.Id(run),Ledger.Id(run,"epoch"))),
-        ["handoffs"]=Handoffs(u,run),["lineage"]=new JsonArray(),
+        ["quarantine"]=CustodyQuarantine.Snapshot(u,run),["handoffs"]=Handoffs(u,run),["lineage"]=new JsonArray(),
         ["legacy_stock"]=Ledger.Array(u.Query("SELECT s.sku,s.location,s.on_hand-COALESCE(sum(h.quantity) FILTER(WHERE h.state IN ('available','reserved')),0) AS unplaced_quantity FROM warehouse_stock s LEFT JOIN warehouse_handling_units h ON h.run_id=s.run_id AND h.sku=s.sku AND h.logical_location=s.location WHERE s.run_id=@p0 GROUP BY s.run_id,s.sku,s.location,s.on_hand HAVING s.on_hand<>COALESCE(sum(h.quantity) FILTER(WHERE h.state IN ('available','reserved')),0) ORDER BY s.sku,s.location",Ledger.Id(run)))
     };
     static JsonArray Handoffs(Unit u,JsonObject run) {var result=StorageCustody.Snapshot(u,run);foreach(var h in FinishedCustody.Snapshot(u,run))result.Add(h!.DeepClone());return result;}

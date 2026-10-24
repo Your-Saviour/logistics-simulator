@@ -108,6 +108,7 @@ final class Fulfilment
             }$this->history($u,$r,$o['id'],$b['action'],['command_id'=>$id]);}
             $u->execute("UPDATE shipping_commands SET outcome='completed',completed_at=? WHERE id=?",[$r['granted'],$id]);
         }catch(Conflict|Validation|CustodyCapacity $e){$u->execute('ROLLBACK TO SAVEPOINT shipping_effect');
+            $wire=$job['payload']['shipping']['envelope']??null;if(!($e instanceof CustodyCapacity)&&is_array($wire)&&str_starts_with($wire['type']??'','handling.'))CustodyQuarantine::record($u,$r,$wire,$job['payload']['shipping']['custody_endpoint']??'','apply',$e->getMessage(),$id);
             if($e instanceof CustodyCapacity&&$job['payload']['shipping']['action']==='goods_admit'){$u->execute("UPDATE jobs SET due_at=?,error=? WHERE id=?",[$r['granted']+$this->settings->quantum,$e->getMessage(),$id]);$u->execute('UPDATE outbox SET retry_after=clock_timestamp() WHERE job_id=?',[$id]);$u->execute('RELEASE SAVEPOINT shipping_effect');return false;}
 $u->execute("UPDATE shipping_commands SET outcome='rejected',error=?,completed_at=?,retryable_capacity=? WHERE id=?",[$e->getMessage(),$r['granted'],$e instanceof CustodyCapacity,$id]);}
         $u->execute('RELEASE SAVEPOINT shipping_effect');return true;
@@ -140,11 +141,19 @@ $u->execute("UPDATE shipping_commands SET outcome='rejected',error=?,completed_a
         if($o['cancel_requested'])$this->cancelled($u,$r,$o['id']);
     }
     public function ingest(array $e,string $endpoint):string {
+        if(!str_starts_with($e['type']??'','handling.'))return $this->ingestValidated($e,$endpoint);
+        ShippingBoundary::header($e);$routes=$this->settings->peers[$e['boundary']]??[];if(isset($routes['source']))$routes=[$routes];$authorized=false;foreach($routes as $route)if(($route['source']??null)===$e['source']&&($route['endpoint']??null)===$endpoint)$authorized=true;
+        if(!$authorized||($this->settings->providers[$e['boundary']]??null)!=='helics'||$e['destination']!=='shipping'||$e['federation_id']!==$this->settings->federationId)throw new Conflict('Unconfigured custody peer');
+        if($this->db->transaction(fn($u)=>CustodyQuarantine::seen($u,$u->run(),$e)))return 'quarantined';
+        try{$result=$this->ingestValidated($e,$endpoint);if($result!=='fenced')return $result;$this->db->transaction(fn($u)=>CustodyQuarantine::record($u,$u->run(),$e,$endpoint,'ingest','Custody run or epoch mismatch'));}
+        catch(Conflict|Validation $error){$this->db->transaction(fn($u)=>CustodyQuarantine::record($u,$u->run(),$e,$endpoint,'ingest',$error->getMessage()));}return 'quarantined';
+    }
+    private function ingestValidated(array $e,string $endpoint):string {
         ShippingBoundary::validate($e);
         $routes=$this->settings->peers[$e['boundary']]??[];if(isset($routes['source']))$routes=[$routes];
         $authorized=false;foreach($routes as $route)if(($route['source']??null)===$e['source']&&($route['endpoint']??null)===$endpoint)$authorized=true;
         if(!$authorized||($this->settings->providers[$e['boundary']]??null)!=='helics'||$e['destination']!=='shipping'||$e['federation_id']!==$this->settings->federationId)throw new Conflict('Boundary owner/routing mismatch');
-        return $this->db->transaction(function($u)use($e){$r=$u->run();if($e['run_id']!==$r['id']||$e['epoch']!==$r['epoch'])return 'fenced';
+        return $this->db->transaction(function($u)use($e,$endpoint){$r=$u->run();if($e['run_id']!==$r['id']||$e['epoch']!==$r['epoch'])return 'fenced';
             $old=$u->query('SELECT envelope FROM shipping_incoming_events WHERE event_id=?',[$e['event_id']])[0]??null;if($old){if($old['envelope']!=$e)throw new Conflict('Peer event identity reused with different content');if(str_starts_with($e['type'],'handling.')){
                 $retry=$u->query('SELECT c.id FROM shipping_commands c JOIN jobs j USING(id) WHERE c.run_id=? AND j.idempotency_key=? AND c.retryable_capacity',[$r['id'],'boundary:'.$e['event_id']])[0]??null;
                 if($retry){$u->execute("UPDATE shipping_commands SET outcome='pending',error=NULL,completed_at=NULL,retryable_capacity=false WHERE id=?",[$retry['id']]);$u->execute("UPDATE jobs SET status='pending',due_at=?,error=NULL,retry_after=clock_timestamp() WHERE id=?",[max($r['granted'],$e['effective_time']),$retry['id']]);$u->execute('UPDATE outbox SET retry_after=clock_timestamp() WHERE job_id=?',[$retry['id']]);}
@@ -152,7 +161,7 @@ $u->execute("UPDATE shipping_commands SET outcome='rejected',error=?,completed_a
             }return 'duplicate';}
             if($e['effective_time']<$r['granted']&&!str_starts_with($e['type'],'handling.'))throw new Conflict('Late fact cannot change committed history');
             if($e['type']==='shipping.order.v1'&&$u->query("SELECT 1 FROM shipping_incoming_events WHERE run_id=? AND envelope->>'source'=? AND envelope->>'aggregate_id'=? AND envelope->>'type'='shipping.order.v1'",[$r['id'],$e['source'],$e['aggregate_id']]))throw new Conflict('Customer aggregate already accepted; replay original event identity');
-            $body=$e['type']==='shipping.order.v1'?ShippingRules::command(['run_id'=>$r['id'],'epoch'=>$r['epoch'],'due_at'=>$e['effective_time'],'action'=>'create',...$e['payload']]):['run_id'=>$r['id'],'epoch'=>$r['epoch'],'due_at'=>$e['effective_time'],'action'=>'wire','envelope'=>$e];if(str_starts_with($e['type'],'handling.'))$body['due_at']=max($r['granted'],$e['effective_time']);
+            $body=$e['type']==='shipping.order.v1'?ShippingRules::command(['run_id'=>$r['id'],'epoch'=>$r['epoch'],'due_at'=>$e['effective_time'],'action'=>'create',...$e['payload']]):['run_id'=>$r['id'],'epoch'=>$r['epoch'],'due_at'=>$e['effective_time'],'action'=>'wire','envelope'=>$e];if(str_starts_with($e['type'],'handling.')){$body['due_at']=max($r['granted'],$e['effective_time']);$body['custody_endpoint']=$endpoint;}
             if($e['type']==='shipping.order.v1')$body['correlation_id']=$e['correlation_id'];
             $u->execute('INSERT INTO shipping_incoming_events(event_id,run_id,envelope) VALUES (?,?,?)',[$e['event_id'],$r['id'],$e]);$u->execute('INSERT INTO inbox(event_id,run_id,epoch) VALUES (?,?,?)',[$e['event_id'],$r['id'],$r['epoch']]);
             $this->schedule($u,$r,'boundary:'.$e['event_id'],$body,['actor'=>$e['source'],'role'=>'service','request_id'=>$e['event_id'],'action'=>'boundary:'.$e['type'],'peer'=>'helics'],true);return 'accepted';

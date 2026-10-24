@@ -61,7 +61,7 @@ $wire=['schema_version'=>'1.0','type'=>'handling.offered.v1','event_id'=>Rules::
 shippingReject(fn()=>$connected->ingest($wire,'intruder/events'),'custody offer rejects an unconfigured peer endpoint');
 shippingCheck($connected->ingest($wire,'storage/events')==='accepted','authorized future custody offer is durably scheduled');
 shippingCheck($connected->ingest($wire,'storage/events')==='duplicate','custody wire replay deduplicates before execution');
-shippingReject(fn()=>$connected->ingest([...$wire,'event_id'=>Rules::uuid4(),'aggregate_id'=>Rules::uuid4()],'storage/events'),'custody envelope identity must bind the payload handoff');
+shippingCheck($connected->ingest([...$wire,'event_id'=>Rules::uuid4(),'aggregate_id'=>Rules::uuid4()],'storage/events')==='quarantined','custody envelope identity mismatch is quarantined without changing stock');
 echo "Shipping custody wire checks passed\n";
 // Execute the future wire command through the real worker transaction.
 $db->transaction(fn($u)=>$u->execute('UPDATE boundary_outbox SET sent_at=clock_timestamp() WHERE run_id=?',[$r['id']]));

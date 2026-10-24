@@ -3,11 +3,15 @@ declare(strict_types=1);
 namespace Shipping;
 final class ShippingBoundary
 {
-    public static function validate(array $e):void {
+    public static function header(array $e):void {
         Rules::fields($e,['schema_version','type','event_id','federation_id','run_id','epoch','correlation_id','causation_id','aggregate_id','aggregate_version','source','destination','boundary','effective_time','wall_time','quantity_unit','payload']);
         foreach(['event_id','run_id','epoch','correlation_id','causation_id','aggregate_id'] as $key)Rules::uuid($e[$key]??null);
         foreach(['federation_id','source','destination','boundary'] as $key)Rules::text($e[$key]??null,128);
         if(($e['schema_version']??null)!=='1.0'||($e['quantity_unit']??null)!=='item'||Rules::number($e['effective_time']??null)<0)throw new Validation('Invalid shipping envelope metadata');Rules::integer($e['aggregate_version']??null,1,PHP_INT_MAX);
+        Rules::text($e['type']??null,128);
+    }
+    public static function validate(array $e):void {
+        self::header($e);
         if(!is_array($e['payload']??null))throw new Validation('Payload required');
         if(str_starts_with($e['type'],'handling.')){
             $h=$e['payload'];HandlingHandoffs::validate($h);$sourceSide=$h['source']==='shipping';$peer=$sourceSide?$h['destination_owner']:$h['source'];

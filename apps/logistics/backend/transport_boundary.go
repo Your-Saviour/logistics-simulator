@@ -46,7 +46,7 @@ func (s *Store) IngestTransport(ctx context.Context, raw []byte, source string) 
 		return "", Conflict("Unconfigured HELICS sender or federation")
 	}
 	if strings.HasPrefix(env.Type, "handling.") {
-		return s.ingestCustody(ctx, raw, env)
+		return s.ingestCustody(ctx, raw, env, source)
 	}
 	if env.SchemaVersion != "1.0" || env.QuantityUnit != "item" || (env.AggregateVersion < 1 || (env.Type != "storage.transfer.completed.v1" && env.AggregateVersion != 1)) || !finite(env.EffectiveTime) || env.EffectiveTime < 0 {
 		return "", errors.New("Invalid transport envelope metadata")

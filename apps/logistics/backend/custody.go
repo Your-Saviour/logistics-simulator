@@ -176,14 +176,11 @@ func copyCustody(value row) row {
 	return result
 }
 
-func (s *Store) ingestCustody(ctx context.Context, raw []byte, env TransportEnvelope) (result string, err error) {
+func (s *Store) ingestCustody(ctx context.Context, raw []byte, env TransportEnvelope, endpoint string) (result string, err error) {
 	if env.SchemaVersion != "1.0" || env.QuantityUnit != "item" || !finite(env.EffectiveTime) || env.EffectiveTime < 0 {
 		return "", Conflict("Invalid custody envelope")
 	}
 	if _, err = time.Parse(time.RFC3339Nano, env.WallTime); err != nil {
-		return
-	}
-	if _, err = validateCustody(env); err != nil {
 		return
 	}
 	err = s.transaction(ctx, func(tx pgx.Tx) error {
@@ -191,16 +188,33 @@ func (s *Store) ingestCustody(ctx context.Context, raw []byte, env TransportEnve
 		if e != nil {
 			return e
 		}
-		if env.RunID != r["id"] || env.Epoch != r["epoch"] {
-			result = "fenced"
+		quarantine := func(reason string) error {
+			if failure := recordCustodyQuarantine(ctx, tx, r, raw, env.EventID, endpoint, "ingest", reason, nil); failure != nil {
+				return failure
+			}
+			result = "quarantined"
 			return nil
+		}
+		if env.RunID != r["id"] || env.Epoch != r["epoch"] {
+			return quarantine("Custody run or epoch mismatch")
+		}
+		seen, failure := custodyQuarantineSeen(ctx, tx, r, raw, env.EventID)
+		if failure != nil {
+			return failure
+		}
+		if seen {
+			result = "quarantined"
+			return nil
+		}
+		if _, failure = validateCustody(env); failure != nil {
+			return quarantine(failure.Error())
 		}
 		old, e := object(ctx, tx, "SELECT * FROM transport_custody_events WHERE event_id=$1", env.EventID)
 		if e == nil {
 			var value row
 			json.Unmarshal(raw, &value)
 			if !reflect.DeepEqual(old["envelope"], value) {
-				return Conflict("Custody event identity changed")
+				return quarantine("Custody event identity changed")
 			}
 			if active(r) {
 				if _, e = tx.Exec(ctx, "UPDATE jobs SET status='pending',due_at=$1,retry_after=clock_timestamp(),error=NULL WHERE id=$2 AND EXISTS(SELECT 1 FROM transport_commands WHERE id=$2 AND retryable_capacity)", math.Max(num(r, "granted"), env.EffectiveTime), old["command_id"]); e != nil {
@@ -223,10 +237,10 @@ func (s *Store) ingestCustody(ctx context.Context, raw []byte, env TransportEnve
 			return e
 		}
 		if !active(r) {
-			return Conflict("Inactive custody run")
+			return quarantine("Inactive custody run")
 		}
 		id := uuid.NewString()
-		payload, _ := json.Marshal(row{"custody": env})
+		payload, _ := json.Marshal(row{"custody": env, "custody_endpoint": endpoint})
 		command, _ := json.Marshal(row{"action": "custody", "handoff_id": env.AggregateID, "state": strings.TrimSuffix(strings.TrimPrefix(env.Type, "handling."), ".v1")})
 		due := math.Max(num(r, "granted"), env.EffectiveTime)
 		if _, e = tx.Exec(ctx, "INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES($1,$2,$3,$4,$5,$6,$7)", id, r["id"], r["epoch"], "boundary:"+env.EventID, due, env.EffectiveTime, payload); e != nil {
@@ -265,6 +279,12 @@ func (s *Store) executeCustody(ctx context.Context, tx pgx.Tx, r, j row) error {
 	if errors.As(err, &conflict) || errors.As(err, &capacity) {
 		if e := save.Rollback(ctx); e != nil {
 			return e
+		}
+		if errors.As(err, &conflict) {
+			endpoint, _ := j["payload"].(map[string]any)["custody_endpoint"].(string)
+			if failure := recordCustodyQuarantine(ctx, tx, r, raw, env.EventID, endpoint, "apply", err.Error(), j["id"]); failure != nil {
+				return failure
+			}
 		}
 		_, err = tx.Exec(ctx, "UPDATE transport_commands SET status='rejected',reason=$1,completed_at=$2,retryable_capacity=$3 WHERE id=$4", err.Error(), r["granted"], errors.As(err, &capacity), j["id"])
 	} else if err != nil {
