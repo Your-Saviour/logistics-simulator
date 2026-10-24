@@ -77,6 +77,7 @@ public sealed class Ledger(Database database,Settings settings)
             if(envelope["type"]!.ToString()!="sample.completed.v1") {
                 if(u.Query("SELECT 1 FROM warehouse_boundary_commands WHERE run_id=@p0 AND source=@p1 AND type=@p2 AND aggregate_id=@p3",Id(r),Rules.Text(envelope["source"]),Rules.Text(envelope["type"]),Id(envelope,"aggregate_id")).Count>0) throw new Conflict("Boundary command aggregate already accepted; replay the original event ID");
                 var command=Warehouse.Submit(u,r,"boundary:"+eventId,WarehouseProviders.Input(envelope),null,settings.Quantum,true);
+                u.Exec("UPDATE jobs SET payload=payload || jsonb_build_object('boundary',@p0::jsonb) WHERE id=@p1",envelope,Id(command));
                 u.Exec("INSERT INTO warehouse_boundary_commands(run_id,source,type,aggregate_id,event_id,command_id) VALUES (@p0,@p1,@p2,@p3,@p4,@p5)",Id(r),Rules.Text(envelope["source"]),Rules.Text(envelope["type"]),Id(envelope,"aggregate_id"),eventId,Id(command)); return "accepted";
             }
             u.Exec("INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES (@p0,@p1,@p2,@p3,@p4,@p4,@p5)",Guid.NewGuid(),Id(r),Id(r,"epoch"),"boundary:"+eventId,due,envelope["payload"]!); return "accepted";

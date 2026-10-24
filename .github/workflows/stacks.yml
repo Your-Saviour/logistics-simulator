@@ -33,12 +33,27 @@ jobs:
         run: |
           sh scripts/check_logistics_deployment.sh
           sh scripts/check_logistics_connected.sh
+      - name: Manufacturing V1 deployment startup
+        if: matrix.app == 'manufacturing'
+        run: sh scripts/check_manufacturing_deployment.sh
+      - name: Manufacturing V1 native domain federation
+        if: matrix.app == 'manufacturing'
+        run: sh scripts/check_manufacturing_connected.sh
+
+      - name: Shipping V1 production lifecycle and browser
+        if: matrix.app == 'shipping'
+        run: sh scripts/check_shipping_deployment.sh
+      - name: Shipping V1 native domain federation
+        if: matrix.app == 'shipping'
+        run: sh scripts/check_shipping_connected.sh
       - name: Retain browser and verification evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: '${{ matrix.app }}-verification'
-          path: .superpowers/sdd/simu-framework-migration/browser-artifacts
+          path: |
+            .superpowers/sdd/simu-framework-migration/browser-artifacts
+            .superpowers/sdd/simu-5-shipping
           if-no-files-found: ignore
           include-hidden-files: true
       - name: Resource report

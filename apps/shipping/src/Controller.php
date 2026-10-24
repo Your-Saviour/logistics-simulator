@@ -14,6 +14,7 @@ final class Controller
                     if($ack)$adapter->command('receive_ack',['event_ids'=>array_values(array_unique($ack))]);$adapter->pollSettled($poll);$run=$ledger->status()['run'];if(!$pending)$adapter->settle($run);
                 }
                 if($run['state']==='held'){usleep(100000);continue;}if(strtolower(Settings::env('AUTONOMOUS_SAMPLE','true'))==='true'){try{$ledger->seed();}catch(Conflict $e){if($settings->mode!=='standalone')throw $e;}}
+                if(strtolower(Settings::env('AUTONOMOUS_SHIPPING',Settings::env('AUTONOMOUS_SAMPLE','true')))==='true')$ledger->db->transaction(function($u)use($ledger,$settings){$r=$u->run();if($r['state']==='running')(new Fulfilment($ledger->db,$settings))->seed($u,$r);});
                 $target=$run['granted']+$settings->quantum;if($adapter&&!$pending&&$ledger->prepare($target,$epoch)){$adapter->command('request_time',['target'=>$target,'committed'=>$run['granted'],'pending_work'=>0,'pending_outputs'=>0]);$pending=true;$waiting=microtime(true);}elseif(!$adapter&&(microtime(true)-(float)(new \DateTimeImmutable($run['anchor']))->format('U.u'))*$run['speed']>=$settings->quantum&&$ledger->prepare($target,$epoch)){try{$ledger->grant($target,$epoch);}catch(Conflict $e){if($ledger->status()['run']['epoch']===$epoch)throw $e;}}usleep(50000);
             }
             $leaseUnit=null;$lease=null;if($stop&&$owned&&$settings->mode==='helics')$ledger->stall('Connected controller stopped; coordinate a new epoch',$epoch);

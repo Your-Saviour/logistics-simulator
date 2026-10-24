@@ -11,3 +11,18 @@ export class Api {
   return value;
  }
 }
+
+/** Keep the submitted identity/body across an uncertain HTTP outcome. */
+export class PendingCommand {
+ body:Record<string,unknown>|null=null;
+ key='';
+ async send(api:Api,body:Record<string,unknown>){
+  if(this.body)throw new Error('Retry or discard the pending command first.');
+  this.body=structuredClone(body);this.key=crypto.randomUUID();return this.retry(api);
+ }
+ async retry(api:Api){
+  if(!this.body)throw new Error('No pending command.');
+  const result=await api.request('/production/commands','POST',this.body,this.key);this.discard();return result;
+ }
+ discard(){this.body=null;this.key='';}
+}

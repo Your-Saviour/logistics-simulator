@@ -1,0 +1,85 @@
+# Independent persistent shipping roles. The local profile owns only shipping's
+# PostgreSQL and RabbitMQ; omit it when placing roles against external services.
+name: shipping-v1
+x-shipping: &shipping
+  image: ${SHIPPING_IMAGE:-logistics-simulator:shipping-v1}
+  build: {context: ../.., dockerfile: apps/shipping/Dockerfile}
+  restart: unless-stopped
+  healthcheck:
+    test:
+      - CMD
+      - php
+      - -r
+      - |
+        require '/app/vendor/autoload.php';
+        if (getenv('ROLE') === 'api') {
+            $$context = stream_context_create(['http' => ['header' => 'Authorization: Basic '.base64_encode(getenv('APP_USERNAME').':'.getenv('APP_PASSWORD')), 'timeout' => 3]]);
+            $$body = @file_get_contents('http://127.0.0.1:8000/api/health/ready', false, $$context);
+            exit($$body && (json_decode($$body, true)['ready'] ?? false) ? 0 : 1);
+        }
+        $$db = (new Shipping\Database(new Shipping\Settings()))->connect();
+        $$query = $$db->prepare("SELECT EXISTS(SELECT 1 FROM heartbeats WHERE role=? AND seen_at>clock_timestamp()-interval '15 seconds')");
+        $$query->execute([getenv('ROLE')]);
+        exit($$query->fetchColumn() ? 0 : 1);
+    interval: 5s
+    timeout: 5s
+    retries: 30
+    start_period: 15s
+  depends_on:
+    shipping-db: {condition: service_healthy, required: false}
+    shipping-broker: {condition: service_healthy, required: false}
+  environment: &environment
+    SIMULATOR: shipping
+    CLOCK_MODE: ${CLOCK_MODE:-standalone}
+    DATABASE_URL: ${SHIPPING_DATABASE_URL:-postgresql://shipping:${SHIPPING_DB_PASSWORD:?Set SHIPPING_DB_PASSWORD}@shipping-db:5432/shipping}
+    AMQP_URL: ${SHIPPING_AMQP_URL:-amqp://shipping:${SHIPPING_BROKER_PASSWORD:?Set SHIPPING_BROKER_PASSWORD}@shipping-broker:5672/%2f}
+    APP_USERNAME: ${SHIPPING_USERNAME:-operator}
+    APP_PASSWORD: ${SHIPPING_PASSWORD:?Set SHIPPING_PASSWORD}
+    APP_KEY: ${SHIPPING_APP_KEY:?Set SHIPPING_APP_KEY}
+    APP_IDENTITIES: ${SHIPPING_IDENTITIES:-[]}
+    AUTONOMOUS_SAMPLE: 'false'
+    AUTONOMOUS_SHIPPING: ${AUTONOMOUS_SHIPPING:-true}
+    SHIPPING_STOCK_LOCATION: ${SHIPPING_STOCK_LOCATION:-FINISHED-A}
+    SHIPPING_STOCK_DESTINATION: ${SHIPPING_STOCK_DESTINATION:-DISPATCH}
+    SHIPPING_PRODUCTION_LINE: ${SHIPPING_PRODUCTION_LINE:-LINE-1}
+    SHIPPING_CARRIER_ROUTE: ${SHIPPING_CARRIER_ROUTE:-DISPATCH-CUSTOMER}
+    SCENARIO: ${SHIPPING_SCENARIO:-{}}
+    BOUNDARY_PROVIDERS: ${BOUNDARY_PROVIDERS:-{}}
+    FEDERATION_ID: ${FEDERATION_ID:-}
+    FEDERATION_RUN_ID: ${FEDERATION_RUN_ID:-}
+    FEDERATION_EPOCH: ${FEDERATION_EPOCH:-}
+    HELICS_ADAPTER_URL: ${HELICS_ADAPTER_URL:-}
+    HELICS_ADAPTER_TOKEN: ${HELICS_ADAPTER_TOKEN:-}
+    HELICS_PEERS: ${HELICS_PEERS:-{}}
+    HELICS_OUTPUTS: ${HELICS_OUTPUTS:-[]}
+    HANDOFF_QUANTUM: ${HANDOFF_QUANTUM:-1}
+services:
+  shipping-api:
+    <<: *shipping
+    environment: {<<: *environment, ROLE: api}
+    ports: ['${SHIPPING_BIND:-127.0.0.1}:${SHIPPING_PORT:-8085}:8000']
+    volumes: [shipping-v1-sessions:/app/storage/framework/sessions]
+  shipping-worker:
+    <<: *shipping
+    environment: {<<: *environment, ROLE: worker}
+  shipping-controller:
+    <<: *shipping
+    environment: {<<: *environment, ROLE: controller}
+  shipping-db:
+    profiles: [local]
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment: {POSTGRES_DB: shipping, POSTGRES_USER: shipping, POSTGRES_PASSWORD: '${SHIPPING_DB_PASSWORD:?Set SHIPPING_DB_PASSWORD}'}
+    volumes: [shipping-v1-data:/var/lib/postgresql/data]
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U shipping'], interval: 3s, timeout: 3s, retries: 30}
+  shipping-broker:
+    profiles: [local]
+    image: rabbitmq:4.3.6-alpine
+    restart: unless-stopped
+    environment: {RABBITMQ_DEFAULT_USER: shipping, RABBITMQ_DEFAULT_PASS: '${SHIPPING_BROKER_PASSWORD:?Set SHIPPING_BROKER_PASSWORD}', RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'}
+    volumes: [shipping-v1-broker:/var/lib/rabbitmq]
+    healthcheck: {test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672'], interval: 3s, timeout: 3s, retries: 30, start_period: 45s}
+volumes:
+  shipping-v1-data:
+  shipping-v1-broker:
+  shipping-v1-sessions:

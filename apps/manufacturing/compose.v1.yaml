@@ -1,0 +1,69 @@
+# Persistent standalone manufacturing deployment. Supply credentials in an untracked
+# env file. Use the local profile for owned DB/RabbitMQ, or externally configured
+# URLs for CyberLab role placement. Never attach verification projects' volumes.
+name: manufacturing-v1
+x-manufacturing: &manufacturing
+  image: logistics-simulator:manufacturing-v1
+  build: {context: ../.., dockerfile: apps/manufacturing/backend/Dockerfile}
+  restart: unless-stopped
+  depends_on:
+    manufacturing-db: {condition: service_healthy, required: false}
+    manufacturing-rabbit: {condition: service_healthy, required: false}
+  environment: &environment
+    SIMULATOR: manufacturing
+    CLOCK_MODE: ${CLOCK_MODE:-standalone}
+    DATABASE_URL: ${MANUFACTURING_DATABASE_URL:-postgresql://manufacturing:${MANUFACTURING_PASSWORD:?Set MANUFACTURING_PASSWORD}@manufacturing-db:5432/manufacturing}
+    AMQP_URL: ${MANUFACTURING_AMQP_URL:-amqp://manufacturing:${MANUFACTURING_PASSWORD:?Set MANUFACTURING_PASSWORD}@manufacturing-rabbit:5672/%2f}
+    APP_USERNAME: ${MANUFACTURING_USERNAME:-operator}
+    APP_PASSWORD: ${MANUFACTURING_PASSWORD:?Set MANUFACTURING_PASSWORD}
+    APP_IDENTITIES: ${MANUFACTURING_IDENTITIES:-[]}
+    SCENARIO_PRESET: ${SCENARIO_PRESET:-}
+    SCENARIO: ${MANUFACTURING_SCENARIO:-{}}
+    AUTONOMOUS_PRODUCTION: ${AUTONOMOUS_PRODUCTION:-true}
+    BOUNDARY_PROVIDERS: '${BOUNDARY_PROVIDERS:-{"materials":"synthetic","demand":"synthetic","power":"synthetic"}}'
+    FEDERATION_ID: ${FEDERATION_ID:-}
+    FEDERATION_RUN_ID: ${FEDERATION_RUN_ID:-}
+    FEDERATION_EPOCH: ${FEDERATION_EPOCH:-}
+    HELICS_ADAPTER_URL: ${HELICS_ADAPTER_URL:-}
+    HELICS_ADAPTER_TOKEN: ${HELICS_ADAPTER_TOKEN:-}
+    HELICS_PEERS: ${HELICS_PEERS:-{}}
+    HELICS_OUTPUTS: ${HELICS_OUTPUTS:-[]}
+    STORAGE_RAW_LOCATION: ${STORAGE_RAW_LOCATION:-RAW-A}
+    STORAGE_FINISHED_LOCATION: ${STORAGE_FINISHED_LOCATION:-FINISHED-A}
+    HELICS_TIMEOUT_SECONDS: ${HELICS_TIMEOUT_SECONDS:-60}
+    HANDOFF_QUANTUM: ${HANDOFF_QUANTUM:-1}
+    JAVA_TOOL_OPTIONS: -Xmx256m
+services:
+  manufacturing-api:
+    <<: *manufacturing
+    environment: {<<: *environment, ROLE: api}
+  manufacturing-worker:
+    <<: *manufacturing
+    environment: {<<: *environment, ROLE: worker}
+  manufacturing-controller:
+    <<: *manufacturing
+    environment: {<<: *environment, ROLE: controller}
+  manufacturing-web:
+    image: logistics-simulator:manufacturing-v1-web
+    build: {context: ../.., dockerfile: apps/manufacturing/frontend/Dockerfile}
+    restart: unless-stopped
+    ports: ['${MANUFACTURING_BIND:-127.0.0.1}:${MANUFACTURING_PORT:-8083}:80']
+    environment: {API_UPSTREAM: '${MANUFACTURING_API_UPSTREAM:-manufacturing-api:8000}'}
+    depends_on: [manufacturing-api]
+  manufacturing-db:
+    profiles: [local]
+    image: postgres:16.15-alpine
+    restart: unless-stopped
+    environment: {POSTGRES_DB: manufacturing, POSTGRES_USER: manufacturing, POSTGRES_PASSWORD: '${MANUFACTURING_PASSWORD:?Set MANUFACTURING_PASSWORD}'}
+    volumes: [manufacturing-v1-data:/var/lib/postgresql/data]
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U manufacturing'], interval: 3s, timeout: 3s, retries: 30}
+  manufacturing-rabbit:
+    profiles: [local]
+    image: rabbitmq:4.3.6-alpine
+    restart: unless-stopped
+    environment: {RABBITMQ_DEFAULT_USER: manufacturing, RABBITMQ_DEFAULT_PASS: '${MANUFACTURING_PASSWORD:?Set MANUFACTURING_PASSWORD}', RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'}
+    volumes: [manufacturing-v1-broker:/var/lib/rabbitmq]
+    healthcheck: {test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672'], interval: 3s, timeout: 3s, retries: 30, start_period: 45s}
+volumes:
+  manufacturing-v1-data:
+  manufacturing-v1-broker:

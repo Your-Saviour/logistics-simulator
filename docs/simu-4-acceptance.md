@@ -86,3 +86,37 @@ No hosted CI or physical CyberLab multi-host result is claimed. The native peer
 implements the published Storage/Shipping boundary roles; it is not an acceptance
 run against those departments' complete business applications. Separate-node
 routing, TLS ingress and production cutover require deployment-owned configuration.
+
+## Integration with updated main
+
+The final integration merged main `ce0d09b`, containing Manufacturing V1 and
+Shipping V1, into the logistics worktree. Shared CI targets, browser tests,
+acceptance scripts and Docker guard options retain all three departments.
+The private adapter now composes canonical manufacturing/logistics wire types
+with shipping-specific types in `wire_contracts.py`. Equivalent shipping aliases
+remain in its independent public schema; duplicate discriminator registrations
+are avoided. Published Storage, Manufacturing and Shipping schemas, and their
+business runtimes, remain unchanged from that main revision.
+
+Fresh verification of the resolved tree passed, with every service command in
+Docker through the shared 20 GiB guard:
+
+- `make stack-unit APP=logistics`: Go vet and full suite, `7.297s`.
+- Schema/runtime parity plus adapter/storage tests: 36 tests, `0.90s`.
+- Merged browser image build and `npx playwright test --list`: all nine shared
+  login/domain browser tests discovered, including Manufacturing and Logistics.
+- `STACK_REUSE_IMAGES=1 make mixed-check`: actual C#/Java/Go/PHP HELICS handoffs,
+  delayed/held grants, Twin recovery, native finalization and owner-loss fencing.
+- `make logistics-connected-check`: storage/shipping handoffs, duplicate native
+  delivery and lost-peer custody preservation.
+- `STACK_REUSE_IMAGES=1 make manufacturing-connected-check`: demand/material
+  messages, duplicates, power gating, finite duration and correlated output.
+- `SHIPPING_CONNECTED_REUSE_IMAGES=1 make shipping-connected-check`: multiline
+  fulfilment, distinct destination receipts, unauthorized sender rejection and
+  same-journal adapter restart fencing, using the rebuilt merged adapter image.
+
+Reused department application images contain unchanged business runtimes;
+the shared adapter and merged browser test image were rebuilt from this tree.
+`DOCKER_GUARD_WAIT_SECONDS=900` queues legacy guard callers during verification.
+A fresh read-only merge review found no Important/Critical issues. Local merge
+logs are retained in `.superpowers/simu-4-merge/`. Hosted CI remains separate.

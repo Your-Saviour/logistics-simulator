@@ -1,0 +1,8 @@
+{
+  "seed": 7,
+  "interval_seconds": 30,
+  "manufacturing": {
+    "products": [{"sku":"PUMP","bom":{"HOUSING":1,"IMPELLER":1,"SEAL":2},"duration_seconds":45,"scrap_percent":5}],
+    "lines": [{"code":"ASSEMBLY-1","capacity":2,"products":["PUMP"]}]
+  }
+}

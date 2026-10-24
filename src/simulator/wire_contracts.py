@@ -4,9 +4,14 @@ from pydantic import BeforeValidator, Field, TypeAdapter
 from .contracts import Envelope
 from .storage_contracts import ReceiptEnvelope, RequestEnvelope, ArrivalEnvelope, FactEnvelope, legacy_sample_default
 from .logistics_contracts import LogisticsRequestEnvelope, LogisticsReceiptEnvelope, LogisticsFactEnvelope
+from .manufacturing_contracts import DemandEnvelope
+from .shipping_contracts import (ShippingOrderEnvelope, ShippingFactEnvelope,
+    StorageReferenceEnvelope, StorageTransferEnvelope, StorageRejectionEnvelope)
 
 TransportEnvelope = Annotated[
     Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | FactEnvelope |
-    LogisticsRequestEnvelope | LogisticsReceiptEnvelope | LogisticsFactEnvelope,
+    DemandEnvelope | LogisticsRequestEnvelope | LogisticsReceiptEnvelope | LogisticsFactEnvelope |
+    ShippingOrderEnvelope | ShippingFactEnvelope | StorageReferenceEnvelope |
+    StorageTransferEnvelope | StorageRejectionEnvelope,
     Field(discriminator='type'), BeforeValidator(legacy_sample_default)]
 transport_envelope = TypeAdapter(TransportEnvelope)

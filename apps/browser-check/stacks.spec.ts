@@ -18,7 +18,7 @@ for (const app of apps) {
     await page.getByLabel('Password', {exact:true}).fill(app.employeePassword);
     await page.getByRole('button', {name:/^(sign|log) in$/i}).click();
     await expect(page.getByRole('button', {name:/^(sign|log) out$/i})).toBeVisible();
-    await expect(page.getByRole('button', {name:/hold|resume|finaliz|reset|new run|audit/i})).toHaveCount(0);
+    await expect(page.getByRole('button', {name:/^(hold|resume|finalize|reset run|new run|refresh audit)$/i})).toHaveCount(0);
   });
 }
 test('container browser targets supplied',()=>expect(apps.length).toBeGreaterThan(0));
@@ -81,4 +81,22 @@ if(logistics) test('logistics: employee assigns fleet and follows custody throug
  await transfer.getByRole('button',{name:'Unload',exact:true}).click();await expect(transfer).toContainText('unloaded');await transfer.getByRole('button',{name:'Confirm receipt',exact:true}).click();await expect(transfer).toContainText('received');
  await expect(page.locator('[data-fleet] tbody tr').filter({hasText:'TRUCK-1'})).toContainText('DISPATCH');
  await page.screenshot({path:'/artifacts/logistics-v1-employee-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:'/artifacts/logistics-v1-employee-mobile.png',fullPage:true});
+});
+
+const manufacturing=apps.find(app=>app.name==='manufacturing');
+if(manufacturing) test('manufacturing: employee holds, supplies and releases a finite-duration batch',async({page,request})=>{
+ test.setTimeout(120000);
+ const headers={Authorization:'Basic '+Buffer.from(manufacturing.username+':'+manufacturing.password).toString('base64')};
+ const status=await (await request.get(manufacturing.url+'/api/status',{headers})).json();
+ expect((await request.post(manufacturing.url+'/api/control/reset',{headers,data:{confirm_run_id:status.run.id,scenario:{}}})).ok()).toBe(true);
+ expect((await request.post(manufacturing.url+'/api/control/speed',{headers,data:{speed:5}})).ok()).toBe(true);
+ await page.goto(manufacturing.url);await page.getByLabel('Username',{exact:true}).fill(manufacturing.employee);await page.getByLabel('Password',{exact:true}).fill(manufacturing.employeePassword);await page.getByRole('button',{name:'Sign in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Work orders',exact:true})).toBeVisible();
+ const form=page.locator('.production-form');await form.getByLabel('Batch quantity',{exact:true}).fill('4');await form.getByRole('button',{name:'Create work order',exact:true}).click();
+ const order=page.locator('[data-orders] tbody tr').first();await expect(order).toContainText('queued');await order.getByRole('button',{name:'Hold order',exact:true}).click();await expect(order).toContainText('held');
+ await page.getByLabel('Material quantity',{exact:true}).fill('8');await page.getByRole('button',{name:'Receive materials',exact:true}).click();await expect(page.locator('[data-materials]')).toContainText('8');
+ await order.getByRole('button',{name:'Release order',exact:true}).click();await expect(order).toContainText('completed',{timeout:60000});await order.getByRole('button',{name:'Details',exact:true}).click();await expect(page.locator('[data-detail]')).toContainText('Output: 4');await expect(page.locator('[data-detail]')).toContainText('Scrap: 0');
+ await page.getByLabel('Search work orders',{exact:true}).fill('no-such-product');await expect(page.locator('[data-orders] tbody')).toContainText('No matching work orders');await page.getByLabel('Search work orders',{exact:true}).fill('');
+ await page.screenshot({path:'/artifacts/manufacturing-v1-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:'/artifacts/manufacturing-v1-mobile.png',fullPage:true});
+ await expect(page.getByRole('button',{name:'Finalize',exact:true})).toHaveCount(0);
 });

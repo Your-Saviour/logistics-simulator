@@ -35,7 +35,7 @@ def main():
         for sku,location in [('COMPONENT','RAW-A'),('PRODUCT','FINISHED-A')]:
             send('storage.receipt.v1',{'sku':sku,'location':location,'quantity':8},'supply',0)
         target=1
-        requested=set();arrived=set()
+        requested=set();arrived=set();picked=set();dispatched=set()
         while not stopping:
             clock.request(target);grant=None
             while grant is None and not stopping:
@@ -50,6 +50,12 @@ def main():
                     requested.add(record['sku'])
                     send('storage.request.v1',{'sku':record['sku'],'location':record['location'],'quantity':5,
                          'purpose':'production' if record['sku']=='COMPONENT' else 'customer'},'requests',grant)
+                if event['type']=='storage.reserve.completed.v1' and record['purpose']=='customer' and record['id'] not in picked:
+                    picked.add(record['id'])
+                    send('storage.pick.v1',{'reference':record['id']},'requests',grant)
+                if event['type']=='storage.pick.completed.v1' and record['id'] not in dispatched:
+                    dispatched.add(record['id'])
+                    send('storage.transfer.v1',{'reference':record['id'],'destination':'DISPATCH'},'requests',grant)
                 if event['type']=='storage.transfer.completed.v1' and record['id'] not in arrived:
                     arrived.add(record['id'])
                     send('storage.transfer.arrived.v1',{'reference':record['id']},'requests',grant)

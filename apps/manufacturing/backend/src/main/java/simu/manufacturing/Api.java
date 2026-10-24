@@ -19,14 +19,16 @@ final class Api {
    }else{
     var account=settings.identify(request.getHeader("Authorization"));if(account==null)throw new HttpError(401,"Invalid username or password");
     audit=new Store.Audit(account.username(),account.role(),requestId,audit.action(),audit.key(),audit.peer(),audit.runId());
-    String scope=path.equals("/api/audit")?"audit:read":command&&path.equals("/api/jobs")?"jobs:write":command&&path.startsWith("/api/control/")?"runs:control":"status:read";
+    String scope=path.equals("/api/audit")?"audit:read":command&&(path.equals("/api/jobs")||path.equals("/api/production/commands"))?"jobs:write":command&&path.startsWith("/api/control/")?"runs:control":"status:read";
     if(!account.scopes().contains(scope))throw new HttpError(403,"This identity cannot perform the requested action");
     if(method.equals("GET"))result=switch(path){
      case "/api/status"->{var value=store.status();value.put("identity",account.publicValue());value.put("application","manufacturing");value.put("providers",settings.providers);value.put("quantum",settings.quantum);var run=(Map<String,Object>)value.get("run");value.put("simulation_time",Scenario.instant(Store.json(run.get("scenario")),Store.number(run,"granted")).toOffsetDateTime().toString());yield value;}
+     case "/api/production"->Production.snapshot(store);
      case "/api/sources"->List.of();case "/api/audit"->store.audit();default->throw new HttpError(404,"Not found");
     };
+    else if(command&&path.equals("/api/production/commands")){result=Production.command(store,request.getHeader("Idempotency-Key"),Json.parse(body==null?"":body),audit);}
     else if(command&&path.equals("/api/jobs")){
-     var json=Policy.job(Json.parse(body==null?"":body));String key=request.getHeader("Idempotency-Key");if(key==null||key.isEmpty()||key.length()>128)throw new IllegalArgumentException("Idempotency-Key of 1..128 characters required");if(key.startsWith("synthetic:")||key.startsWith("boundary:")||key.startsWith("synthetic-sample:"))throw new Store.Conflict("This idempotency key namespace is reserved for internal providers");result=store.schedule(key,json.get("due_at").doubleValue(),json.get("quantity").intValue(),audit,null);
+     var json=Policy.job(Json.parse(body==null?"":body));String key=request.getHeader("Idempotency-Key");if(key==null||key.isEmpty()||key.length()>128)throw new IllegalArgumentException("Idempotency-Key of 1..128 characters required");if(key.startsWith("production:")||key.startsWith("synthetic:")||key.startsWith("boundary:")||key.startsWith("synthetic-sample:"))throw new Store.Conflict("This idempotency key namespace is reserved for internal providers");result=store.schedule(key,json.get("due_at").doubleValue(),json.get("quantity").intValue(),audit,null);
     }else if(command&&path.startsWith("/api/control/")){
      var json=Json.parse(body==null?"":body);Policy.fields(json,"speed","confirm_run_id","scenario");String action=path.substring("/api/control/".length());int speed=json.has("speed")?Policy.integer(json.get("speed"),Integer.MIN_VALUE,Integer.MAX_VALUE):1;String confirm=json.hasNonNull("confirm_run_id")?Policy.uuid(json.get("confirm_run_id")).toString():null;
      if(action.equals("reset")&&confirm==null)throw new Store.Conflict("Reset requires the current run ID as confirmation");if(json.hasNonNull("scenario")&&!action.equals("reset"))throw new Store.Conflict("Scenario changes require a confirmed new run");var scenario=json.hasNonNull("scenario")?Scenario.normalize(json.get("scenario")):null;result=store.control(action,speed,confirm,audit,scenario);

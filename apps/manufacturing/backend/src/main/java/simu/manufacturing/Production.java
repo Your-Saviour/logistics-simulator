@@ -1,0 +1,132 @@
+package simu.manufacturing;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.sql.*;
+import java.util.*;
+import static simu.manufacturing.Store.*;
+
+/** Department-owned production. Every call uses the schema gate and locked current run. */
+final class Production {
+ static String code(JsonNode n){if(n==null||!n.isTextual()||!n.asText().matches("[A-Z0-9][A-Z0-9_-]{0,31}"))throw new IllegalArgumentException("Code of 1..32 uppercase letters/digits/underscore/hyphen required");return n.asText();}
+ static JsonNode config(JsonNode raw){
+  var value=raw==null?Json.parse("{\"products\":[{\"sku\":\"PRODUCT\",\"bom\":{\"COMPONENT\":2},\"duration_seconds\":20,\"scrap_percent\":0}],\"lines\":[{\"code\":\"LINE-1\",\"capacity\":1,\"products\":[\"PRODUCT\"]}]}"):raw;
+  Policy.fields(value,"products","lines");var skus=new HashSet<String>();var materials=new HashSet<String>();
+  var products=value.path("products");if(!products.isArray()||products.isEmpty()||products.size()>100)throw new IllegalArgumentException("1..100 products required");
+  for(var p:products){Policy.fields(p,"sku","bom","duration_seconds","scrap_percent");if(!skus.add(code(p.get("sku"))))throw new IllegalArgumentException("Duplicate product");double duration=Policy.time(p.get("duration_seconds"));if(duration<1||duration>86400)throw new IllegalArgumentException("Duration 1..86400 seconds required");Policy.integer(p.get("scrap_percent"),0,100);var bom=p.path("bom");if(!bom.isObject()||bom.isEmpty()||bom.size()>100)throw new IllegalArgumentException("Nonempty BOM required");bom.fields().forEachRemaining(e->{materials.add(code(Json.M.valueToTree(e.getKey())));Policy.integer(e.getValue(),1,100);});}
+  if(!Collections.disjoint(skus,materials))throw new IllegalArgumentException("Raw materials and finished products must have distinct codes");
+  var lines=value.path("lines");if(!lines.isArray()||lines.isEmpty()||lines.size()>100)throw new IllegalArgumentException("1..100 production lines required");var codes=new HashSet<String>();var supported=new HashSet<String>();
+  for(var l:lines){Policy.fields(l,"code","capacity","products");if(!codes.add(code(l.get("code"))))throw new IllegalArgumentException("Duplicate line");Policy.integer(l.get("capacity"),1,100);var allowed=l.path("products");if(!allowed.isArray()||allowed.isEmpty())throw new IllegalArgumentException("Line products required");var unique=new HashSet<String>();for(var p:allowed){String sku=code(p);if(!skus.contains(sku)||!unique.add(sku))throw new IllegalArgumentException("Unknown/duplicate line product");supported.add(sku);}}
+  if(!supported.containsAll(skus))throw new IllegalArgumentException("Every product needs a compatible line");return value;
+ }
+ static JsonNode ensure(Connection c,Map<String,Object> run)throws SQLException{
+  var existing=one(c,"SELECT config FROM production_config WHERE run_id=?",run.get("id"));if(existing!=null)return json(existing.get("config"));
+  var cfg=config(json(run.get("scenario")).get("manufacturing"));sql(c,"INSERT INTO production_config VALUES (?,?::jsonb)",run.get("id"),Json.write(cfg));
+  for(var p:cfg.path("products")){var fields=p.path("bom").fieldNames();while(fields.hasNext())sql(c,"INSERT INTO production_materials(run_id,sku) VALUES (?,?) ON CONFLICT DO NOTHING",run.get("id"),fields.next());}return cfg;
+ }
+ static JsonNode validate(JsonNode b,boolean internal){
+  String action=b.path("action").asText();switch(action){
+   case "create"->{Policy.fields(b,"run_id","epoch","due_at","action","product","line","quantity","correlation_id");code(b.get("product"));code(b.get("line"));Policy.integer(b.get("quantity"),1,10000);if(b.has("correlation_id"))Policy.uuid(b.get("correlation_id"));}
+   case "supply"->{Policy.fields(b,"run_id","epoch","due_at","action","sku","quantity");code(b.get("sku"));Policy.integer(b.get("quantity"),1,10000);}
+   case "release","hold","start","finish"->{if(!internal&&Set.of("start","finish").contains(action))throw new IllegalArgumentException("Start and finish are owned by the durable scheduler");Policy.fields(b,"run_id","epoch","due_at","action","reference");Policy.uuid(b.get("reference"));}
+   default->throw new IllegalArgumentException("Unknown production action");
+  }Policy.uuid(b.get("run_id"));Policy.uuid(b.get("epoch"));Policy.time(b.get("due_at"));return b;
+ }
+ static Map<String,Object> command(Store s,String key,JsonNode b,Audit audit){validate(b,false);if(key==null||key.isBlank()||key.length()>128)throw new IllegalArgumentException("Idempotency-Key of 1..128 characters required");if(key.startsWith("production:")||key.startsWith("synthetic:")||key.startsWith("boundary:"))throw new Conflict("Reserved internal idempotency namespace");return s.tx(c->{var run=current(c);if(b.path("action").asText().equals("supply")&&!s.settings.providers.path("materials").asText().equals("synthetic"))throw new Conflict("Materials are owned by the HELICS storage provider");return submit(s,c,run,key,b,audit,false);});}
+ static Map<String,Object> submit(Store s,Connection c,Map<String,Object> run,String key,JsonNode b,Audit audit,boolean boundary)throws SQLException{
+  if(!b.path("run_id").asText().equals(run.get("id").toString())||!b.path("epoch").asText().equals(run.get("epoch").toString()))throw new Conflict("Production command belongs to a different run/epoch");
+  if(one(c,"SELECT 1 FROM jobs j WHERE j.run_id=? AND j.idempotency_key=? AND NOT EXISTS(SELECT 1 FROM production_commands p WHERE p.id=j.id)",run.get("id"),key)!=null)throw new Conflict("Idempotency key belongs to another command type");
+  var old=one(c,"SELECT * FROM production_commands WHERE run_id=? AND id IN (SELECT id FROM jobs WHERE run_id=? AND idempotency_key=?)",run.get("id"),run.get("id"),key);
+  if(old!=null){if(!json(old.get("command")).equals(b))throw new Conflict("Idempotency key already used with a different command");s.accepted(c,run,audit,old.get("id"));return old;}
+  double due=b.path("due_at").asDouble();if(!Set.of("running","held").contains(run.get("state"))||due<(boundary?number(run,"granted"):Math.max(number(run,"requested"),number(run,"granted"))+s.settings.quantum))throw new Conflict("Schedule beyond granted/requested time in an active run");
+  ensure(c,run);UUID id=UUID.randomUUID();sql(c,"INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES (?,?,?,?,?,?,?::jsonb)",id,run.get("id"),run.get("epoch"),key,due,due,Json.write(Map.of("production",true)));sql(c,"INSERT INTO production_commands(id,run_id,command) VALUES (?,?,?::jsonb)",id,run.get("id"),Json.write(b));s.accepted(c,run,audit,id);return one(c,"SELECT * FROM production_commands WHERE id=?",id);
+ }
+ static ObjectNode body(Map<String,Object> run,String action,double due){return (ObjectNode)Json.M.valueToTree(Map.of("run_id",run.get("id").toString(),"epoch",run.get("epoch").toString(),"action",action,"due_at",due));}
+ static void schedule(Store s,Connection c,Map<String,Object> run,String action,Object order,double due)throws SQLException{
+  var b=body(run,action,due);b.put("reference",order.toString());String key="production:"+action+":"+order;
+  if(one(c,"SELECT 1 FROM jobs WHERE run_id=? AND idempotency_key=?",run.get("id"),key)==null)submit(s,c,run,key,b,null,true);
+ }
+ static Map<String,Object> snapshot(Store s){return s.tx(c->{var run=current(c);var cfg=ensure(c,run);var result=new LinkedHashMap<String,Object>();result.put("config",cfg);result.put("orders",rows(c,"SELECT * FROM production_orders WHERE run_id=? ORDER BY id",run.get("id")));result.put("materials",rows(c,"SELECT * FROM production_materials WHERE run_id=? ORDER BY sku",run.get("id")));result.put("commands",rows(c,"SELECT p.*,j.due_at,j.status job_status,j.attempts,j.boundary_input FROM production_commands p JOIN jobs j ON p.id=j.id WHERE p.run_id=? ORDER BY j.created_at DESC LIMIT 100",run.get("id")));result.put("history",rows(c,"SELECT * FROM production_history WHERE run_id=? ORDER BY id DESC LIMIT 200",run.get("id")));result.put("events",rows(c,"SELECT * FROM production_events WHERE run_id=? ORDER BY id",run.get("id")));result.put("movements",rows(c,"SELECT * FROM production_movements WHERE run_id=? ORDER BY id DESC LIMIT 200",run.get("id")));return result;});}
+ static JsonNode find(JsonNode cfg,String collection,String field,String value){for(var row:cfg.path(collection))if(row.path(field).asText().equals(value))return row;throw new Conflict("Unknown "+field+": "+value);}
+ static String execute(Store s,Connection c,Map<String,Object> run,Map<String,Object> job)throws SQLException{
+  var command=one(c,"SELECT * FROM production_commands WHERE id=?",job.get("id"));if(command==null)throw new Conflict("Missing production command");var b=json(command.get("command"));String action=b.path("action").asText();var cfg=ensure(c,run);var save=c.setSavepoint();Object orderId=null;
+  try{
+   if(action.equals("create")){
+    var product=find(cfg,"products","sku",b.path("product").asText());var line=find(cfg,"lines","code",b.path("line").asText());if(!line.path("products").toString().contains("\""+product.path("sku").asText()+"\""))throw new Conflict("Product cannot run on this line");
+    orderId=job.get("id");sql(c,"INSERT INTO production_orders(id,run_id,epoch,product,line,quantity,correlation_id,status) VALUES (?,?,?,?,?,?,?,'queued')",orderId,run.get("id"),run.get("epoch"),b.path("product").asText(),b.path("line").asText(),b.path("quantity").asInt(),b.has("correlation_id")?Policy.uuid(b.get("correlation_id")):orderId);
+   }else if(action.equals("supply")){
+    String sku=b.path("sku").asText();if(sql(c,"UPDATE production_materials SET quantity=quantity+? WHERE run_id=? AND sku=?",b.path("quantity").asInt(),run.get("id"),sku)!=1)throw new Conflict("Unknown raw material");movement(c,run,job,null,sku,b.path("quantity").asInt(),"supply");
+   }else{
+    orderId=Policy.uuid(b.get("reference"));var order=one(c,"SELECT * FROM production_orders WHERE id=? AND run_id=?",orderId,run.get("id"));if(order==null)throw new Conflict("Work order not found in current run");String state=order.get("status").toString();
+    var product=find(cfg,"products","sku",order.get("product").toString());
+    if(action.equals("release")||action.equals("hold")){
+     if(job.get("idempotency_key").toString().startsWith("production:auto-release:")&&!state.equals("queued"))throw new Conflict("Automatic release superseded by employee intervention");
+     if(!Set.of("queued","held","ready").contains(state))throw new Conflict("Materials already consumed; a started batch cannot be held or released");
+     sql(c,"UPDATE production_orders SET status=?,version=version+1,blocked_reason=NULL WHERE id=?",action.equals("hold")?"held":"ready",orderId);
+     if(action.equals("release")){schedule(s,c,run,"start",orderId,number(run,"granted")+s.settings.quantum);requestMaterials(s,c,run,job,order,product);}
+    }else if(action.equals("start")){
+     if(!state.equals("ready"))return defer(c,run,job,orderId,state.equals("held")?"Work order held by employee":"Awaiting release",s.settings.quantum);
+     if(run.get("blocked_reason")!=null)return defer(c,run,job,orderId,run.get("blocked_reason").toString(),s.settings.quantum);
+     var line=find(cfg,"lines","code",order.get("line").toString());long used=((Number)one(c,"SELECT count(*) n FROM production_orders WHERE run_id=? AND line=? AND status='running'",run.get("id"),order.get("line")).get("n")).longValue();if(used>=line.path("capacity").asInt())return defer(c,run,job,orderId,"Line capacity unavailable",s.settings.quantum);
+     var bom=product.path("bom");var fields=bom.fields();while(fields.hasNext()){var e=fields.next();int needed=e.getValue().asInt()*((Number)order.get("quantity")).intValue();int available=((Number)one(c,"SELECT quantity FROM production_materials WHERE run_id=? AND sku=?",run.get("id"),e.getKey()).get("quantity")).intValue();if(available<needed)return defer(c,run,job,orderId,"Material shortage: "+e.getKey()+" needs "+needed+", available "+available,s.settings.quantum);}
+     fields=bom.fields();while(fields.hasNext()){var e=fields.next();int needed=e.getValue().asInt()*((Number)order.get("quantity")).intValue();sql(c,"UPDATE production_materials SET quantity=quantity-? WHERE run_id=? AND sku=?",needed,run.get("id"),e.getKey());movement(c,run,job,orderId,e.getKey(),-needed,"consume");}
+     double finish=number(run,"granted")+Math.max(s.settings.quantum,product.path("duration_seconds").asDouble());sql(c,"UPDATE production_orders SET status='running',version=version+1,started_at=?,finish_due=?,blocked_reason=NULL WHERE id=?",run.get("granted"),finish,orderId);schedule(s,c,run,"finish",orderId,finish);
+    }else if(action.equals("finish")){
+     if(!state.equals("running"))throw new Conflict("Only running batches can finish");if(run.get("blocked_reason")!=null)return defer(c,run,job,orderId,run.get("blocked_reason").toString(),s.settings.quantum);
+     int quantity=((Number)order.get("quantity")).intValue();int scrap=quantity*product.path("scrap_percent").asInt()/100;int output=quantity-scrap;
+     sql(c,"UPDATE production_orders SET status='completed',version=version+1,output_quantity=?,scrap_quantity=?,blocked_reason=NULL WHERE id=?",output,scrap,orderId);movement(c,run,job,orderId,order.get("product").toString(),output,"output");if(scrap>0)movement(c,run,job,orderId,order.get("product").toString(),scrap,"scrap");
+     UUID eventId=Store.uuid5(uuid(job.get("id")),"batch.completed");var completed=new LinkedHashMap<String,Object>();completed.put("type","manufacturing.batch.completed.v1");completed.put("event_id",eventId);completed.put("run_id",run.get("id"));completed.put("epoch",run.get("epoch"));completed.put("correlation_id",order.get("correlation_id"));completed.put("aggregate_id",orderId);completed.put("aggregate_version",((Number)order.get("version")).intValue()+1);completed.put("simulation_time",run.get("granted"));completed.put("payload",Map.of("product",order.get("product"),"line",order.get("line"),"quantity",quantity,"output_quantity",output,"scrap_quantity",scrap));sql(c,"INSERT INTO production_events(id,run_id,order_id,envelope) VALUES (?,?,?,?::jsonb)",eventId,run.get("id"),orderId,Json.write(completed));
+     if(output>0)emit(s,c,run,job,"storage.receipt.v1",Store.uuid5(uuid(orderId),"finished-receipt"),order.get("correlation_id"),Map.of("sku",order.get("product"),"location",s.settings.get("STORAGE_FINISHED_LOCATION","FINISHED-A"),"quantity",output),"storage","supply");
+    }
+   }
+   sql(c,"INSERT INTO production_history(run_id,order_id,job_id,action,simulation_time,detail) VALUES (?,?,?,?,?,?::jsonb)",run.get("id"),orderId,job.get("id"),action,run.get("granted"),Json.write(b));sql(c,"UPDATE production_commands SET status='completed',reason=NULL WHERE id=?",job.get("id"));
+  }catch(Conflict e){c.rollback(save);sql(c,"UPDATE production_commands SET status='rejected',reason=? WHERE id=?",e.getMessage(),job.get("id"));}
+  sql(c,"INSERT INTO inbox(event_id,run_id,epoch) VALUES (?,?,?) ON CONFLICT DO NOTHING",job.get("id"),run.get("id"),run.get("epoch"));sql(c,"UPDATE jobs SET status='completed',error=NULL WHERE id=?",job.get("id"));return "completed";
+ }
+ static String defer(Connection c,Map<String,Object> run,Map<String,Object> job,Object order,String reason,double quantum)throws SQLException{sql(c,"UPDATE jobs SET due_at=?,error=? WHERE id=?",number(run,"granted")+quantum,reason,job.get("id"));sql(c,"UPDATE production_orders SET blocked_reason=? WHERE id=?",reason,order);sql(c,"UPDATE outbox SET retry_after=clock_timestamp() WHERE job_id=?",job.get("id"));return "waiting";}
+ static void movement(Connection c,Map<String,Object> run,Map<String,Object> job,Object order,String sku,int quantity,String kind)throws SQLException{sql(c,"INSERT INTO production_movements(run_id,job_id,order_id,sku,quantity,kind,simulation_time) VALUES (?,?,?,?,?,?,?)",run.get("id"),job.get("id"),order,sku,quantity,kind,run.get("granted"));}
+ static void requestMaterials(Store s,Connection c,Map<String,Object> run,Map<String,Object> job,Map<String,Object> order,JsonNode product)throws SQLException{
+  if(!s.settings.providers.path("materials").asText().equals("helics")||Boolean.TRUE.equals(order.get("materials_requested")))return;
+  var fields=product.path("bom").fields();while(fields.hasNext()){var e=fields.next();int remaining=e.getValue().asInt()*((Number)order.get("quantity")).intValue();int part=0;while(remaining>0){int quantity=Math.min(remaining,10000);UUID aggregate=Store.uuid5(uuid(order.get("id")),"materials:"+e.getKey()+":"+part++);emit(s,c,run,job,"storage.request.v1",aggregate,order.get("correlation_id"),Map.of("sku",e.getKey(),"location",s.settings.get("STORAGE_RAW_LOCATION","RAW-A"),"quantity",quantity,"purpose","production"),"storage","requests");remaining-=quantity;}}sql(c,"UPDATE production_orders SET materials_requested=true WHERE id=?",order.get("id"));
+ }
+ static void emit(Store s,Connection c,Map<String,Object> run,Map<String,Object> job,String type,Object aggregate,Object correlation,Object payload,String destination,String boundary)throws SQLException{
+  if(!run.get("mode").equals("helics"))return;UUID id=Store.uuid5(uuid(job.get("id")),type+":"+aggregate);var event=new LinkedHashMap<String,Object>();event.put("schema_version","1.0");event.put("type",type);event.put("event_id",id);event.put("federation_id",s.settings.federation);event.put("run_id",run.get("id"));event.put("epoch",run.get("epoch"));event.put("source","manufacturing");event.put("destination",destination);event.put("boundary",boundary);event.put("effective_time",number(run,"granted")+s.settings.quantum);event.put("aggregate_id",aggregate);event.put("aggregate_version",1);event.put("correlation_id",correlation);event.put("causation_id",job.get("id"));event.put("quantity_unit","item");event.put("payload",payload);sql(c,"INSERT INTO boundary_outbox(id,run_id,envelope) VALUES (?,?,?::jsonb)",id,run.get("id"),Json.write(event));
+ }
+
+ static void seed(Store s){s.tx(c->{var run=current(c);if(!run.get("state").equals("running"))return null;var cfg=ensure(c,run);var scenario=json(run.get("scenario"));double interval=scenario.path("interval_seconds").asDouble();double threshold=Math.max(number(run,"granted"),number(run,"requested"))+s.settings.quantum;long slot=Math.max(1,(long)Math.ceil(threshold/interval));double due=Scenario.nextDue(scenario,(slot-1)*interval,interval);String prefix="production:seed:"+(long)(due/interval)+":";
+  for(var product:cfg.path("products")){
+   String sku=product.path("sku").asText();int quantity=1+Math.floorMod(Objects.hash(scenario.path("seed").asInt(),sku,(long)(due/interval)),4);
+   if(s.settings.providers.path("materials").asText().equals("synthetic")){var fields=product.path("bom").fields();while(fields.hasNext()){var e=fields.next();var b=body(run,"supply",due);b.put("sku",e.getKey());b.put("quantity",e.getValue().asInt()*quantity);seedSubmit(s,c,run,prefix+"supply:"+sku+":"+e.getKey(),b);}}
+   if(s.settings.providers.path("demand").asText().equals("synthetic")){var b=body(run,"create",due);b.put("product",sku);b.put("quantity",quantity);for(var line:cfg.path("lines"))if(line.path("products").toString().contains("\""+sku+"\"")){b.put("line",line.path("code").asText());break;}seedSubmit(s,c,run,prefix+"demand:"+sku,b);}
+  }
+  for(var order:rows(c,"SELECT p.id FROM production_orders p JOIN jobs j ON p.id=j.id WHERE p.run_id=? AND p.status='queued' AND (j.idempotency_key LIKE 'production:seed:%' OR j.idempotency_key LIKE 'boundary:%')",run.get("id"))){var b=body(run,"release",threshold);b.put("reference",order.get("id").toString());seedSubmit(s,c,run,"production:auto-release:"+order.get("id"),b);}
+  return null;
+ });}
+ static void seedSubmit(Store s,Connection c,Map<String,Object> run,String key,JsonNode b)throws SQLException{if(one(c,"SELECT 1 FROM jobs WHERE run_id=? AND idempotency_key=?",run.get("id"),key)!=null)return;UUID request=Store.uuid5(uuid(run.get("id")),key);submit(s,c,run,key,b,new Audit("manufacturing-synthetic","service",request,"production:"+b.path("action").asText(),key,"controller",run.get("id")),false);}
+ static void envelope(JsonNode event){
+  // Validate the common header with the existing strict sample envelope validator.
+  var header=(ObjectNode)event.deepCopy();header.put("type","sample.completed.v1");header.set("payload",Json.parse("{\"quantity\":1}"));Policy.envelope(header);
+  String type=event.path("type").asText();var p=event.path("payload");
+  if(type.equals("manufacturing.demand.v1")){if(!event.path("boundary").asText().equals("demand")||Policy.integer(event.get("aggregate_version"),1,1)!=1)throw new IllegalArgumentException("Demand boundary/version mismatch");Policy.fields(p,"product","line","quantity");code(p.get("product"));code(p.get("line"));Policy.integer(p.get("quantity"),1,10000);}
+  else if(Set.of("storage.expect.completed.v1","storage.receive.completed.v1","storage.reserve.completed.v1","storage.release.completed.v1","storage.issue.completed.v1","storage.pick.completed.v1","storage.transfer.completed.v1","storage.arrive.completed.v1").contains(type)){
+   if(!event.path("boundary").asText().equals("materials")||!event.path("source").asText().equals("storage"))throw new IllegalArgumentException("Storage facts must belong to storage/materials");
+   boolean transfer=type.equals("storage.transfer.completed.v1")||type.equals("storage.arrive.completed.v1");boolean receipt=type.equals("storage.expect.completed.v1")||type.equals("storage.receive.completed.v1");
+   if(transfer){Policy.fields(p,"id","run_id","reservation_id","sku","origin","destination","quantity","correlation_id","status","version");Policy.uuid(p.get("reservation_id"));code(p.get("origin"));code(p.get("destination"));}
+   else if(receipt){Policy.fields(p,"id","run_id","sku","location","quantity","correlation_id","status","version");code(p.get("location"));}
+   else{Policy.fields(p,"id","run_id","sku","location","quantity","correlation_id","purpose","status","version");code(p.get("location"));if(!Set.of("production","customer").contains(p.path("purpose").asText()))throw new IllegalArgumentException("Unknown reservation purpose");}
+   Policy.uuid(p.get("id"));Policy.uuid(p.get("run_id"));Policy.uuid(p.get("correlation_id"));code(p.get("sku"));Policy.integer(p.get("quantity"),1,10000);Policy.integer(p.get("version"),1,Integer.MAX_VALUE);
+   String state=switch(type){case "storage.expect.completed.v1"->"expected";case "storage.receive.completed.v1","storage.arrive.completed.v1"->"received";case "storage.reserve.completed.v1"->"reserved";case "storage.release.completed.v1"->"released";case "storage.issue.completed.v1"->"issued";case "storage.pick.completed.v1"->"picked";default->"in_transit";};
+   if(!p.path("status").asText().equals(state)||type.equals("storage.issue.completed.v1")&&!p.path("purpose").asText().equals("production")||!p.path("id").equals(event.path("aggregate_id"))||!p.path("run_id").equals(event.path("run_id"))||!p.path("correlation_id").equals(event.path("correlation_id"))||!p.path("version").equals(event.path("aggregate_version")))throw new IllegalArgumentException("Storage fact identity/state mismatch");
+  }
+  else throw new IllegalArgumentException("Unsupported manufacturing input type");
+ }
+ static String ingest(Store s,JsonNode event,String endpoint){envelope(event);return s.tx(c->{var run=current(c);if(!event.path("run_id").asText().equals(run.get("id").toString())||!event.path("epoch").asText().equals(run.get("epoch").toString()))return "fenced";
+  String boundary=event.path("boundary").asText();var peer=s.settings.peers.path(boundary);if(!s.settings.providers.path(boundary).asText().equals("helics")||!peer.path("source").asText().equals(event.path("source").asText())||!peer.path("endpoint").asText().equals(endpoint)||!event.path("destination").asText().equals("manufacturing")||!event.path("federation_id").asText().equals(s.settings.federation))throw new Conflict("Boundary owner/routing mismatch");UUID id=Policy.uuid(event.get("event_id"));if(one(c,"SELECT 1 FROM inbox WHERE event_id=?",id)!=null)return "duplicate";
+  if(event.path("effective_time").asDouble()<number(run,"granted"))throw new Conflict("Late production input cannot change history");if(one(c,"SELECT 1 FROM production_boundary_identity WHERE run_id=? AND source=? AND kind=? AND aggregate_id=?",run.get("id"),event.path("source").asText(),event.path("type").asText(),Policy.uuid(event.get("aggregate_id")))!=null)throw new Conflict("Peer aggregate already accepted under another event ID");
+  sql(c,"INSERT INTO production_boundary_identity VALUES (?,?,?,?)",run.get("id"),event.path("source").asText(),event.path("type").asText(),Policy.uuid(event.get("aggregate_id")));sql(c,"INSERT INTO inbox(event_id,run_id,epoch) VALUES (?,?,?)",id,run.get("id"),run.get("epoch"));
+  if(!Set.of("storage.issue.completed.v1","manufacturing.demand.v1").contains(event.path("type").asText()))return "observed";
+  var p=event.path("payload");var b=body(run,boundary.equals("materials")?"supply":"create",event.path("effective_time").asDouble());if(boundary.equals("materials")){b.set("sku",p.get("sku"));b.set("quantity",p.get("quantity"));}else{b.set("product",p.get("product"));b.set("line",p.get("line"));b.set("quantity",p.get("quantity"));b.set("correlation_id",event.get("correlation_id"));}validate(b,true);var command=submit(s,c,run,"boundary:"+id,b,null,true);sql(c,"UPDATE jobs SET boundary_input=?::jsonb WHERE id=?",Json.write(event),command.get("id"));return "accepted";
+ });}
+ static List<Map<String,Object>> pendingEvents(Store s){return s.tx(c->{var run=current(c);return rows(c,"SELECT * FROM production_events WHERE run_id=? AND sent_at IS NULL ORDER BY id",run.get("id"));});}
+ static void eventPublished(Store s,Object id){s.tx(c->{var run=current(c);sql(c,"UPDATE production_events SET sent_at=clock_timestamp() WHERE id=? AND run_id=?",id,run.get("id"));return null;});}
+}

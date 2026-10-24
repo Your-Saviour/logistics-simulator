@@ -12,7 +12,7 @@ else
  manifest=deploy/generated/migration-$app.json
  selected=$app
 fi
-cleanup() { docker compose -f "$manifest" down; }
+cleanup() { work compose -f "$manifest" down; }
 trap cleanup EXIT HUP INT TERM
 if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then
 work build -t logistics-simulator:bootstrap .
@@ -43,6 +43,20 @@ for selected_app in $selected; do
   work compose -f "$manifest" run --rm logistics-verify python scripts/logistics_acceptance.py --phase broker-down
   work compose -f "$manifest" up -d --wait logistics-broker
   work compose -f "$manifest" run --rm logistics-verify python scripts/logistics_acceptance.py --phase broker-up
+ fi
+ if [ "$selected_app" = manufacturing ]; then
+  work compose -f "$manifest" up -d --scale manufacturing-worker=2 manufacturing-worker
+  replicas=$(docker compose -f "$manifest" ps -q --status running manufacturing-worker | wc -l)
+  [ "$replicas" -eq 2 ]
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py
+  work compose -f "$manifest" stop manufacturing-worker
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase workers-down
+  work compose -f "$manifest" start manufacturing-worker
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase workers-up
+  work compose -f "$manifest" stop manufacturing-broker
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase broker-down
+  work compose -f "$manifest" up -d --wait manufacturing-broker
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase broker-up
  fi
  if [ "$selected_app" = storage ]; then
   work compose -f "$manifest" up -d --scale storage-worker=2 storage-worker

@@ -22,3 +22,12 @@ test('default browser transport retains its global receiver',async()=>{
  try{assert.deepEqual(await new Api('operator','secret').request('/status'),{application:'manufacturing'});}
  finally{globalThis.fetch=original;}
 });
+test('uncertain production commands retain the exact body and key until acknowledged',async()=>{
+ const { PendingCommand }=await import('./api.ts');
+ const pending=new PendingCommand();const seen:RequestInit[]=[];let attempts=0;
+ const api=new Api('employee','secret',async(_url,init)=>{seen.push(init!);if(attempts++===0)return new Response('{"detail":"Try again"}',{status:503});return new Response('{"id":"accepted"}');});
+ await assert.rejects(pending.send(api,{action:'create',quantity:4,due_at:2}),/Try again/);
+ assert.equal(pending.body?.quantity,4);
+ await assert.rejects(pending.send(api,{action:'hold',quantity:1,due_at:9}),/Retry or discard/);
+ await pending.retry(api);assert.equal(seen[0].body,seen[1].body);assert.equal((seen[0].headers as any)['Idempotency-Key'],(seen[1].headers as any)['Idempotency-Key']);assert.equal(pending.body,null);
+});

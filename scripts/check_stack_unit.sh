@@ -15,6 +15,7 @@ manufacturing)
  manifest=apps/manufacturing/compose.test.yml
  cleanup() { docker compose -f "$manifest" down; }; trap cleanup EXIT HUP INT TERM
  work compose -f "$manifest" run --rm backend-test sh -c 'mvn -B -q verify dependency:tree -DoutputFile=/tmp/dependencies.actual && diff -u dependencies.lock /tmp/dependencies.actual'
+ work compose -f "$manifest" run --rm frontend-test
  ;;
 logistics)
  manifest=apps/logistics/compose.test.yml
@@ -24,10 +25,11 @@ logistics)
  ;;
 shipping)
  manifest=apps/shipping/compose.smoke.yml
- cleanup() { docker compose -f "$manifest" down; }; trap cleanup EXIT HUP INT TERM
- work compose -f "$manifest" build shipping-api
- work compose -f "$manifest" up -d --wait shipping-db shipping-broker
- work compose -f "$manifest" run --rm --no-deps --entrypoint sh shipping-api /app/tests/all.sh
+ project=simu-shipping-unit-$(date +%s)
+ cleanup() { work compose -p "$project" -f "$manifest" down --volumes; }; trap cleanup EXIT HUP INT TERM
+ work compose -p "$project" -f "$manifest" build shipping-api
+ work compose -p "$project" -f "$manifest" up -d --wait shipping-db shipping-broker
+ work compose -p "$project" -f "$manifest" run --rm --no-deps --entrypoint sh shipping-api /app/tests/all.sh
  ;;
 twin)
  manifest=apps/twin/test.compose.yml

@@ -23,7 +23,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--minimum-gib',type=float,default=20)
     parser.add_argument('--label',default='container-workload')
-    parser.add_argument('--wait',action='store_true',help='Wait for another guarded workload instead of exiting')
+    parser.add_argument('--wait',action='store_true',help='Wait for the shared Docker workload lock')
     parser.add_argument('command',nargs=argparse.REMAINDER)
     args=parser.parse_args()
     command=args.command[1:] if args.command[:1]==['--'] else args.command
@@ -31,19 +31,30 @@ def main():
         parser.error('Pass a Docker command after --; service work must run in containers')
     if args.minimum_gib<1:
         parser.error('Keep at least 1 GiB in reserve')
-    # All worktrees share one workload lock, even when their source directories differ.
-    lock_root=ROOT
-    try:
-        common=subprocess.run(['git','rev-parse','--path-format=absolute','--git-common-dir'],cwd=ROOT,capture_output=True,text=True,check=True)
-        lock_root=Path(common.stdout.strip()).parent
-    except (OSError,subprocess.CalledProcessError):
-        pass
-    state=lock_root/'.superpowers';state.mkdir(exist_ok=True)
+    # Linked worktrees share Docker resources and must share the same guard.
+    common=Path(subprocess.check_output(['git','rev-parse','--path-format=absolute','--git-common-dir'],cwd=ROOT,text=True).strip())
+    state=common.parent/'.superpowers';state.mkdir(exist_ok=True)
     with (state/'container-workload.lock').open('a+') as lock:
-        try: fcntl.flock(lock.fileno(),fcntl.LOCK_EX if args.wait else fcntl.LOCK_EX|fcntl.LOCK_NB)
+        try:
+            fcntl.flock(lock.fileno(),fcntl.LOCK_EX|(0 if args.wait else fcntl.LOCK_NB))
         except BlockingIOError:
-            print('Another guarded Docker workload is running; wait for its completion.',file=sys.stderr)
-            return 75
+            wait_seconds=max(0,float(os.environ.get('DOCKER_GUARD_WAIT_SECONDS','0')))
+            if not wait_seconds:
+                print('Another guarded Docker workload is running; wait for its completion.',file=sys.stderr)
+                return 75
+            print(f'{args.label}: waiting for shared Docker guard.',flush=True)
+            def timed_out(*_): raise TimeoutError('Docker guard wait expired')
+            previous=signal.signal(signal.SIGALRM,timed_out)
+            signal.setitimer(signal.ITIMER_REAL,wait_seconds)
+            try:
+                # A queued kernel lock avoids polling starvation between worktrees.
+                fcntl.flock(lock.fileno(),fcntl.LOCK_EX)
+            except TimeoutError:
+                print('Shared Docker guard wait expired.',file=sys.stderr)
+                return 75
+            finally:
+                signal.setitimer(signal.ITIMER_REAL,0)
+                signal.signal(signal.SIGALRM,previous)
         def enough(): return shutil.disk_usage(ROOT).free/GIB>=args.minimum_gib
         def free(): return shutil.disk_usage(ROOT).free/GIB
         if not enough():
