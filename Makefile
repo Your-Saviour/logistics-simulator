@@ -3,11 +3,15 @@ APP ?= storage
 COMPOSE = docker compose -f deploy/generated/$(APP).json
 TEST_COMPOSE = docker compose -f deploy/test.compose.yml
 
-.PHONY: configure build up down suite test federation-test web-check smoke recovery check clean-tests credentials schema-check stack-unit stack-check mixed-check storage-connected-check storage-deployment-check
+.PHONY: configure build up down suite test federation-test web-check smoke recovery check clean-tests credentials schema-check stack-unit stack-check mixed-check storage-connected-check storage-deployment-check shipping-deployment-check shipping-connected-check
 stack-unit:
 	sh scripts/check_stack_unit.sh $(APP)
 stack-check:
 	sh scripts/check_stacks.sh $(APP)
+shipping-deployment-check:
+	sh scripts/check_shipping_deployment.sh
+shipping-connected-check:
+	sh scripts/check_shipping_connected.sh
 storage-deployment-check:
 	sh scripts/check_storage_deployment.sh
 storage-connected-check:

@@ -17,7 +17,7 @@ from uuid import UUID
 from flask import Flask, jsonify, request
 from pydantic import ValidationError
 from .adapter_protocol import Command, PAYLOADS
-from .storage_contracts import transport_envelope
+from .shipping_contracts import transport_envelope
 
 
 class ProtocolConflict(Exception): pass

@@ -2,7 +2,7 @@
 # All framework and dependency checks execute in the application's containers.
 set -eu
 app=${1:?Expected storage, manufacturing, logistics, shipping or twin}
-work() { python3 scripts/docker_guard.py --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "$app-unit" -- docker "$@"; }
+work() { python3 scripts/docker_guard.py --wait --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "$app-unit" -- docker "$@"; }
 case "$app" in
 storage)
  manifest=apps/storage/compose.smoke.yaml
@@ -24,10 +24,11 @@ logistics)
  ;;
 shipping)
  manifest=apps/shipping/compose.smoke.yml
- cleanup() { docker compose -f "$manifest" down; }; trap cleanup EXIT HUP INT TERM
- work compose -f "$manifest" build shipping-api
- work compose -f "$manifest" up -d --wait shipping-db shipping-broker
- work compose -f "$manifest" run --rm --no-deps --entrypoint sh shipping-api /app/tests/all.sh
+ project=simu-shipping-unit-$(date +%s)
+ cleanup() { work compose -p "$project" -f "$manifest" down --volumes; }; trap cleanup EXIT HUP INT TERM
+ work compose -p "$project" -f "$manifest" build shipping-api
+ work compose -p "$project" -f "$manifest" up -d --wait shipping-db shipping-broker
+ work compose -p "$project" -f "$manifest" run --rm --no-deps --entrypoint sh shipping-api /app/tests/all.sh
  ;;
 twin)
  manifest=apps/twin/test.compose.yml

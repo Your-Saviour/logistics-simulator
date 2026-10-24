@@ -69,3 +69,11 @@ The twin is never a time regulator or business mutator. Its source snapshots
 contain public status/identity fields, not source credentials. Each source has
 its own observed/granted/committed watermark; source connectivity does not prove
 a federation-wide atomic snapshot or a ready business scheduler.
+
+## Shipping V1
+
+Shipping commands and provider ownership are documented in [Shipping V1](shipping-v1.md).
+The additive [shipping wire schema](../contracts/v1/shipping-boundary.schema.json)
+and [order fixture](../contracts/v1/fixtures/shipping-boundary.json) cover shipping
+orders, owned confirmations, explicit storage operations and the production/carrier
+wire contracts. The existing storage/sample schemas remain unchanged.
