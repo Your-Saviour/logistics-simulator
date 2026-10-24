@@ -208,3 +208,13 @@ actual evidence and the untested hosted/physical-host limits.
 Production build contexts exclude generated Laravel sessions, views, logs and
 bootstrap caches. The image creates fresh writable runtime directories; no local
 test session or compiled configuration is copied into a clean deployment.
+
+## V1 state migrations
+
+Numbered migrations 005–008 add shipping orders/lines/shipments, durable domain
+commands and provider intents/history, exact incoming-event bodies, external
+customer aggregate identity, persistent cancellation intent and prepared browser
+operations. Existing applied SQL and migration checksums remain unchanged. New
+roles apply these additive migrations under the existing schema/run gates. Keep
+owned volumes and application keys; this source update does not perform live
+cutover, data reset or credential replacement.
