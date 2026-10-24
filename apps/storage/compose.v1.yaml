@@ -1,0 +1,66 @@
+# Persistent standalone storage deployment. Supply credentials in an untracked
+# env file. Use the local profile for owned DB/RabbitMQ, or externally configured
+# URLs for CyberLab role placement. Never attach verification projects' volumes.
+name: storage-v1
+x-storage: &storage
+  image: logistics-simulator:storage-v1
+  build: .
+  restart: unless-stopped
+  depends_on:
+    storage-db: {condition: service_healthy, required: false}
+    storage-rabbit: {condition: service_healthy, required: false}
+  environment: &environment
+    SIMULATOR: storage
+    CLOCK_MODE: ${CLOCK_MODE:-standalone}
+    DATABASE_URL: ${STORAGE_DATABASE_URL:-postgresql://storage:${STORAGE_PASSWORD:?Set STORAGE_PASSWORD}@storage-db:5432/storage}
+    AMQP_URL: ${STORAGE_AMQP_URL:-amqp://storage:${STORAGE_PASSWORD:?Set STORAGE_PASSWORD}@storage-rabbit:5672/%2f}
+    APP_USERNAME: ${STORAGE_USERNAME:-operator}
+    APP_PASSWORD: ${STORAGE_PASSWORD:?Set STORAGE_PASSWORD}
+    APP_IDENTITIES: ${STORAGE_IDENTITIES:-[]}
+    SCENARIO: ${STORAGE_SCENARIO:-{}}
+    AUTONOMOUS_WAREHOUSE: ${AUTONOMOUS_WAREHOUSE:-true}
+    BOUNDARY_PROVIDERS: ${BOUNDARY_PROVIDERS:-{}}
+    FEDERATION_ID: ${FEDERATION_ID:-}
+    FEDERATION_RUN_ID: ${FEDERATION_RUN_ID:-}
+    FEDERATION_EPOCH: ${FEDERATION_EPOCH:-}
+    HELICS_ADAPTER_URL: ${HELICS_ADAPTER_URL:-}
+    HELICS_ADAPTER_TOKEN: ${HELICS_ADAPTER_TOKEN:-}
+    HELICS_PEERS: ${HELICS_PEERS:-{}}
+    HELICS_OUTPUTS: ${HELICS_OUTPUTS:-[]}
+    HANDOFF_QUANTUM: ${HANDOFF_QUANTUM:-1}
+    DOTNET_PROCESSOR_COUNT: 2
+    DOTNET_GCHeapHardLimit: 0x18000000
+services:
+  storage-api:
+    <<: *storage
+    environment: {<<: *environment, ROLE: api}
+  storage-worker:
+    <<: *storage
+    environment: {<<: *environment, ROLE: worker}
+  storage-controller:
+    <<: *storage
+    environment: {<<: *environment, ROLE: controller}
+  storage-web:
+    image: logistics-simulator:storage-v1-web
+    build: frontend
+    restart: unless-stopped
+    ports: ['${STORAGE_BIND:-127.0.0.1}:${STORAGE_PORT:-8082}:80']
+    environment: {API_UPSTREAM: '${STORAGE_API_UPSTREAM:-storage-api:8000}'}
+    depends_on: [storage-api]
+  storage-db:
+    profiles: [local]
+    image: postgres:16.15-alpine
+    restart: unless-stopped
+    environment: {POSTGRES_DB: storage, POSTGRES_USER: storage, POSTGRES_PASSWORD: '${STORAGE_PASSWORD:?Set STORAGE_PASSWORD}'}
+    volumes: [storage-v1-data:/var/lib/postgresql/data]
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -h 127.0.0.1 -U storage'], interval: 3s, timeout: 3s, retries: 30}
+  storage-rabbit:
+    profiles: [local]
+    image: rabbitmq:4.3.6-alpine
+    restart: unless-stopped
+    environment: {RABBITMQ_DEFAULT_USER: storage, RABBITMQ_DEFAULT_PASS: '${STORAGE_PASSWORD:?Set STORAGE_PASSWORD}', RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: '+S 2:2 +A 4'}
+    volumes: [storage-v1-broker:/var/lib/rabbitmq]
+    healthcheck: {test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672'], interval: 3s, timeout: 3s, retries: 30, start_period: 45s}
+volumes:
+  storage-v1-data:
+  storage-v1-broker:

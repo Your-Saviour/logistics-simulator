@@ -196,7 +196,41 @@
                 "type": "string"
               },
               "envelope": {
-                "$ref": "#/$defs/Envelope"
+                "discriminator": {
+                  "mapping": {
+                    "sample.completed.v1": "#/$defs/Envelope",
+                    "storage.arrive.completed.v1": "#/$defs/FactEnvelope",
+                    "storage.expect.completed.v1": "#/$defs/FactEnvelope",
+                    "storage.issue.completed.v1": "#/$defs/FactEnvelope",
+                    "storage.pick.completed.v1": "#/$defs/FactEnvelope",
+                    "storage.receipt.v1": "#/$defs/ReceiptEnvelope",
+                    "storage.receive.completed.v1": "#/$defs/FactEnvelope",
+                    "storage.release.completed.v1": "#/$defs/FactEnvelope",
+                    "storage.request.v1": "#/$defs/RequestEnvelope",
+                    "storage.reserve.completed.v1": "#/$defs/FactEnvelope",
+                    "storage.transfer.arrived.v1": "#/$defs/ArrivalEnvelope",
+                    "storage.transfer.completed.v1": "#/$defs/FactEnvelope"
+                  },
+                  "propertyName": "type"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/Envelope"
+                  },
+                  {
+                    "$ref": "#/$defs/ReceiptEnvelope"
+                  },
+                  {
+                    "$ref": "#/$defs/RequestEnvelope"
+                  },
+                  {
+                    "$ref": "#/$defs/ArrivalEnvelope"
+                  },
+                  {
+                    "$ref": "#/$defs/FactEnvelope"
+                  }
+                ],
+                "title": "Envelope"
               }
             },
             "required": [
@@ -282,6 +316,130 @@
     }
   ],
   "$defs": {
+    "ArrivalEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "storage.transfer.arrived.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "const": "storage",
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "const": "requests",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ArrivalInput"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "ArrivalEnvelope",
+      "type": "object"
+    },
+    "ArrivalInput": {
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "format": "uuid",
+          "title": "Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference"
+      ],
+      "title": "ArrivalInput",
+      "type": "object"
+    },
     "Envelope": {
       "additionalProperties": false,
       "properties": {
@@ -390,6 +548,551 @@
       "title": "Envelope",
       "type": "object"
     },
+    "FactEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "storage.expect.completed.v1",
+            "storage.receive.completed.v1",
+            "storage.reserve.completed.v1",
+            "storage.release.completed.v1",
+            "storage.issue.completed.v1",
+            "storage.pick.completed.v1",
+            "storage.transfer.completed.v1",
+            "storage.arrive.completed.v1"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "const": "storage",
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "minLength": 1,
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "minLength": 1,
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReceiptFact"
+            },
+            {
+              "$ref": "#/$defs/ReservationFact"
+            },
+            {
+              "$ref": "#/$defs/TransferFact"
+            }
+          ],
+          "title": "Payload"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "FactEnvelope",
+      "type": "object"
+    },
+    "ReceiptEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "storage.receipt.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "const": "storage",
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "const": "supply",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/ReceiptInput"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "ReceiptEnvelope",
+      "type": "object"
+    },
+    "ReceiptFact": {
+      "additionalProperties": false,
+      "properties": {
+        "sku": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "location": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Location",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "expected",
+            "received"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sku",
+        "location",
+        "quantity",
+        "id",
+        "run_id",
+        "correlation_id",
+        "status",
+        "version"
+      ],
+      "title": "ReceiptFact",
+      "type": "object"
+    },
+    "ReceiptInput": {
+      "additionalProperties": false,
+      "properties": {
+        "sku": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "location": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Location",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sku",
+        "location",
+        "quantity"
+      ],
+      "title": "ReceiptInput",
+      "type": "object"
+    },
+    "RequestEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "storage.request.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "const": "storage",
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "const": "requests",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/RequestInput"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "RequestEnvelope",
+      "type": "object"
+    },
+    "RequestInput": {
+      "additionalProperties": false,
+      "properties": {
+        "sku": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "location": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Location",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "purpose": {
+          "enum": [
+            "production",
+            "customer"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sku",
+        "location",
+        "quantity",
+        "purpose"
+      ],
+      "title": "RequestInput",
+      "type": "object"
+    },
+    "ReservationFact": {
+      "additionalProperties": false,
+      "properties": {
+        "sku": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "location": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Location",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "purpose": {
+          "enum": [
+            "production",
+            "customer"
+          ],
+          "title": "Purpose",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "reserved",
+            "picked",
+            "released",
+            "issued",
+            "transferred"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sku",
+        "location",
+        "quantity",
+        "id",
+        "run_id",
+        "correlation_id",
+        "purpose",
+        "status",
+        "version"
+      ],
+      "title": "ReservationFact",
+      "type": "object"
+    },
     "SamplePayload": {
       "additionalProperties": false,
       "properties": {
@@ -404,6 +1107,79 @@
         "quantity"
       ],
       "title": "SamplePayload",
+      "type": "object"
+    },
+    "TransferFact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "reservation_id": {
+          "format": "uuid",
+          "title": "Reservation Id",
+          "type": "string"
+        },
+        "sku": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "origin": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Origin",
+          "type": "string"
+        },
+        "destination": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Destination",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "in_transit",
+            "received"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "run_id",
+        "reservation_id",
+        "sku",
+        "origin",
+        "destination",
+        "quantity",
+        "correlation_id",
+        "status",
+        "version"
+      ],
+      "title": "TransferFact",
       "type": "object"
     }
   }

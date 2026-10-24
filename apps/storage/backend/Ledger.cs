@@ -48,6 +48,7 @@ public sealed class Ledger(Database database,Settings settings)
         var state=j["status"]!.ToString(); if(state=="completed") return "duplicate"; if(state=="dead") return "dead";
         if(r["state"]!.ToString()!="running"||Num(j,"due_at")>Num(r,"granted")||u.Query("SELECT 1 FROM heartbeats WHERE role='controller' AND seen_at>clock_timestamp()-interval '15 seconds'").Count==0||!u.One("SELECT retry_after<=clock_timestamp() AS ready FROM jobs WHERE id=@p0",job)["ready"]!.GetValue<bool>()) return "waiting";
         u.Exec("INSERT INTO inbox(event_id,run_id,epoch) VALUES (@p0,@p1,@p2) ON CONFLICT DO NOTHING",job,Id(r),Id(r,"epoch"));
+        if(j["payload"]?["warehouse"] is JsonObject) { Warehouse.Execute(u,r,j); u.Exec("UPDATE jobs SET status='completed',error=NULL WHERE id=@p0",job); return "completed"; }
         var quantity=j["payload"]!["quantity"]!.GetValue<int>(); u.Exec("INSERT INTO effects(job_id,run_id,quantity) VALUES (@p0,@p1,@p2)",job,Id(r),quantity); u.Exec("UPDATE jobs SET status='completed',error=NULL WHERE id=@p0",job);
         if(r["mode"]!.ToString()=="helics"&&!j["idempotency_key"]!.ToString().StartsWith("boundary:")) u.Exec("INSERT INTO boundary_outbox(id,run_id,envelope) VALUES (@p0,@p1,@p2)",Guid.NewGuid(),Id(r),new JsonObject {["job_id"]=job.ToString(),["quantity"]=quantity,["time"]=Num(r,"granted")}); return "completed";
     });
@@ -68,17 +69,17 @@ public sealed class Ledger(Database database,Settings settings)
         if(!double.IsFinite(grant)||grant<Num(r,"granted")||grant>Num(r,"requested")) throw new Conflict("Grant must be finite, monotonic and no later than requested");
         u.Exec("UPDATE runs SET granted=@p0,anchor=clock_timestamp() WHERE id=@p1",grant,Id(r)); return true; });
     public void Stall(string error,Guid? epoch)=>Db.Transaction(u=> { if(!u.One("SELECT pg_try_advisory_xact_lock(8192102) AS held")["held"]!.GetValue<bool>()) return false; var r=u.Run(); if(epoch is not null&&Id(r,"epoch")!=epoch) return false; if(r["state"]!.ToString() is "failed" or "stalled" or "finalized") return false; u.Exec("UPDATE runs SET state='stalled',error=@p0 WHERE current",error[..Math.Min(error.Length,1000)]); return true; });
-    public void Seed() { var r=Status()["run"]!.AsObject(); if(r["state"]!.ToString()!="running") return; var s=new Scenario(r["scenario"]!.AsObject()); var threshold=Math.Max(Num(r,"granted"),Num(r,"requested"))+settings.Quantum; var slot=Math.Max(1,(long)Math.Ceiling(threshold/s.Interval)); var due=s.NextDue((slot-1)*s.Interval,s.Interval); slot=(long)Math.Ceiling(due/s.Interval);
-        foreach(var (boundary,provider) in settings.Providers) { if(provider!.ToString()!="synthetic") continue; var input=Rules.Uuid5(Id(r),$"{r["epoch"]}:{boundary}:{slot}:{s.Seed}"); var key="synthetic:"+input;
-            if(Db.Transaction(u=>u.Query("SELECT 1 FROM jobs WHERE run_id=@p0 AND idempotency_key=@p1",Id(r),key).Count)>0) continue;
-            var quantity=Rules.Quantity(s.Seed,"storage",boundary,slot); var value=new JsonObject {["schema_version"]="1.0",["input_id"]=input.ToString(),["run_id"]=r["id"]!.ToString(),["epoch"]=r["epoch"]!.ToString(),["application"]="storage",["boundary"]=boundary,["kind"]=boundary=="supply"?"receiving":"demand",["provider"]="synthetic",["effective_time"]=due,["quantity"]=quantity,["quantity_unit"]="item"};
-            Schedule(key,due,quantity,new(input,"storage-synthetic","service","seed:"+value["kind"],input.ToString(),"controller"),value);
-        }
-    }
+    public void Seed()=>WarehouseProviders.Seed(this,settings);
     public string Ingest(JsonObject envelope,string source) { Rules.Envelope(envelope); var boundary=Rules.Text(envelope["boundary"]); var peer=settings.Peers[boundary]?.AsObject();
         if(peer is null||peer["endpoint"]!.ToString()!=source||peer["source"]!.ToString()!=envelope["source"]!.ToString()||envelope["destination"]!.ToString()!="storage"||envelope["federation_id"]!.ToString()!=settings.Federation||settings.Providers[boundary]!.ToString()!="helics") throw new Conflict("Boundary owner/routing mismatch");
         return Db.Transaction(u=> { var r=u.Run(); if(Id(envelope,"run_id")!=Id(r)||Id(envelope,"epoch")!=Id(r,"epoch")) return "fenced"; var eventId=Id(envelope,"event_id"); if(u.Query("SELECT 1 FROM inbox WHERE event_id=@p0",eventId).Count>0) return "duplicate"; var due=Num(envelope,"effective_time"); if(due<Num(r,"granted")) throw new Conflict("Late event cannot change committed history");
-            u.Exec("INSERT INTO inbox(event_id,run_id,epoch) VALUES (@p0,@p1,@p2)",eventId,Id(r),Id(r,"epoch")); u.Exec("INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES (@p0,@p1,@p2,@p3,@p4,@p4,@p5)",Guid.NewGuid(),Id(r),Id(r,"epoch"),"boundary:"+eventId,due,envelope["payload"]!); return "accepted";
+            u.Exec("INSERT INTO inbox(event_id,run_id,epoch) VALUES (@p0,@p1,@p2)",eventId,Id(r),Id(r,"epoch"));
+            if(envelope["type"]!.ToString()!="sample.completed.v1") {
+                if(u.Query("SELECT 1 FROM warehouse_boundary_commands WHERE run_id=@p0 AND source=@p1 AND type=@p2 AND aggregate_id=@p3",Id(r),Rules.Text(envelope["source"]),Rules.Text(envelope["type"]),Id(envelope,"aggregate_id")).Count>0) throw new Conflict("Boundary command aggregate already accepted; replay the original event ID");
+                var command=Warehouse.Submit(u,r,"boundary:"+eventId,WarehouseProviders.Input(envelope),null,settings.Quantum,true);
+                u.Exec("INSERT INTO warehouse_boundary_commands(run_id,source,type,aggregate_id,event_id,command_id) VALUES (@p0,@p1,@p2,@p3,@p4,@p5)",Id(r),Rules.Text(envelope["source"]),Rules.Text(envelope["type"]),Id(envelope,"aggregate_id"),eventId,Id(command)); return "accepted";
+            }
+            u.Exec("INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,original_due_at,payload) VALUES (@p0,@p1,@p2,@p3,@p4,@p4,@p5)",Guid.NewGuid(),Id(r),Id(r,"epoch"),"boundary:"+eventId,due,envelope["payload"]!); return "accepted";
         });
     }
 }

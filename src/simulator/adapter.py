@@ -17,7 +17,7 @@ from uuid import UUID
 from flask import Flask, jsonify, request
 from pydantic import ValidationError
 from .adapter_protocol import Command, PAYLOADS
-from .contracts import Envelope
+from .storage_contracts import transport_envelope
 
 
 class ProtocolConflict(Exception): pass
@@ -165,7 +165,7 @@ class Adapter:
                 if not self.pending:
                     self.values=self.native.values()
                     for source,raw in self.native.receive():
-                        e=Envelope.model_validate(raw)
+                        e=transport_envelope.validate_python(raw)
                         if (str(e.run_id),str(e.epoch),e.federation_id,e.destination)!=(self.run_id,self.epoch,self.federation_id,self.application):
                             raise ValueError('Native input identity mismatch')
                         if e.effective_time<self.granted:

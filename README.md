@@ -13,8 +13,8 @@ time through one private adapter per department. The twin only observes sources.
 | Shipping | PHP / Laravel | Blade / Livewire | [Shipping](apps/shipping/README.md) · [SIMU-51](https://ctfittwo.atlassian.net/browse/SIMU-51) |
 | Digital twin | Python / Flask | React / TypeScript | [Twin](apps/twin/README.md) · [SIMU-52](https://ctfittwo.atlassian.net/browse/SIMU-52) |
 
-These are bootstrap sample workflows, not the departmental V1 lifecycles in
-SIMU-2–6. Framework migration verification is tracked in [verification](docs/verification.md).
+Storage implements the [SIMU-2 warehouse lifecycle](docs/storage-v1.md). The other
+departments remain bootstrap sample workflows pending SIMU-3–6. Framework migration verification is tracked in [verification](docs/verification.md).
 CyberLab integration and distributed packaging (SIMU-13) remain excluded.
 Adapter, verification and documentation follow-up are tracked in
 [SIMU-45](https://ctfittwo.atlassian.net/browse/SIMU-45),

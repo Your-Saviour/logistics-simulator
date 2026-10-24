@@ -1,10 +1,11 @@
-# Storage foundation (SIMU-48)
+# Storage V1 (SIMU-2)
 
 The storage deployment owns an ASP.NET Core 10 API, PostgreSQL transaction ledger,
 RabbitMQ worker and durable simulation-time controller. Its independent website
-uses Vue 3 and TypeScript. It implements the existing sample quantity execution;
-it does not implement inventory or departmental V1 workflows. No business process
-invokes Python. Connected mode uses the department-local HTTP HELICS adapter
+uses Vue 3 and TypeScript. It owns inventory, finite location capacity, receipts,
+reservations, production material issues, picking and in-transit transfers. Employee
+actions and seeded activity execute through the same durable C# job path. No business
+process invokes Python. Connected mode uses the department-local HTTP HELICS adapter
 specified in `docs/adapter-protocol.md`.
 
 The website preserves the Industrial visual direction: warm black `#0B0C0A`,
@@ -13,6 +14,8 @@ and committed/granted/requested strip show the database's actual watermarks;
 process, boundary and sample ledger information comes from the API. Credentials
 remain in memory and are cleared on sign out. Employee/service identities never
 receive operator controls.
+
+See the [warehouse lifecycle, HTTP/domain contracts and persistent deployment guide](../../docs/storage-v1.md).
 
 ## Build and isolated verification
 
@@ -41,17 +44,15 @@ recovery checks and the browser checker. It stops its generated stack on exit.
 Its test credentials and data are independent of deployed applications. No host
 service ports are published. See [VERIFYING.md](VERIFYING.md) for scope and evidence.
 
-The latest backend review run passed **44 total checks against real PostgreSQL
-and RabbitMQ**, including native finalization metadata, JSON-null dead lettering
-followed by valid work, and standalone controller lease loss/reacquisition. The
-local evidence is `.superpowers/sdd/simu-framework-migration/storage-dispose-lease-green.log`.
-Separate production HTTP/recovery/browser and mixed native federation runs also
-passed; see [shared verification](../../docs/verification.md) for their evidence.
+The Storage V1 backend harness currently passes **126 checks against real
+PostgreSQL and RabbitMQ**, including stock concurrency, duplicate commands,
+capacity rollback, material issues, transfer accounting and provider retries.
+See [SIMU-2 acceptance](../../docs/simu-2-acceptance.md) for current evidence.
+Framework-foundation evidence remains in [shared verification](../../docs/verification.md).
 
 `tests/Storage.Tests.csproj` is an executable assertion harness that exits nonzero
 on failure. Without `STORAGE_INTEGRATION=true`, it runs the pure validation,
-calendar/DST and seeded-input checks. The 44-check integration total includes
-those pure checks; it is not an additional 44 checks. `tests/smoke.py` remains an
+calendar/DST and seeded-input checks. The integration total includes those pure checks. `tests/smoke.py` remains an
 application-owned HTTP smoke fixture; the canonical stack runner uses the shared
 acceptance and recovery scripts.
 
@@ -72,8 +73,9 @@ operator also has runs:control/audit:read.
 defaults to 1 and must be finite and at least one second. `SCENARIO` preserves the
 existing seed, IANA timezone, offset-bearing start, local business hours, weekdays
 (Monday=0) and interval fields. Elapsed seconds are UTC seconds; calendar openings
-respect DST gaps and repeated times. `AUTONOMOUS_SAMPLE=true` seeds deterministic
-sample inputs for synthetic boundaries; the smoke fixture disables it to isolate
+respect DST gaps and repeated times. `AUTONOMOUS_WAREHOUSE=true` seeds deterministic warehouse
+supply/demand and local workflow actions. When absent, the historical
+`AUTONOMOUS_SAMPLE` boolean supplies its default; verification disables it to isolate
 employee effects. Standalone speed supports 1,5,20,60. Hold stops new local grants.
 Reset requires `confirm_run_id`, archives the existing run and creates a new epoch.
 On standalone Npgsql connection or timeout failure, the controller releases the
@@ -139,7 +141,8 @@ package metadata. Node 24 provides the frontend build environment.
 The owned copies of migrations 001–003 are byte-identical to the historical SQL;
 applied SHA-256 checksums are checked before any change. Migration 004 adds only
 storage adapter session/operation tables; migration 005 adds the persisted native
-pending/state barrier. All ledger transactions take the shared
+pending/state barrier. V1 migrations 006–007 add warehouse state and immutable
+peer command identity/versioning. All ledger transactions take the shared
 schema advisory gate and run-row lock; migration takes the exclusive gate.
 
 Before production cutover, quiesce the old Python API/controller/workers, retain

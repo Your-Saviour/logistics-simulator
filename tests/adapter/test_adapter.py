@@ -220,3 +220,52 @@ def test_checkpoint_reports_recovery_metadata_after_native_loss(setup):
         assert response.json['result']['recoverable'] is False
         assert response.json['result']['granted']==0
     finally: replacement.close()
+
+
+def test_storage_domain_fact_publication_and_boundary_input_survive_adapter_validation(setup):
+    execute(setup)
+    _,native,_,command,post,_=setup
+    event=envelope(setup)
+    event['type']='storage.receive.completed.v1'
+    event['payload']={'id':event['aggregate_id'],'run_id':event['run_id'],'sku':'PRODUCT',
+                      'location':'FINISHED-A','quantity':2,'correlation_id':event['correlation_id'],
+                      'status':'received','version':2}
+    event['aggregate_version']=2
+    request=command('publish',{'endpoint':'shipping/events','envelope':event})
+    response=post(request)
+    assert response.status_code==200,response.json
+    assert post(request).status_code==200 and len(native.sent)==1
+    assert native.sent[0][0]['payload']['sku']=='PRODUCT'
+    incoming={**envelope(setup),'type':'storage.receipt.v1','source':'supplier','destination':'storage',
+              'boundary':'supply','payload':{'sku':'COMPONENT','location':'RAW-A','quantity':3}}
+    native.incoming=[('supplier/events',incoming)]
+    polled=post(command('poll'))
+    assert polled.status_code==200,polled.json
+    assert polled.json['result']['messages'][0]['envelope']['type']=='storage.receipt.v1'
+
+
+@pytest.mark.parametrize('changes',[
+    {'payload':{'sku':'COMPONENT','location':'RAW-A','quantity':True}},
+    {'payload':{'sku':'COMPONENT','location':'RAW-A','quantity':1,'unknown':1}},
+    {'payload':{'sku':'COMPONENT','location':'RAW-A','quantity':-1}},
+    {'type':'storage.unknown.v1'},
+])
+def test_storage_transport_rejects_invalid_domain_payload(setup,changes):
+    execute(setup)
+    _,_,_,command,post,_=setup
+    event={**envelope(setup),'type':'storage.receipt.v1','destination':'storage','boundary':'supply','payload':{'sku':'COMPONENT','location':'RAW-A','quantity':3},**changes}
+    assert post(command('publish',{'endpoint':'shipping/events','envelope':event})).status_code==422
+
+
+def test_legacy_sample_type_default_remains_valid_on_publish_and_receive(setup):
+    execute(setup)
+    _,native,_,command,post,_=setup
+    sample=envelope(setup);sample.pop('type')
+    published=post(command('publish',{'endpoint':'shipping/events','envelope':sample}))
+    assert published.status_code==200,published.json
+    assert native.sent[0][0]['type']=='sample.completed.v1'
+    incoming={**sample,'source':'shipping','destination':'storage'}
+    native.incoming=[('shipping/events',incoming)]
+    received=post(command('poll'))
+    assert received.status_code==200,received.json
+    assert received.json['result']['messages'][0]['envelope']['type']=='sample.completed.v1'

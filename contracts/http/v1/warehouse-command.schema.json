@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:http:warehouse-command:1.0",
+  "title": "Storage warehouse command v1",
+  "description": "Requires Idempotency-Key header and a current run/epoch. Acceptance schedules durable work; poll warehouse command outcomes.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "epoch",
+        "due_at",
+        "action",
+        "sku",
+        "location",
+        "quantity",
+        "correlation_id"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "due_at": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "const": "expect"
+        },
+        "sku": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+        },
+        "location": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Strict integer literal; coercions and floating point JSON literals reject."
+        },
+        "correlation_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "epoch",
+        "due_at",
+        "action",
+        "sku",
+        "location",
+        "quantity",
+        "correlation_id",
+        "purpose"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "due_at": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "const": "reserve"
+        },
+        "sku": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+        },
+        "location": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000,
+          "description": "Strict integer literal; coercions and floating point JSON literals reject."
+        },
+        "correlation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "purpose": {
+          "enum": [
+            "production",
+            "customer"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "epoch",
+        "due_at",
+        "action",
+        "reference"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "due_at": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "const": "receive"
+        },
+        "reference": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "epoch",
+        "due_at",
+        "action",
+        "reference"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "due_at": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "const": "release"
+        },
+        "reference": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "epoch",
+        "due_at",
+        "action",
+        "reference"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "due_at": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "const": "issue"
+        },
+        "reference": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "epoch",
+        "due_at",
+        "action",
+        "reference"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "due_at": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "const": "pick"
+        },
+        "reference": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "epoch",
+        "due_at",
+        "action",
+        "reference",
+        "destination"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "due_at": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "const": "transfer"
+        },
+        "reference": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "destination": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "epoch",
+        "due_at",
+        "action",
+        "reference"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "epoch": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "due_at": {
+          "type": "number",
+          "minimum": 0
+        },
+        "action": {
+          "const": "arrive"
+        },
+        "reference": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    }
+  ]
+}

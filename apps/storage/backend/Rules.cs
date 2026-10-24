@@ -21,8 +21,10 @@ public static class Rules
         Fields(body,"schema_version","type","event_id","federation_id","run_id","epoch","correlation_id","causation_id","aggregate_id","aggregate_version","source","destination","boundary","effective_time","wall_time","quantity_unit","payload");
         foreach(var key in new[]{"event_id","run_id","epoch","correlation_id","causation_id","aggregate_id"}) Uuid(body[key]);
         foreach(var key in new[]{"federation_id","source","destination","boundary"}) if(Text(body[key]).Length>128) throw new Validation("Routing field too long");
-        if(Text(body["schema_version"])!="1.0" || Text(body["type"])!="sample.completed.v1" || Text(body["quantity_unit"])!="item" || Number(body["effective_time"])<0) throw new Validation("Invalid envelope version, type, unit or time");
-        Integer(body["aggregate_version"],1,int.MaxValue); var payload=body["payload"]?.AsObject() ?? throw new Validation("Payload required"); Fields(payload,"quantity"); Integer(payload["quantity"],1,10000);
+        if(Text(body["schema_version"])!="1.0" || Text(body["quantity_unit"])!="item" || Number(body["effective_time"])<0) throw new Validation("Invalid envelope version, type, unit or time");
+        Integer(body["aggregate_version"],1,int.MaxValue);
+        if(Text(body["type"])=="sample.completed.v1") { var payload=body["payload"] as JsonObject??throw new Validation("Payload object required"); Fields(payload,"quantity"); Integer(payload["quantity"],1,10000); }
+        else WarehouseProviders.Input(body);
         if(body["wall_time"] is not null && !DateTimeOffset.TryParse(Text(body["wall_time"]),out _)) throw new Validation("Invalid wall_time"); return body;
     }
 }
@@ -35,7 +37,7 @@ public sealed class Scenario
     public readonly TimeOnly Open,Close;
     public readonly int[] Weekdays;
     public Scenario(JsonObject body) {
-        Rules.Fields(body,"seed","time_zone","start_at","business_open","business_close","business_weekdays","interval_seconds");
+        Rules.Fields(body,"seed","time_zone","start_at","business_open","business_close","business_weekdays","interval_seconds","warehouse");
         Seed=body["seed"] is null?1:Rules.Integer(body["seed"],0,int.MaxValue); Interval=body["interval_seconds"] is null?30:Rules.Integer(body["interval_seconds"],1,86400);
         var zone=body["time_zone"] is null?"Australia/Adelaide":Rules.Text(body["time_zone"]);
         try { Zone=TimeZoneInfo.FindSystemTimeZoneById(zone); } catch(TimeZoneNotFoundException) { throw new Validation("Unknown scenario timezone"); }
@@ -46,6 +48,7 @@ public sealed class Scenario
         Weekdays=body["business_weekdays"] is null?[0,1,2,3,4]:body["business_weekdays"]!.AsArray().Select(x=>Rules.Integer(x,0,6)).ToArray();
         if(Weekdays.Length==0||Weekdays.Distinct().Count()!=Weekdays.Length) throw new Validation("Unique business weekdays required");
         Body=new JsonObject { ["seed"]=Seed,["time_zone"]=zone,["start_at"]=Start.ToString("O"),["business_open"]=Open.ToString("HH:mm:ss"),["business_close"]=Close.ToString("HH:mm:ss"),["business_weekdays"]=new JsonArray(Weekdays.Select(x=>(JsonNode?)JsonValue.Create(x)).ToArray()),["interval_seconds"]=Interval };
+        if(body["warehouse"] is not null) Body["warehouse"]=Warehouse.Configuration(body["warehouse"] as JsonObject??throw new Validation("Warehouse configuration object required"));
     }
     static TimeOnly ParseTime(JsonNode? node,string fallback) { if(!TimeOnly.TryParse(node is null?fallback:Rules.Text(node),CultureInfo.InvariantCulture,out var result)||result.Second!=0||result.Millisecond!=0) throw new Validation("Whole local minute required"); return result; }
     public DateTimeOffset Instant(double seconds)=>TimeZoneInfo.ConvertTime(Start.AddSeconds(seconds),Zone);

@@ -31,6 +31,21 @@ for selected_app in $selected; do
   work compose -f "$manifest" run --rm "$selected_app-verify" python scripts/stack_acceptance.py --app "$selected_app" --url "http://$selected_app-api:8000" --terminal-reset
   if [ "${STACK_STARTUP_ONLY:-0}" != 1 ]; then sh scripts/recovery_stacks.sh "$manifest" "$selected_app"; fi
  fi
+ if [ "$selected_app" = storage ]; then
+  work compose -f "$manifest" up -d --scale storage-worker=2 storage-worker
+  replicas=$(docker compose -f "$manifest" ps -q --status running storage-worker | wc -l)
+  [ "$replicas" -eq 2 ]
+  echo 'storage V1: two worker replicas running'
+  work compose -f "$manifest" run --rm storage-verify python scripts/storage_acceptance.py
+  work compose -f "$manifest" stop storage-broker
+  work compose -f "$manifest" run --rm storage-verify python scripts/storage_acceptance.py --phase broker-down
+  work compose -f "$manifest" up -d --wait storage-broker
+  work compose -f "$manifest" run --rm storage-verify python scripts/storage_acceptance.py --phase broker-up
+  work compose -f "$manifest" stop storage-worker
+  work compose -f "$manifest" run --rm storage-verify python scripts/storage_acceptance.py --phase queue
+  work compose -f "$manifest" start storage-worker
+  work compose -f "$manifest" run --rm storage-verify python scripts/storage_acceptance.py --phase recovered
+ fi
 done
 work compose -f "$manifest" run --rm browser-check
 if [ "$app" = all ]; then

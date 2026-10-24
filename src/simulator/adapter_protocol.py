@@ -2,7 +2,7 @@
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
-from .contracts import Envelope
+from .storage_contracts import TransportEnvelope
 
 
 class Strict(BaseModel):
@@ -35,7 +35,7 @@ class ReceiveAck(Strict):
 
 class Publication(Strict):
     endpoint: str = Field(min_length=1, max_length=256)
-    envelope: Envelope
+    envelope: TransportEnvelope
 
 
 class ValuePublication(Strict):

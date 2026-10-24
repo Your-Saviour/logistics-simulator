@@ -22,3 +22,44 @@ for (const app of apps) {
   });
 }
 test('container browser targets supplied',()=>expect(apps.length).toBeGreaterThan(0));
+
+const storage=apps.find(app=>app.name==='storage');
+if(storage) test('storage: employee receives, reserves, picks and confirms transfer arrival',async({page,request})=>{
+  test.setTimeout(90000);
+  const headers={Authorization:'Basic '+Buffer.from(storage.username+':'+storage.password).toString('base64')};
+  const status=await (await request.get(storage.url+'/api/status',{headers})).json();
+  expect((await request.post(storage.url+'/api/control/reset',{headers,data:{confirm_run_id:status.run.id}})).ok()).toBe(true);
+  expect((await request.post(storage.url+'/api/control/speed',{headers,data:{speed:20}})).ok()).toBe(true);
+  await page.goto(storage.url);
+  await page.getByLabel('Username',{exact:true}).fill(storage.employee);
+  await page.getByLabel('Password',{exact:true}).fill(storage.employeePassword);
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  const form=page.locator('.warehouse-form');
+  await form.getByRole('combobox',{name:'SKU',exact:true}).selectOption('PRODUCT');
+  await form.getByRole('combobox',{name:'Location',exact:true}).selectOption('FINISHED-A');
+  await form.getByLabel('Quantity',{exact:true}).fill('7');
+  await form.getByRole('button',{name:'Plan receipt',exact:true}).click();
+  await page.getByRole('button',{name:'Receive',exact:true}).click();
+  const stock=page.locator('[data-inventory] tbody tr').filter({hasText:'FINISHED-A'}).filter({hasText:'PRODUCT'});
+  await expect(stock.locator('td').nth(2)).toHaveText('7');
+  await form.getByRole('combobox',{name:'Action',exact:true}).selectOption('reserve');
+  await form.getByLabel('Quantity',{exact:true}).fill('4');
+  await form.getByRole('button',{name:'Reserve stock',exact:true}).click();
+  await page.getByRole('button',{name:'Pick',exact:true}).click();
+  await page.getByRole('combobox',{name:'Destination',exact:true}).selectOption('DISPATCH');
+  await page.getByRole('button',{name:'Transfer',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Confirm arrival',exact:true})).toBeVisible();
+  const dispatch=page.locator('[data-inventory] tbody tr').filter({hasText:'DISPATCH'}).filter({hasText:'PRODUCT'});
+  await expect(dispatch.locator('td').nth(2)).toHaveText('0');
+  await page.getByRole('button',{name:'Confirm arrival',exact:true}).click();
+  await expect(dispatch.locator('td').nth(2)).toHaveText('4');
+  await expect(stock.locator('td').nth(2)).toHaveText('3');
+  await expect(stock.locator('td').nth(3)).toHaveText('0');
+  await page.getByLabel('Search inventory',{exact:true}).fill('dispatch');
+  await expect(page.locator('[data-inventory] tbody tr')).toHaveCount(2);
+  await page.getByLabel('Search inventory',{exact:true}).fill('');
+  await page.screenshot({path:'/artifacts/storage-v1-employee-desktop.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+  await page.screenshot({path:'/artifacts/storage-v1-employee-mobile.png',fullPage:true});
+});
