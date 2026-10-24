@@ -94,6 +94,34 @@ mapping is distinct from an empty warehouse. Quarantine uses the observing
 source run/epoch while retaining the original rejected envelope's claimed scope;
 it establishes neither receipt nor allocatable stock.
 
+## Twin custody read model
+
+Twin requires a matching native event for every handling movement and lineage
+record, including the first observation. Extra native history events or changed
+fields reject the entire observation before its cursor advances.
+
+Migration `006_twin_unit_manifests.sql` adds Twin's immutable UUID/barcode/scope/
+contents registry and per-source conflict evidence. Registry entries survive
+source removal, consumer restart and epoch retirement. Registration shares the
+snapshot/event/cursor transaction. Conflicting observations roll back; the
+consumer records their typed conflict separately and marks that source stale.
+A corrected accepted observation clears its source conflict evidence.
+
+`GET /api/twin` adds `handling.units`, a reconciled read model retaining each
+source's original unit under `observations`. Durable received/acknowledged
+handoffs establish directed custody-generation edges. Source clocks, HTTP
+arrival order and larger unit versions cannot select a custodian. Historical
+departure records retire only along those receipt edges. Conflicting manifests,
+proofs, forked receipts or unrelated ownership claims produce `status: conflict`
+and no position. Reconciliation cannot create stock or dispatch business work.
+
+Only the current custodian's own observed unit supplies a confirmed position.
+A proven custodian without an observed unit has `status: unobserved` and no
+position. Unknown endpoint strings remain inspectable with `mapped: false`;
+only the fixed catalog supplies coordinates. `unsupported_sources` distinguishes
+sources without the extension from sources reporting an empty unit list.
+Disconnected observations remain retained with `connected: false`.
+
 ## Infrastructure and control retries
 
 The additive `health` object exposes persisted heartbeats (`role`, `seen_at`,

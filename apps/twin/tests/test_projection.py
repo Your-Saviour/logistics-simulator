@@ -15,7 +15,7 @@ def projection():
     store = Store(os.environ['TEST_DATABASE_URL'])
     store.migrate()
     with store.transaction() as db:
-        db.execute('TRUNCATE twin_events,twin_revisions,twin_sources RESTART IDENTITY')
+        db.execute('TRUNCATE twin_unit_manifests,twin_events,twin_revisions,twin_sources RESTART IDENTITY')
     return ProjectionStore(store)
 
 
@@ -55,7 +55,7 @@ def handling_source():
             'references': {'transfer_id': None, 'batch_id': None, 'shipment_id': None}}
     value['snapshot']['handling'] = {'version': 1, 'catalog_version': 1,
         'units': [unit], 'movements': [move], 'handoffs': [], 'lineage': [], 'quarantine': []}
-    value['events'].append({**move, 'id': 'unit-movement:' + move['id'], 'kind': 'unit-movement'})
+    value['events'].append({**move, 'id': 'storage:unit-movement:' + move['id'], 'kind': 'unit-movement'})
     return config, value
 
 

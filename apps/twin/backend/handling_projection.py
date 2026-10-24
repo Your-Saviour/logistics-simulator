@@ -124,3 +124,150 @@ def retain_handling(previous, current):
                         raise ValueError('Source changed a durable custody proof')
             elif saved != record:
                 raise ValueError('Source reused handling history identity with different content')
+
+
+class ManifestConflict(ValueError):
+    def __init__(self, source, expected, claimed):
+        super().__init__('Observed handling unit conflicts with its registered identity')
+        self.conflict = {'source': source, 'unit_id': claimed['id'],
+                         'barcode': claimed['barcode'], 'expected': expected, 'claimed': claimed}
+
+
+def register_manifests(db, source, handling):
+    from psycopg.types.json import Jsonb
+    for unit in [*handling['units'], *(handoff['unit'] for handoff in handling['handoffs'])]:
+        manifest = {key: unit[key] for key in IMMUTABLE_UNIT}
+        saved = db.execute('SELECT manifest FROM twin_unit_manifests WHERE unit_id=%s OR barcode=%s',
+                           (unit['id'], unit['barcode'])).fetchone()
+        if saved:
+            if saved['manifest'] != manifest:
+                raise ManifestConflict(source, saved['manifest'], manifest)
+        else:
+            db.execute('INSERT INTO twin_unit_manifests(unit_id,barcode,manifest,first_source) VALUES (%s,%s,%s,%s)',
+                       (unit['id'], unit['barcode'], Jsonb(manifest), source))
+
+
+def validate_handling_events(source, handling, events):
+    for collection, kind in (('movements', 'unit-movement'), ('lineage', 'lineage')):
+        prefix = source + ':' + kind + ':'
+        observed = {event['id']: event for event in events if isinstance(event.get('id'), str) and event['id'].startswith(prefix)}
+        expected = {prefix + record['id']: record for record in handling[collection]}
+        if observed.keys() != expected.keys():
+            raise ValueError('Handling history and event identities disagree')
+        for identity, record in expected.items():
+            if any(observed[identity].get(key) != value for key, value in record.items() if key != 'id'):
+                raise ValueError('Handling history and event contents disagree')
+
+
+def reconcile_handling(sources):
+    """Resolve observations with directed durable receipt proofs, never clocks.
+
+    A departing source retains a historical shadow at the predecessor node.
+    Only the recipient's own unit record can supply its confirmed position.
+    """
+    from simulator.handling_contracts import catalog
+    groups, unsupported = {}, []
+    for source in sources:
+        handling = (source.get('snapshot') or {}).get('handling')
+        if handling is None:
+            unsupported.append(source['name'])
+            continue
+        for collection in ('units', 'handoffs'):
+            for record in handling[collection]:
+                unit = record if collection == 'units' else record['unit']
+                key = unit['run_id'], unit['epoch'], unit['id']
+                group = groups.setdefault(key, {'observations': [], 'handoffs': [], 'conflicts': []})
+                if collection == 'units':
+                    group['observations'].append({'source': source['name'], 'unit': unit,
+                                                  'connected': source.get('connected', False)})
+                else:
+                    group['handoffs'].append(record)
+    # Rejected sources may have no accepted snapshot and sort before the
+    # registered owner. Apply their evidence after collecting every unit.
+    for source in sources:
+        for conflict in source.get('handling_conflicts', []):
+            for key, group in groups.items():
+                if key[2] == conflict['unit_id']:
+                    group['conflicts'].append(conflict)
+    records = []
+    for (run_id, epoch, identity), group in sorted(groups.items()):
+        observations, handoffs = group['observations'], group['handoffs']
+        if not observations:
+            continue
+        reasons = list(group['conflicts'])
+        witnesses, edges = {}, {}
+        for handoff in handoffs:
+            witnesses.setdefault(handoff['id'], []).append(handoff)
+        for copies in witnesses.values():
+            first = copies[0]
+            for field in ('source', 'destination_owner', 'origin', 'destination'):
+                if any(copy[field] != first[field] for copy in copies):
+                    reasons.append({'reason': 'Conflicting handoff provenance', 'handoff_id': first['id']})
+            for field in ('departure_token', 'receipt_id'):
+                proofs = [copy[field] for copy in copies if copy[field] is not None]
+                if proofs and any(proof != proofs[0] for proof in proofs):
+                    reasons.append({'reason': 'Conflicting custody proof', 'handoff_id': first['id']})
+            manifests = []
+            for copy in copies:
+                unit = deepcopy(copy['unit'])
+                if copy['state'] in ('offered', 'accepted'):
+                    unit.update(state='in_transit', position=None, origin=copy['origin'],
+                                destination=copy['destination'], handoff_id=copy['id'])
+                    for counter in ('version', 'last_sequence', 'custody_generation'):
+                        unit[counter] += 1
+                if copy['state'] != 'quarantined':
+                    manifests.append(unit)
+            if manifests and any(unit != manifests[0] for unit in manifests):
+                reasons.append({'reason': 'Conflicting custody manifest', 'handoff_id': first['id']})
+            for copy in copies:
+                if copy['state'] in ('received', 'acknowledged') and copy['departure_token'] and copy['receipt_id']:
+                    generation = copy['unit']['custody_generation']
+                    start = copy['source'], generation - 1
+                    target = copy['destination_owner'], generation
+                    edges.setdefault(start, set()).add(target)
+        if any(len(targets) != 1 for targets in edges.values()):
+            reasons.append({'reason': 'Forked custody receipts'})
+
+        def node(observation):
+            unit = observation['unit']
+            generation = unit['custody_generation']
+            outgoing = witnesses.get(unit['handoff_id'], [])
+            if unit['state'] in ('in_transit', 'dispatched') and any(
+                    handoff['source'] == observation['source'] and
+                    handoff['unit']['custody_generation'] == generation for handoff in outgoing):
+                generation -= 1
+            return observation['source'], generation
+
+        def leaf(start):
+            visited = set()
+            while len(edges.get(start, set())) == 1 and start not in visited:
+                visited.add(start)
+                start = next(iter(edges[start]))
+            return start
+
+        leaves = {leaf(node(observation)) for observation in observations}
+        if len(leaves) != 1:
+            reasons.append({'reason': 'Unconnected custody claims'})
+        target = next(iter(leaves)) if len(leaves) == 1 else None
+        candidates = [observation for observation in observations if node(observation) == target]
+        incoming = {destination for destinations in edges.values() for destination in destinations}
+        if target and target[1] > 0 and target not in incoming:
+            reasons.append({'reason': 'Custody generation lacks a receipt proof'})
+        selected = candidates[0] if len(candidates) == 1 else None
+        if selected:
+            for handoff in handoffs:
+                if (handoff['destination_owner'], handoff['unit']['custody_generation']) == target and handoff['state'] in ('received', 'acknowledged'):
+                    if any(selected['unit'][field] < handoff['unit'][field] for field in ('version', 'last_sequence')):
+                        reasons.append({'reason': 'Recipient record predates its departure proof', 'handoff_id': handoff['id']})
+        status = 'conflict' if reasons else 'confirmed' if selected else 'unobserved'
+        unit = selected['unit'] if selected else observations[0]['unit']
+        position = unit['position'] if status == 'confirmed' else None
+        records.append({'id': identity, 'run_id': run_id, 'epoch': epoch,
+                        'barcode': unit['barcode'], 'contents': unit['contents'], 'category': unit['category'],
+                        'owner': target[0] if target and not reasons else None,
+                        'custody_generation': target[1] if target and not reasons else None,
+                        'state': unit['state'] if selected and not reasons else None,
+                        'status': status, 'position': position, 'mapped': position in catalog(),
+                        'connected': bool(selected and selected['connected']),
+                        'observations': observations, 'conflicts': reasons})
+    return {'version': 1, 'units': records, 'unsupported_sources': unsupported}

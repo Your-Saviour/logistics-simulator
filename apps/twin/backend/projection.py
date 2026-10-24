@@ -16,7 +16,7 @@ from psycopg.types.json import Jsonb
 
 from simulator.config import Settings
 from simulator.store import Store
-from .handling_projection import validate_handling, retain_handling
+from .handling_projection import validate_handling, retain_handling, register_manifests, validate_handling_events, ManifestConflict, reconcile_handling
 
 NAMES = {'manufacturing', 'storage', 'logistics', 'shipping'}
 RUN_FIELDS = {'id', 'epoch', 'mode', 'state', 'granted', 'requested', 'committed',
@@ -70,6 +70,7 @@ def validate(config, value):
         raise ValueError('Complete snapshot and event list required')
     if 'handling' in value['snapshot']:
         validate_handling(config['name'], run, value['snapshot']['handling'])
+        validate_handling_events(config['name'], value['snapshot']['handling'], value['events'])
     seen = set()
     for event in value['events']:
         if not isinstance(event, dict) or not isinstance(event.get('id'), str) or not 1 <= len(event['id']) <= 256 or event['id'] in seen:
@@ -168,6 +169,8 @@ class ProjectionStore:
                     raise ValueError('Source omitted retained event history')
             elif old:
                 retired = [*retired, [old['id'], old['epoch']]]
+            if 'handling' in value['snapshot']:
+                register_manifests(db, config['name'], value['snapshot']['handling'])
             for event in value['events']:
                 saved = db.execute('SELECT payload FROM twin_events WHERE source=%s AND run_id=%s AND epoch=%s AND id=%s',
                                    (config['name'], *scope, event['id'])).fetchone()
@@ -176,16 +179,16 @@ class ProjectionStore:
                 if not saved:
                     db.execute('INSERT INTO twin_events(source,run_id,epoch,id,payload) VALUES (%s,%s,%s,%s,%s)',
                                (config['name'], *scope, event['id'], Jsonb(event)))
-            db.execute("UPDATE twin_sources SET status=%s,snapshot=%s,cursor=%s,connected=true,observed_at=clock_timestamp(),last_success_at=clock_timestamp(),error=NULL,retired_epochs=%s WHERE name=%s",
+            db.execute("UPDATE twin_sources SET status=%s,snapshot=%s,cursor=%s,connected=true,observed_at=clock_timestamp(),last_success_at=clock_timestamp(),error=NULL,handling_conflicts='[]',retired_epochs=%s WHERE name=%s",
                        (Jsonb({'run': run, 'health': operational_health(value.get('health')), **({'effects': value['effects']} if isinstance(value.get('effects'), (int, float)) else {})}), Jsonb(value['snapshot']), value['cursor'], Jsonb(retired), config['name']))
             # Freshness is visible state, even when business content is unchanged.
             self.revision(db, config['name'])
         return True
 
-    def failure(self, name, generation=None):
+    def failure(self, name, generation=None, conflict=None):
         with self.store.transaction() as db:
             db.execute('SELECT pg_advisory_xact_lock(8192110)')
-            saved = db.execute("UPDATE twin_sources SET connected=false,observed_at=clock_timestamp(),error='Source unavailable or projection contract rejected' WHERE name=%s AND configured AND (%s::bigint IS NULL OR generation=%s) RETURNING name", (name, generation, generation)).fetchone()
+            saved = db.execute("UPDATE twin_sources SET handling_conflicts=COALESCE(%s::jsonb,handling_conflicts),connected=false,observed_at=clock_timestamp(),error='Source unavailable or projection contract rejected' WHERE name=%s AND configured AND (%s::bigint IS NULL OR generation=%s) RETURNING name", (Jsonb([conflict]) if conflict is not None else None, name, generation, generation)).fetchone()
             if saved: self.revision(db, name)
 
     def view(self):
@@ -196,7 +199,7 @@ class ProjectionStore:
             db.execute('SELECT pg_advisory_xact_lock_shared(8192103)')
             revision = db.execute('SELECT COALESCE(max(id),0) AS id FROM twin_revisions').fetchone()['id']
             heartbeats = db.execute("SELECT role,seen_at,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats ORDER BY role").fetchall()
-            sources = db.execute("SELECT name,website_url,status,snapshot,cursor,observed_at,last_success_at,error,connected AND last_success_at>clock_timestamp()-interval '15 seconds' AS connected,NOT(connected AND last_success_at>clock_timestamp()-interval '15 seconds') AS stale FROM twin_sources WHERE configured ORDER BY name").fetchall()
+            sources = db.execute("SELECT name,website_url,status,snapshot,cursor,handling_conflicts,observed_at,last_success_at,error,connected AND last_success_at>clock_timestamp()-interval '15 seconds' AS connected,NOT(connected AND last_success_at>clock_timestamp()-interval '15 seconds') AS stale FROM twin_sources WHERE configured ORDER BY name").fetchall()
             events = db.execute("SELECT e.* FROM twin_events e JOIN twin_sources s ON s.name=e.source AND s.configured AND s.status->'run'->>'id'=e.run_id AND s.status->'run'->>'epoch'=e.epoch ORDER BY e.source,e.id").fetchall()
         for source in sources:
             source['health'] = (source['status'] or {}).get('health')
@@ -218,7 +221,7 @@ class ProjectionStore:
             if identity(runs[0]) is not None and all(identity(r) == identity(runs[0]) for r in runs):
                 aligned = {'run_id': runs[0]['id'], 'epoch': runs[0]['epoch'],
                            'committed': min(r['committed'] for r in runs)}
-        return {'revision': revision, 'sources': sources, 'events': events,
+        return {'revision': revision, 'sources': sources, 'events': events, 'handling': reconcile_handling(sources),
                 'aligned': aligned, 'mode': 'live', 'controls': [], 'heartbeats': heartbeats}
 
 
@@ -262,9 +265,9 @@ class Consumer:
                     pass
                 value['health'] = health
                 self.projection.accept(source, value, generation)
-            except (httpx.HTTPError, ValueError, KeyError, TypeError):
+            except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
                 # No upstream bodies, credentials or URLs in persisted errors/logs.
-                self.projection.failure(source['name'], generation)
+                self.projection.failure(source['name'], generation, conflict=error.conflict if isinstance(error, ManifestConflict) else None)
         self.projection.store.heartbeat('projection')
 
 
