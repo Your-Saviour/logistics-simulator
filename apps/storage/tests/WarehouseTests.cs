@@ -80,7 +80,10 @@ public static class WarehouseTests
             ledger.Seed(); Advance();
             var auto=warehouse.Snapshot()["commands"]!.AsArray().Select(c=>c!.AsObject()).Single(c=>c["status"]!.ToString()=="pending");
             ledger.Execute(Ledger.Id(auto)); check(Done(Ledger.Id(auto))["status"]!.ToString()=="rejected","automatic receiving reports a full location");
-            var free=Submit("reserve",Fields("COMPONENT","RAW-A",1,"production")); Submit("issue",Reference(free));
+            // This capacity-retry fixture uses a synthetic destination. A real
+            // connected issue cannot free stock without configured acceptance.
+            var free=Submit("reserve",Fields("COMPONENT","RAW-A",1,"production"));
+            settings.Providers["requests"]="synthetic";Submit("issue",Reference(free));settings.Providers["requests"]="helics";
             var later=ledger.Status()["run"]!.AsObject(); var laterTime=Math.Ceiling((Ledger.Num(later,"granted")+1)/30)*30+1;
             check(ledger.Prepare(laterTime,Ledger.Id(later,"epoch")),"settled capacity rejection leaves clock eligible"); ledger.Grant(laterTime,Ledger.Id(later,"epoch"));
             ledger.Seed(); Advance();

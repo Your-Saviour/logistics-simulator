@@ -44,6 +44,16 @@ class ArrivalInput(Strict):
     reference: UUID
 
 
+class IssueInput(ArrivalInput):
+    unit_destinations: dict[UUID, Annotated[str, Field(pattern=r'^manufacturing\.cell0[1-4]\.input0[1-4]$')]] = Field(min_length=1, max_length=4)
+
+    @model_validator(mode='after')
+    def distinct_input_endpoints(self):
+        if len(set(self.unit_destinations.values())) != len(self.unit_destinations):
+            raise ValueError('Distinct whole-unit receiving endpoints required')
+        return self
+
+
 class ReceiptFact(StockQuantity):
     id: UUID
     run_id: UUID
@@ -99,6 +109,15 @@ class ArrivalEnvelope(Envelope):
     payload: ArrivalInput
 
 
+class IssueEnvelope(Envelope):
+    type: Literal['storage.issue.v1']
+    source: Literal['manufacturing']
+    destination: Literal['storage']
+    boundary: Literal['requests']
+    aggregate_version: int = Field(strict=True, ge=1, le=1)
+    payload: IssueInput
+
+
 class FactEnvelope(Envelope):
     type: Literal['storage.expect.completed.v1', 'storage.receive.completed.v1',
                   'storage.reserve.completed.v1', 'storage.release.completed.v1',
@@ -119,6 +138,6 @@ def legacy_sample_default(value):
 
 
 TransportEnvelope = Annotated[
-    Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | FactEnvelope | HandlingEnvelope,
+    Envelope | ReceiptEnvelope | RequestEnvelope | ArrivalEnvelope | IssueEnvelope | FactEnvelope | HandlingEnvelope,
     Field(discriminator='type'), BeforeValidator(legacy_sample_default)]
 transport_envelope = TypeAdapter(TransportEnvelope)

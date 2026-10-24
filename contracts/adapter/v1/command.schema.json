@@ -221,6 +221,7 @@
                     "storage.command.rejected.v1": "#/$defs/StorageRejectionEnvelope",
                     "storage.expect.completed.v1": "#/$defs/FactEnvelope",
                     "storage.issue.completed.v1": "#/$defs/FactEnvelope",
+                    "storage.issue.v1": "#/$defs/IssueEnvelope",
                     "storage.pick.completed.v1": "#/$defs/FactEnvelope",
                     "storage.pick.v1": "#/$defs/StorageReferenceEnvelope",
                     "storage.receipt.v1": "#/$defs/ReceiptEnvelope",
@@ -247,6 +248,9 @@
                   },
                   {
                     "$ref": "#/$defs/ArrivalEnvelope"
+                  },
+                  {
+                    "$ref": "#/$defs/IssueEnvelope"
                   },
                   {
                     "$ref": "#/$defs/FactEnvelope"
@@ -1474,6 +1478,144 @@
         "payload"
       ],
       "title": "HandlingEnvelope",
+      "type": "object"
+    },
+    "IssueEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "storage.issue.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "const": "manufacturing",
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "const": "storage",
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "const": "requests",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/IssueInput"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "IssueEnvelope",
+      "type": "object"
+    },
+    "IssueInput": {
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "format": "uuid",
+          "title": "Reference",
+          "type": "string"
+        },
+        "unit_destinations": {
+          "additionalProperties": {
+            "pattern": "^manufacturing\\.cell0[1-4]\\.input0[1-4]$",
+            "type": "string"
+          },
+          "maxProperties": 4,
+          "minProperties": 1,
+          "propertyNames": {
+            "format": "uuid"
+          },
+          "title": "Unit Destinations",
+          "type": "object"
+        }
+      },
+      "required": [
+        "reference",
+        "unit_destinations"
+      ],
+      "title": "IssueInput",
       "type": "object"
     },
     "LogisticsFactEnvelope": {

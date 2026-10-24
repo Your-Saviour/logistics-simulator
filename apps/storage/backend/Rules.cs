@@ -24,6 +24,7 @@ public static class Rules
         if(Text(body["schema_version"])!="1.0" || Text(body["quantity_unit"])!="item" || Number(body["effective_time"])<0) throw new Validation("Invalid envelope version, type, unit or time");
         Integer(body["aggregate_version"],1,int.MaxValue);
         if(Text(body["type"])=="sample.completed.v1") { var payload=body["payload"] as JsonObject??throw new Validation("Payload object required"); Fields(payload,"quantity"); Integer(payload["quantity"],1,10000); }
+        else if(Text(body["type"]).StartsWith("handling.")) StorageCustody.Validate(body);
         else WarehouseProviders.Input(body);
         if(body["wall_time"] is not null && !DateTimeOffset.TryParse(Text(body["wall_time"]),out _)) throw new Validation("Invalid wall_time"); return body;
     }

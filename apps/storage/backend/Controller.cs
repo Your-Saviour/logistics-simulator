@@ -47,8 +47,13 @@ public sealed class Adapter(Ledger ledger,Settings settings,JsonObject run)
         });
     }
     public async Task Settle(JsonObject current) {
-        var rows=ledger.Db.Transaction(u=> { var r=u.Run(); return u.Query("SELECT * FROM boundary_outbox WHERE run_id=@p0 AND sent_at IS NULL ORDER BY id",Ledger.Id(r)); });
-        foreach(var row in rows) { var sample=row["envelope"]!.AsObject(); foreach(var output in settings.Outputs) {
+        var rows=ledger.Db.Transaction(u=> { var r=u.Run();StorageCustody.Recover(u,r);return u.Query("SELECT * FROM boundary_outbox WHERE run_id=@p0 AND sent_at IS NULL ORDER BY id",Ledger.Id(r)); });
+        foreach(var row in rows) { var sample=row["envelope"]!.AsObject();
+            if(sample["type"]?.ToString().StartsWith("handling.")==true) {
+                var routes=settings.Outputs.Where(o=>o?["destination"]?.ToString()==sample["destination"]?.ToString()&&o["boundary"]?.ToString()==sample["boundary"]?.ToString()).ToArray();
+                if(routes.Length==0)throw new Conflict("No HELICS route for committed custody output");
+                foreach(var route in routes) {var endpoint=Rules.Text(route!["endpoint"]);await Command("publish",new JsonObject {["endpoint"]=endpoint,["envelope"]=sample.DeepClone()},$"publish:{Ledger.Id(row)}:{endpoint}");}
+            } else foreach(var output in settings.Outputs) {
                 var destination=Rules.Text(output!["destination"]); var boundary=Rules.Text(output["boundary"]); var endpoint=Rules.Text(output["endpoint"]); var eventId=Ledger.Id(row); var job=Rules.Text(sample["job_id"]);
                 var envelope=new JsonObject {["schema_version"]="1.0",["type"]=sample["type"]?.DeepClone()??JsonValue.Create("sample.completed.v1"),["event_id"]=eventId.ToString(),["federation_id"]=settings.Federation,["run_id"]=current["id"]!.DeepClone(),["epoch"]=current["epoch"]!.DeepClone(),["correlation_id"]=sample["correlation_id"]?.DeepClone()??JsonValue.Create(job),["causation_id"]=sample["causation_id"]?.DeepClone()??JsonValue.Create(job),["aggregate_id"]=sample["aggregate_id"]?.DeepClone()??JsonValue.Create(job),["aggregate_version"]=sample["aggregate_version"]?.DeepClone()??sample["payload"]?["version"]?.DeepClone()??JsonValue.Create(1),["source"]="storage",["destination"]=destination,["boundary"]=boundary,["effective_time"]=Ledger.Num(sample,"time")+settings.Quantum,["wall_time"]=DateTimeOffset.UtcNow.ToString("O"),["quantity_unit"]="item",["payload"]=sample["payload"]?.DeepClone()??new JsonObject {["quantity"]=sample["quantity"]!.DeepClone()} };
                 await Command("publish",new JsonObject {["endpoint"]=endpoint,["envelope"]=envelope},$"publish:{eventId}:{endpoint}");

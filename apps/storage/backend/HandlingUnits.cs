@@ -5,6 +5,7 @@ namespace Storage;
 public static class HandlingUnits
 {
     static readonly Dictionary<string,JsonObject> Locations=JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"handling-facility.json")))!["locations"]!.AsArray().Select(n=>n!.AsObject()).ToDictionary(n=>n["id"]!.ToString());
+    public static bool ManufacturingInput(string id)=>Locations.TryGetValue(id,out var location)&&location["owner"]!.ToString()=="manufacturing"&&location["kind"]!.ToString()=="cell_input"&&location["compatible"]!.AsArray().Any(n=>n!.ToString()=="raw");
     public static void ValidateManifest(JsonObject body) {
         if(body["units"] is not JsonArray units||units.Count is <1 or >256) throw new Validation("Explicit whole-unit manifest required (1..256 units); legacy stock needs conversion");
         var ids=new HashSet<Guid>(); var total=0;
@@ -28,7 +29,7 @@ public static class HandlingUnits
         var occupied=u.Query("SELECT position FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND position IS NOT NULL UNION SELECT destination AS position FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND state='in_transit'",Ledger.Id(run),Ledger.Id(run,"epoch")).Select(r=>r["position"]!.ToString()).ToHashSet();
         return Locations.Values.Where(l=>l["id"]!.ToString().StartsWith(prefix)&&l["compatible"]!.AsArray().Any(c=>c!.ToString()==category)).Select(l=>l["id"]!.ToString()).Order().FirstOrDefault(p=>!occupied.Contains(p))??throw new Conflict("No compatible physical slots available; retry after capacity is freed");
     }
-    static JsonObject Contract(JsonObject row)=>new() {
+    public static JsonObject Contract(JsonObject row)=>new() {
         ["id"]=row["id"]!.DeepClone(),["barcode"]=row["barcode"]!.DeepClone(),["run_id"]=row["run_id"]!.DeepClone(),["epoch"]=row["epoch"]!.DeepClone(),
         ["version"]=row["version"]!.DeepClone(),["custody_generation"]=row["custody_generation"]!.DeepClone(),["last_sequence"]=row["last_sequence"]!.DeepClone(),
         ["category"]=row["category"]!.DeepClone(),["state"]=row["state"]!.DeepClone(),["owner"]="storage",
@@ -39,10 +40,10 @@ public static class HandlingUnits
         ["version"]=1,["catalog_version"]=1,
         ["units"]=new JsonArray(u.Query("SELECT * FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 ORDER BY id",Ledger.Id(run),Ledger.Id(run,"epoch")).Select(r=>(JsonNode?)Contract(r)).ToArray()),
         ["movements"]=Ledger.Array(u.Query("SELECT id,unit_id,barcode,run_id,epoch,sequence,custody_generation,origin,destination,simulation_time,action,\"references\",correlation_id FROM warehouse_unit_movements WHERE run_id=@p0 AND epoch=@p1 ORDER BY unit_id,sequence",Ledger.Id(run),Ledger.Id(run,"epoch"))),
-        ["handoffs"]=new JsonArray(),["lineage"]=new JsonArray(),
+        ["handoffs"]=StorageCustody.Snapshot(u,run),["lineage"]=new JsonArray(),
         ["legacy_stock"]=Ledger.Array(u.Query("SELECT s.sku,s.location,s.on_hand-COALESCE(sum(h.quantity) FILTER(WHERE h.state IN ('available','reserved')),0) AS unplaced_quantity FROM warehouse_stock s LEFT JOIN warehouse_handling_units h ON h.run_id=s.run_id AND h.sku=s.sku AND h.logical_location=s.location WHERE s.run_id=@p0 GROUP BY s.run_id,s.sku,s.location,s.on_hand HAVING s.on_hand<>COALESCE(sum(h.quantity) FILTER(WHERE h.state IN ('available','reserved')),0) ORDER BY s.sku,s.location",Ledger.Id(run)))
     };
-    static void Movement(Unit u,JsonObject run,Guid command,JsonObject unit,string action,string? origin,string destination,Guid correlation,Guid? transfer=null) {
+    public static void Movement(Unit u,JsonObject run,Guid command,JsonObject unit,string action,string? origin,string destination,Guid correlation,Guid? transfer=null) {
         u.Exec("UPDATE warehouse_handling_units SET last_sequence=last_sequence+1,version=version+1 WHERE id=@p0",Ledger.Id(unit));
         var updated=u.One("SELECT * FROM warehouse_handling_units WHERE id=@p0",Ledger.Id(unit));
         u.Exec("INSERT INTO warehouse_unit_movements(id,unit_id,barcode,run_id,epoch,command_id,sequence,custody_generation,action,origin,destination,simulation_time,\"references\",correlation_id) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13)",Guid.NewGuid(),Ledger.Id(unit),unit["barcode"]!.ToString(),Ledger.Id(run),Ledger.Id(run,"epoch"),command,updated["last_sequence"]!.GetValue<int>(),updated["custody_generation"]!.GetValue<int>(),action,origin,destination,Ledger.Num(run,"granted"),new JsonObject {["transfer_id"]=transfer?.ToString(),["batch_id"]=null,["shipment_id"]=null},correlation);

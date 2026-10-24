@@ -11,6 +11,7 @@ public static class WarehouseProviders
             case "storage.receipt.v1": action="expect"; boundary="supply"; Rules.Fields(payload,"sku","location","quantity","units"); break;
             case "storage.request.v1": action="reserve"; boundary="requests"; Rules.Fields(payload,"sku","location","quantity","purpose"); break;
             case "storage.release.v1": action="release"; boundary="requests"; Rules.Fields(payload,"reference"); break;
+            case "storage.issue.v1": action="issue";boundary="requests";Rules.Fields(payload,"reference","unit_destinations");if(payload["unit_destinations"] is not JsonObject)throw new Validation("Explicit input endpoint map required");break;
             case "storage.pick.v1": action="pick"; boundary="requests"; Rules.Fields(payload,"reference"); break;
             case "storage.transfer.v1": action="transfer"; boundary="requests"; Rules.Fields(payload,"reference","destination"); break;
             case "storage.transfer.arrived.v1": action="arrive"; boundary="requests"; Rules.Fields(payload,"reference"); break;
@@ -63,8 +64,12 @@ public static class WarehouseProviders
         string Owned(string table)=>$"SELECT w.* FROM {table} w JOIN jobs j ON j.id=w.id WHERE w.run_id=@p0 AND (j.idempotency_key LIKE 'warehouse:%' OR j.idempotency_key LIKE 'boundary:%')";
         foreach(var receipt in u.Query(Owned("warehouse_receipts")+" AND w.status='expected'",id)) Schedule("receive:"+receipt["id"],"receive",new JsonObject {["reference"]=receipt["id"]!.DeepClone()},localDue);
         foreach(var reservation in u.Query(Owned("warehouse_reservations")+" AND w.status IN ('reserved','picked')",id)) {
+            if(u.Query("SELECT 1 FROM warehouse_custody_sources WHERE reservation_id=@p0",Ledger.Id(reservation)).Count>0)continue;
             var reference=new JsonObject {["reference"]=reservation["id"]!.DeepClone()};
             var action=reservation["status"]!.ToString()=="picked"?"transfer":reservation["purpose"]!.ToString()=="production"?"issue":"pick";
+            // Connected material issues wait for the owning receiver's explicit
+            // unit-to-endpoint assignment, rather than guessing cell occupancy.
+            if(action=="issue"&&settings.Providers["requests"]!.ToString()=="helics")continue;
             // Shipping reserves every line before authorizing customer picks/departures.
             if((action is "pick" or "transfer")&&settings.Providers["requests"]!.ToString()!="synthetic") continue;
             if(action=="transfer") { var origin=reservation["location"]!.ToString(); reference["destination"]=locations.Any(x=>x["code"]!.ToString()=="DISPATCH")&&origin!="DISPATCH"?"DISPATCH":locations.First(x=>x["code"]!.ToString()!=origin)["code"]!.DeepClone(); }
