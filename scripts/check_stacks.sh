@@ -3,7 +3,7 @@
 set -eu
 app=${1:-all}
 case "$app" in storage|manufacturing|logistics|shipping|twin|all) ;; *) echo 'Expected storage, manufacturing, logistics, shipping, twin or all' >&2; exit 2;; esac
-work() { python3 scripts/docker_guard.py --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "stack-$app" -- docker "$@"; }
+work() { python3 scripts/docker_guard.py --wait --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "stack-$app" -- docker "$@"; }
 python3 scripts/stacks_compose.py --app "$app"
 if [ "$app" = all ]; then
  manifest=deploy/generated/migration-standalone-suite.json
@@ -12,7 +12,7 @@ else
  manifest=deploy/generated/migration-$app.json
  selected=$app
 fi
-cleanup() { docker compose -f "$manifest" down; }
+cleanup() { work compose -f "$manifest" down; }
 trap cleanup EXIT HUP INT TERM
 if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then
 work build -t logistics-simulator:bootstrap .

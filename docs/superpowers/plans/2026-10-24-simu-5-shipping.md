@@ -27,30 +27,30 @@
 **Files:** `apps/shipping/src/ShippingRules.php`, `Fulfilment.php`, `Providers.php`, `Ledger.php`, `Settings.php`, `Controller.php`, migration 005, `tests/shipping.php`.
 **Interfaces:** `Fulfilment::submit(string $key,array $body,?array $audit):array`, `snapshot():array`, `execute(Unit $u,array $run,array $job):void`; domain jobs retain existing scheduler fields.
 
-- [ ] Add real SQL lifecycle tests; run inside the isolated shipping test project and observe missing implementation failure.
-- [ ] Add additive tables, validation, idempotent scheduled commands, atomic transitions/history and durable provider intents.
-- [ ] Implement seeded standalone customer, goods/production and carrier replies through the same fact handlers; retain operator controls and sample API.
-- [ ] Cover shortages, exact receipts, full reservation before pick, safe cancellation/compensation, delivery provenance, replay/conflict, grant barriers and reset fencing.
-- [ ] Run native suite; commit `feat: implement durable shipping lifecycle (SIMU-5)`.
+- [x] Add real SQL lifecycle tests; run inside the isolated shipping test project and observe missing implementation failure.
+- [x] Add additive tables, validation, idempotent scheduled commands, atomic transitions/history and durable provider intents.
+- [x] Implement seeded standalone customer, goods/production and carrier replies through the same fact handlers; retain operator controls and sample API.
+- [x] Cover shortages, exact receipts, full reservation before pick, safe cancellation/compensation, delivery provenance, replay/conflict, grant barriers and reset fencing.
+- [x] Run native suite; commit `feat: implement durable shipping lifecycle (SIMU-5)`.
 
 ### Task 2: HTTP and employee website
 
 **Files:** shipping routes, service provider, Livewire component/views/style, shipping HTTP/session/browser checks.
 **Interfaces:** `GET /api/shipping`, `GET /api/shipping/orders/{id}`, `POST /api/shipping/commands`; use Task 1 service.
 
-- [ ] Add failing authenticated HTTP and Livewire tests for order creation, employee operations, detail/history and forged commands.
-- [ ] Implement routes and independent order desk, search, queues and record detail in the existing style.
-- [ ] Preserve exact command body/key after uncertain outcomes; enforce scopes server side on every update.
-- [ ] Run HTTP/session checks and verify real browser screenshots; commit `feat: add shipping employee order desk (SIMU-5)`.
+- [x] Add failing authenticated HTTP and Livewire tests for order creation, employee operations, detail/history and forged commands.
+- [x] Implement routes and independent order desk, search, queues and record detail in the existing style.
+- [x] Preserve exact command body/key after uncertain outcomes; enforce scopes server side on every update.
+- [x] Run HTTP/session checks and verify real browser screenshots; commit `feat: add shipping employee order desk (SIMU-5)`.
 
 ### Task 3: Connected boundaries, deployment and acceptance
 
 **Files:** shipping adapter/rules/settings; additive contract schemas/fixtures; minimum storage boundary extensions/tests; shipping deployment/check scripts and docs.
 **Interfaces:** durable full envelopes carry event/correlation/aggregate identity; explicit per-owner routes accept legacy single-route configuration.
 
-- [ ] Add failing routing/duplicate/malformed/late/old-epoch tests and storage peer operation/shortage tests.
-- [ ] Route targeted durable outputs and typed incoming facts through HELICS adapter; extend minimum storage peer operations using its existing domain engine.
-- [ ] Inspect committed SIMU-3/4 contracts and align connected mappings without modifying their worktrees.
-- [ ] Add standalone deployment and connected real/native peer lifecycle acceptance; document configuration and limitations with exact evidence.
-- [ ] Run shipping unit/production acceptance and relevant storage regressions in Docker with isolated project/image identities.
-- [ ] Obtain whole-branch review, fix important findings with regressions and commit final verification record.
+- [x] Add failing routing/duplicate/malformed/late/old-epoch tests and storage peer operation/shortage tests.
+- [x] Route targeted durable outputs and typed incoming facts through HELICS adapter; extend minimum storage peer operations using its existing domain engine.
+- [x] Inspect committed SIMU-3/4 contracts and align connected mappings without modifying their worktrees.
+- [x] Add standalone deployment and connected real/native peer lifecycle acceptance; document configuration and limitations with exact evidence.
+- [x] Run shipping unit/production acceptance and relevant storage regressions in Docker with isolated project/image identities.
+- [x] Obtain whole-branch review, fix important findings with regressions and commit final verification record.

@@ -75,6 +75,7 @@ its three disposable volumes. Free space remained above the 20 GiB reserve
 in the same directory. This is local evidence, not hosted deployment evidence.
 
 The existing `scripts/storage_peer.py` fixture was also updated to request explicit
-customer picking and transfer, matching the new storage ownership rule. Its
-separate `check_storage_connected.sh` acceptance was not rerun in this shipping
-verification; no native C#/Java/Go interoperability result is claimed here.
+customer picking and transfer, matching the new storage ownership rule. A
+subsequent isolated `COMPOSE_PROJECT_NAME=simu5-storage-regression make storage-connected-check`
+passed the real C# warehouse/native peer lifecycle and clean teardown. That is
+a storage regression result, not proof of the combined C#/PHP/Java/Go chain.

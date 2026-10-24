@@ -12,3 +12,5 @@ $command=json_decode($response->getContent(),true);if(($command['outcome']??null
 $response=httpRequest('/api/shipping/commands','POST',$body,['HTTP_AUTHORIZATION'=>'Basic '.base64_encode('observer:observer-smoke'),'HTTP_IDEMPOTENCY_KEY'=>'denied']);if($response->getStatusCode()!==403)throw new RuntimeException('Read-only identity mutated order');
 $response=httpRequest('/api/shipping/commands','POST',[...$body,'action'=>'fact'], $auth+['HTTP_IDEMPOTENCY_KEY'=>'forged']);if($response->getStatusCode()!==422)throw new RuntimeException('Employee forged provider outcome');
 echo "PASS shipping HTTP employee commands, asynchronous outcomes and forged provider rejection\n";
+$response=httpRequest('/api/jobs','POST',['due_at'=>1000000,'quantity'=>1],$auth+['HTTP_IDEMPOTENCY_KEY'=>'shipping:fact:employee-forged']);if($response->getStatusCode()!==409)throw new RuntimeException('Legacy sample API may occupy internal shipping job identities');
+echo "PASS legacy sample API cannot occupy internal shipping operation keys\n";

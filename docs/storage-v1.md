@@ -138,12 +138,19 @@ per run. Connected scenario changes require coordinated new-epoch deployment.
 The owned adapter accepts the published
 [`storage-boundary` schema](../contracts/v1/storage-boundary.schema.json) alongside
 the unchanged sample envelope. Input fixtures are in
-`contracts/v1/fixtures/storage-boundary.json`. HTTP adapter commands remain v1.0.
+`contracts/v1/fixtures/storage-boundary.json`. The additive
+[shipping boundary schema](../contracts/v1/shipping-boundary.schema.json) also
+describes the explicit pick/release/transfer inputs added for complete shipping
+orders; the original storage/sample schema remains compatible. HTTP adapter
+commands remain v1.0.
 
 | Input type | Owned boundary | Payload |
 | --- | --- | --- |
 | `storage.receipt.v1` | supply | sku, location, quantity |
 | `storage.request.v1` | requests | sku, location, quantity, purpose |
+| `storage.pick.v1` | requests | reference (local reservation UUID) |
+| `storage.release.v1` | requests | reference (local unpicked reservation UUID) |
+| `storage.transfer.v1` | requests | reference (picked reservation UUID), destination |
 | `storage.transfer.arrived.v1` | requests | reference (local transfer UUID) |
 
 Every input uses the configured peer source/endpoint, federation, current run,
@@ -156,12 +163,21 @@ owned or malformed input fails explicitly; old epochs are fenced.
 Successful actions publish `storage.<action>.completed.v1`. The payload is the
 resulting receipt/reservation/transfer record, including local ID, run, SKU,
 quantity, correlation, status and version. The envelope carries that record's
-aggregate ID/version, originating command as causation ID, original correlation
+aggregate ID/version, original incoming event as causation ID for boundary
+commands (local command ID otherwise), original correlation
 and effective time one quantum after execution. Transfer records include source,
 destination and reservation ID. Configured `HELICS_OUTPUTS` routes receive these
 facts. The adapter is transport-only: receiving peers own interpretation of the
-versioned facts. Domain rejection reasons remain in the warehouse command API;
-no successful fact is emitted for a rejected command.
+versioned facts. Rejected boundary commands emit `storage.command.rejected.v1`
+with the original event/aggregate/correlation identity and
+`{action, reason, request}` payload; no successful fact is emitted. Rejections
+also remain in the warehouse command API. Historical pending jobs without the
+original envelope still settle without inventing a rejection identity.
+
+When `requests=helics`, customer reservations wait for explicit pick and transfer
+inputs. Shipping can reserve every order line before authorizing irreversible
+work. Production issue and standalone synthetic automation retain their existing
+behavior. The native storage acceptance peer now explicitly requests these steps.
 
 ## Independent and CyberLab configuration
 
