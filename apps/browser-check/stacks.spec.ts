@@ -63,3 +63,22 @@ if(storage) test('storage: employee receives, reserves, picks and confirms trans
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
   await page.screenshot({path:'/artifacts/storage-v1-employee-mobile.png',fullPage:true});
 });
+
+const logistics=apps.find(app=>app.name==='logistics');
+if(logistics) test('logistics: employee assigns fleet and follows custody through destination receipt',async({page,request})=>{
+ test.setTimeout(90000);
+ const headers={Authorization:'Basic '+Buffer.from(logistics.username+':'+logistics.password).toString('base64')};
+ const status=await(await request.get(logistics.url+'/api/status',{headers})).json();
+ expect((await request.post(logistics.url+'/api/control/reset',{headers,data:{confirm_run_id:status.run.id}})).ok()).toBe(true);
+ expect((await request.post(logistics.url+'/api/control/speed',{headers,data:{speed:5}})).ok()).toBe(true);
+ await page.goto(logistics.url);await page.getByLabel('Username',{exact:true}).fill(logistics.employee);await page.getByLabel('Password',{exact:true}).fill(logistics.employeePassword);await page.getByRole('button',{name:'Log in',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'Fleet availability'})).toBeVisible();
+ await page.getByLabel('Route',{exact:true}).selectOption('WAREHOUSE-DISPATCH');await page.getByLabel('Load quantity',{exact:true}).fill('8');await page.getByRole('button',{name:'Request transport',exact:true}).click();
+ const transfer=page.locator('[data-transfers] tbody tr').filter({hasText:'WAREHOUSE-DISPATCH'});
+ await expect(transfer).toHaveCount(1);await transfer.getByRole('combobox',{name:'Assign vehicle'}).selectOption('TRUCK-1');await transfer.getByRole('button',{name:'Assign',exact:true}).click();
+ await transfer.getByRole('button',{name:'Load',exact:true}).click();await transfer.getByRole('button',{name:'Depart',exact:true}).click();
+ await expect(transfer).toContainText('in_transit');await expect(transfer).toContainText('vehicle');await expect(transfer.getByRole('button',{name:'Confirm receipt',exact:true})).toHaveCount(0);
+ await transfer.getByRole('button',{name:'Unload',exact:true}).click();await expect(transfer).toContainText('unloaded');await transfer.getByRole('button',{name:'Confirm receipt',exact:true}).click();await expect(transfer).toContainText('received');
+ await expect(page.locator('[data-fleet] tbody tr').filter({hasText:'TRUCK-1'})).toContainText('DISPATCH');
+ await page.screenshot({path:'/artifacts/logistics-v1-employee-desktop.png',fullPage:true});await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);await page.screenshot({path:'/artifacts/logistics-v1-employee-mobile.png',fullPage:true});
+});
