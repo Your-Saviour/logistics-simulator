@@ -117,6 +117,16 @@ The frontend image serves port 80 and proxies `/api` to `API_UPSTREAM`, default
 Existing routes remain `/api/health/live`, `/api/health/ready`, `/api/status`,
 `/api/jobs`, `/api/control/{action}`, `/api/sources`, `/api/audit`.
 
+Manufacturing finished-unit offers arrive on a configured HELICS `supply` peer;
+acceptance and receipt proofs return on the `materials` output route. Acceptance
+reserves the exact finished receiving dock and logical stock capacity without
+creating stock. A matching departure imports the original barcode and contents
+at that dock, continuing its version, movement sequence and custody generation.
+`STORAGE_FINISHED_LOCATION` selects the logical grouping (default `FINISHED-A`).
+Local receipts and movements respect these incoming promises. A blocked dock
+retries the identical offer when capacity becomes available. The warehouse API
+and projection include receiving handoffs alongside outgoing raw handoffs.
+
 ## Dependencies and preserved-state cutover
 
 The SDK is pinned in `global.json` to 10.0.402 and the runtime image to ASP.NET

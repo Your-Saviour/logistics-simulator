@@ -112,7 +112,7 @@ final class Controller {
   finally{try{lease.close();}catch(SQLException unavailable){System.err.println("Controller lease close unavailable");}}
  }
  void publish(Adapter adapter)throws Exception{
-  var run=store.run();var outputs=store.tx(c->{var active=Store.current(c);Custody.recover(c,active);return Store.rows(c,"SELECT * FROM boundary_outbox WHERE run_id=? AND sent_at IS NULL ORDER BY id",active.get("id"));});
+  var run=store.run();var outputs=store.tx(c->{var active=Store.current(c);Custody.recover(c,active);OutputCustody.recover(c,active);return Store.rows(c,"SELECT * FROM boundary_outbox WHERE run_id=? AND sent_at IS NULL ORDER BY id",active.get("id"));});
   for(var row:outputs){JsonNode sample=Store.json(row.get("envelope"));
    if(sample.has("type")){boolean routed=false;for(var output:settings.outputs)if(output.path("destination").asText().equals(sample.path("destination").asText())&&output.path("boundary").asText().equals(sample.path("boundary").asText()))routed=true;if(!routed)throw new Store.Conflict("No HELICS route for committed production output");}
    for(var output:settings.outputs){

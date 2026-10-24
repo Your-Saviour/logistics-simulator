@@ -90,6 +90,7 @@ final class Store {
   if(json(job.get("payload")).has("material_failure"))return MaterialRequests.execute(this,c,run,job);
   if(json(job.get("payload")).has("material_retry"))return MaterialRequests.retry(this,c,run,job);
   if(json(job.get("payload")).has("material_reservation"))return MaterialPlans.execute(this,c,run,job);
+  if(json(job.get("payload")).has("output_custody"))return OutputCustody.execute(this,c,run,job);
   if(json(job.get("payload")).has("custody"))return Custody.execute(this,c,run,job);
   if(json(job.get("payload")).path("production").asBoolean())return Production.execute(this,c,run,job);
   sql(c,"INSERT INTO inbox(event_id,run_id,epoch) VALUES (?,?,?) ON CONFLICT DO NOTHING",id,run.get("id"),run.get("epoch"));

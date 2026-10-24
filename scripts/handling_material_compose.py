@@ -16,8 +16,10 @@ def main():
     for app in ('storage','manufacturing'):
         other='manufacturing' if app=='storage' else 'storage'
         outputs=[{'endpoint':other+'/events','destination':other,'boundary':'materials' if app=='storage' else 'requests'}]
-        providers={'supply':'synthetic','requests':'helics'} if app=='storage' else {'materials':'helics','demand':'synthetic','power':'synthetic'}
+        if app=='manufacturing':outputs.append({'endpoint':other+'/events','destination':other,'boundary':'supply'})
+        providers={'supply':'helics','requests':'helics'} if app=='storage' else {'materials':'helics','demand':'synthetic','power':'synthetic'}
         peers={'requests' if app=='storage' else 'materials':{'source':other,'endpoint':other+'/events'}}
+        if app=='storage':peers['supply']={'source':other,'endpoint':other+'/events'}
         context={'FEDERATION_ID':federation,'FEDERATION_RUN_ID':run,'FEDERATION_EPOCH':epoch}
         for role in ('api','worker','controller'):
             service=services[app+'-'+role];service['image']='logistics-simulator:handling-material-'+app
@@ -25,7 +27,7 @@ def main():
                 HELICS_ADAPTER_URL='http://'+app+'-adapter:8010',HELICS_ADAPTER_TOKEN=token,HELICS_TIMEOUT_SECONDS='180',AUTONOMOUS_SAMPLE='false',AUTONOMOUS_WAREHOUSE='false',AUTONOMOUS_PRODUCTION='false')
             if app=='manufacturing':
                 env['MATERIAL_RETRY_QUANTA']='60'
-                env['SCENARIO']=json.dumps({'manufacturing':{'products':[{'sku':'PRODUCT','bom':{'COMPONENT':2},'duration_seconds':86400,'scrap_percent':0}], 'lines':[{'code':'LINE-1','capacity':1,'products':['PRODUCT']}]}})
+                env['SCENARIO']=json.dumps({'manufacturing':{'products':[{'sku':'PRODUCT','bom':{'COMPONENT':2},'duration_seconds':600,'scrap_percent':0}], 'lines':[{'code':'LINE-1','capacity':1,'products':['PRODUCT']}]}})
             if role=='api':identities[app]={'username':env['APP_USERNAME'],'password':env['APP_PASSWORD']};databases[app]=env['DATABASE_URL']
             if role=='controller':service['depends_on'][app+'-adapter']={'condition':'service_started'}
         config={'name':app,'coreType':'tcp_ss','coreInit':'--federates=1','broker':'tcp://material-helics-broker:24900','period':1.0,'timeDelta':1.0,

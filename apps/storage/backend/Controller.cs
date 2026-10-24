@@ -47,7 +47,7 @@ public sealed class Adapter(Ledger ledger,Settings settings,JsonObject run)
         });
     }
     public async Task Settle(JsonObject current) {
-        var rows=ledger.Db.Transaction(u=> { var r=u.Run();StorageCustody.Recover(u,r);return u.Query("SELECT * FROM boundary_outbox WHERE run_id=@p0 AND sent_at IS NULL ORDER BY id",Ledger.Id(r)); });
+        var rows=ledger.Db.Transaction(u=> { var r=u.Run();StorageCustody.Recover(u,r);FinishedCustody.Recover(u,r);return u.Query("SELECT * FROM boundary_outbox WHERE run_id=@p0 AND sent_at IS NULL ORDER BY id",Ledger.Id(r)); });
         foreach(var row in rows) { var sample=row["envelope"]!.AsObject();
             if(sample["type"]?.ToString().StartsWith("handling.")==true) {
                 var routes=settings.Outputs.Where(o=>o?["destination"]?.ToString()==sample["destination"]?.ToString()&&o["boundary"]?.ToString()==sample["boundary"]?.ToString()).ToArray();

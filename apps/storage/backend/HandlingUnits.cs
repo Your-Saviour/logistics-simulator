@@ -23,10 +23,10 @@ public static class HandlingUnits
     }
     static void Capacity(Unit u,JsonObject run,string position,string category,string? kind=null,Guid? claimant=null) {
         Location(position,category,kind);
-        if(u.Query("SELECT 1 FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND (position=@p2 OR (state='in_transit' AND destination=@p2)) AND (@p3::uuid IS NULL OR id<>@p3)",Ledger.Id(run),Ledger.Id(run,"epoch"),position,claimant).Count>0) throw new Conflict("Physical slot capacity exceeded; unit remains at its recorded position");
+        if(u.Query("SELECT 1 FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND (position=@p2 OR (state='in_transit' AND destination=@p2)) AND (@p3::uuid IS NULL OR id<>@p3) UNION ALL SELECT 1 FROM warehouse_custody_receivers WHERE run_id=@p0 AND epoch=@p1 AND destination=@p2 AND state='accepted'",Ledger.Id(run),Ledger.Id(run,"epoch"),position,claimant).Count>0) throw new Conflict("Physical slot capacity exceeded; unit remains at its recorded position");
     }
     static string Free(Unit u,JsonObject run,string prefix,string category) {
-        var occupied=u.Query("SELECT position FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND position IS NOT NULL UNION SELECT destination AS position FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND state='in_transit'",Ledger.Id(run),Ledger.Id(run,"epoch")).Select(r=>r["position"]!.ToString()).ToHashSet();
+        var occupied=u.Query("SELECT position FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND position IS NOT NULL UNION SELECT destination AS position FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND state='in_transit' UNION SELECT destination AS position FROM warehouse_custody_receivers WHERE run_id=@p0 AND epoch=@p1 AND state='accepted'",Ledger.Id(run),Ledger.Id(run,"epoch")).Select(r=>r["position"]!.ToString()).ToHashSet();
         return Locations.Values.Where(l=>l["id"]!.ToString().StartsWith(prefix)&&l["compatible"]!.AsArray().Any(c=>c!.ToString()==category)).Select(l=>l["id"]!.ToString()).Order().FirstOrDefault(p=>!occupied.Contains(p))??throw new Conflict("No compatible physical slots available; retry after capacity is freed");
     }
     public static JsonObject Contract(JsonObject row)=>new() {
@@ -40,10 +40,15 @@ public static class HandlingUnits
         ["version"]=1,["catalog_version"]=1,
         ["units"]=new JsonArray(u.Query("SELECT * FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 ORDER BY id",Ledger.Id(run),Ledger.Id(run,"epoch")).Select(r=>(JsonNode?)Contract(r)).ToArray()),
         ["movements"]=Ledger.Array(u.Query("SELECT id,unit_id,barcode,run_id,epoch,sequence,custody_generation,origin,destination,simulation_time,action,\"references\",correlation_id FROM warehouse_unit_movements WHERE run_id=@p0 AND epoch=@p1 ORDER BY unit_id,sequence",Ledger.Id(run),Ledger.Id(run,"epoch"))),
-        ["handoffs"]=StorageCustody.Snapshot(u,run),["lineage"]=new JsonArray(),
+        ["handoffs"]=Handoffs(u,run),["lineage"]=new JsonArray(),
         ["legacy_stock"]=Ledger.Array(u.Query("SELECT s.sku,s.location,s.on_hand-COALESCE(sum(h.quantity) FILTER(WHERE h.state IN ('available','reserved')),0) AS unplaced_quantity FROM warehouse_stock s LEFT JOIN warehouse_handling_units h ON h.run_id=s.run_id AND h.sku=s.sku AND h.logical_location=s.location WHERE s.run_id=@p0 GROUP BY s.run_id,s.sku,s.location,s.on_hand HAVING s.on_hand<>COALESCE(sum(h.quantity) FILTER(WHERE h.state IN ('available','reserved')),0) ORDER BY s.sku,s.location",Ledger.Id(run)))
     };
+    static JsonArray Handoffs(Unit u,JsonObject run) {var result=StorageCustody.Snapshot(u,run);foreach(var h in FinishedCustody.Snapshot(u,run))result.Add(h!.DeepClone());return result;}
+    static void Headroom(JsonObject unit,int versions=1,int sequences=0,int generations=0) {
+        if((long)unit["version"]!.GetValue<int>()+versions>int.MaxValue||(long)unit["last_sequence"]!.GetValue<int>()+sequences>int.MaxValue||(long)unit["custody_generation"]!.GetValue<int>()+generations>int.MaxValue)throw new Conflict("Handling-unit counters exhausted; reconcile before another physical transition");
+    }
     public static void Movement(Unit u,JsonObject run,Guid command,JsonObject unit,string action,string? origin,string destination,Guid correlation,Guid? transfer=null) {
+        Headroom(u.One("SELECT * FROM warehouse_handling_units WHERE id=@p0",Ledger.Id(unit)),1,1);
         u.Exec("UPDATE warehouse_handling_units SET last_sequence=last_sequence+1,version=version+1 WHERE id=@p0",Ledger.Id(unit));
         var updated=u.One("SELECT * FROM warehouse_handling_units WHERE id=@p0",Ledger.Id(unit));
         u.Exec("INSERT INTO warehouse_unit_movements(id,unit_id,barcode,run_id,epoch,command_id,sequence,custody_generation,action,origin,destination,simulation_time,\"references\",correlation_id) VALUES (@p0,@p1,@p2,@p3,@p4,@p5,@p6,@p7,@p8,@p9,@p10,@p11,@p12,@p13)",Guid.NewGuid(),Ledger.Id(unit),unit["barcode"]!.ToString(),Ledger.Id(run),Ledger.Id(run,"epoch"),command,updated["last_sequence"]!.GetValue<int>(),updated["custody_generation"]!.GetValue<int>(),action,origin,destination,Ledger.Num(run,"granted"),new JsonObject {["transfer_id"]=transfer?.ToString(),["batch_id"]=null,["shipment_id"]=null},correlation);
@@ -82,7 +87,7 @@ public static class HandlingUnits
         var target=reservation["quantity"]!.GetValue<int>();var paths=new Dictionary<int,List<JsonObject>> {[0]=[]};
         var production=reservation["purpose"]!.ToString()=="production";
         foreach(var candidate in candidates) {
-            if(production&&(candidate["version"]!.GetValue<int>()>int.MaxValue-4||candidate["last_sequence"]!.GetValue<int>()>int.MaxValue-2||candidate["custody_generation"]!.GetValue<int>()>int.MaxValue-1))continue;
+            if(candidate["version"]!.GetValue<int>()>int.MaxValue-4||candidate["last_sequence"]!.GetValue<int>()>int.MaxValue-(production?2:3)||production&&candidate["custody_generation"]!.GetValue<int>()>int.MaxValue-1)continue;
             var quantity=candidate["quantity"]!.GetValue<int>();
             foreach(var entry in paths.ToArray()) {var next=entry.Key+quantity;var count=entry.Value.Count+1;if(next<=target&&(!production||count<=4)&&(!paths.TryGetValue(next,out var old)||production&&count<old.Count))paths[next]=[..entry.Value,candidate];}
             if(!production&&paths.ContainsKey(target)) break;
@@ -94,7 +99,7 @@ public static class HandlingUnits
             u.Exec("INSERT INTO warehouse_unit_allocations VALUES (@p0,@p1)",Ledger.Id(reservation),Ledger.Id(unit));
         }
     }
-    public static void Release(Unit u,JsonObject reservation) =>u.Exec("UPDATE warehouse_handling_units SET state='available',reservation_id=NULL,version=version+1 WHERE reservation_id=@p0 AND state='reserved'",Ledger.Id(reservation));
+    public static void Release(Unit u,JsonObject reservation) {foreach(var unit in u.Query("SELECT * FROM warehouse_handling_units WHERE reservation_id=@p0 AND state='reserved'",Ledger.Id(reservation)))Headroom(unit);u.Exec("UPDATE warehouse_handling_units SET state='available',reservation_id=NULL,version=version+1 WHERE reservation_id=@p0 AND state='reserved'",Ledger.Id(reservation));}
     public static void Pick(Unit u,JsonObject run,Guid command,JsonObject reservation) {
         var units=u.Query("SELECT * FROM warehouse_handling_units WHERE reservation_id=@p0 AND state='reserved' ORDER BY id",Ledger.Id(reservation));
         if(units.Sum(row=>row["quantity"]!.GetValue<int>())!=reservation["quantity"]!.GetValue<int>()) throw new Conflict("Legacy reservation has no reconciled whole-unit allocation");
@@ -111,6 +116,7 @@ public static class HandlingUnits
         var index=0;
         foreach(var unit in units) {
             var destination=transfer is null?$"manufacturing.cell01.input{++index:00}":Free(u,run,transfer["destination"]!.ToString()=="DISPATCH"?"storage.dispatch.dock":"storage.finished_receipt.dock",unit["category"]!.ToString());
+            Headroom(unit,1,1,transfer is null?1:0);
             var handoff=transfer is null?Rules.Uuid5(command,Ledger.Id(unit).ToString()):Ledger.Id(transfer);
             u.Exec("UPDATE warehouse_handling_units SET state='in_transit',origin=position,position=NULL,destination=@p0,handoff_id=@p1,transfer_id=@p2,custody_generation=custody_generation+@p3 WHERE id=@p4",destination,handoff,transfer is null?null:Ledger.Id(transfer),transfer is null?1:0,Ledger.Id(unit));
             Movement(u,run,command,unit,"depart",unit["position"]!.ToString(),destination,Ledger.Id(reservation,"correlation_id"),transfer is null?null:Ledger.Id(transfer));

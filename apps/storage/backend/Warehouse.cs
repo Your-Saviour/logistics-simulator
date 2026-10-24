@@ -101,9 +101,10 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
         return u.Query($"SELECT * FROM {table} WHERE id=@p0 AND run_id=@p1",id,Ledger.Id(run)).FirstOrDefault()??throw new Conflict("Referenced warehouse record does not exist in this run");
     }
     static void State(JsonObject row,string expected) { if(row["status"]!.ToString()!=expected) throw new Conflict($"Expected {expected}; record is {row["status"]}"); }
-    static void Capacity(Unit u,Guid run,string location,int quantity) {
+    public static void Capacity(Unit u,Guid run,string location,int quantity,Guid? claimant=null) {
         var row=u.Query("SELECT l.capacity,COALESCE(sum(s.on_hand),0) AS used FROM warehouse_locations l LEFT JOIN warehouse_stock s ON s.run_id=l.run_id AND s.location=l.code WHERE l.run_id=@p0 AND l.code=@p1 GROUP BY l.capacity",run,location).FirstOrDefault()??throw new Conflict("Unknown destination location");
-        if(row["used"]!.GetValue<long>()+quantity>row["capacity"]!.GetValue<int>()) throw new Conflict("Destination capacity exceeded; stock remains at its current location or in transit");
+        var promised=u.One("SELECT COALESCE(sum(quantity),0) AS n FROM warehouse_custody_receivers WHERE run_id=@p0 AND epoch=(SELECT epoch FROM runs WHERE id=@p0) AND logical_location=@p1 AND state='accepted' AND (@p2::uuid IS NULL OR id<>@p2)",run,location,claimant)["n"]!.GetValue<long>();
+        if(row["used"]!.GetValue<long>()+promised+quantity>row["capacity"]!.GetValue<int>()) throw new Conflict("Destination capacity exceeded; stock remains at its current location or in transit");
     }
     public static void Move(Unit u,JsonObject run,Guid command,string action,JsonObject record,int onHand,int reserved,string? destination=null) {
         var id=Ledger.Id(run); var sku=record["sku"]!.ToString(); var location=destination??record["location"]!.ToString(); var quantity=record["quantity"]!.GetValue<int>();

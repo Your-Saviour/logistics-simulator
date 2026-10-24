@@ -1,4 +1,4 @@
-"""Actual Storage/Manufacturing raw custody and consumption; output custody is a later gate."""
+"""Actual C#/Java raw-to-production-to-finished custody with loss recovery."""
 import json
 import os
 import time
@@ -7,7 +7,7 @@ from uuid import uuid4
 import httpx
 import psycopg
 from psycopg.rows import dict_row
-from simulator.handling_contracts import validate_snapshot, validate_movement, validate_handoff
+from simulator.handling_contracts import validate_snapshot, validate_movement, validate_handoff, validate_lineage
 
 
 def wait(fetch,predicate,label,timeout=120):
@@ -23,7 +23,7 @@ def wait(fetch,predicate,label,timeout=120):
 
 def main():
     run,epoch=os.environ['EXPECTED_RUN_ID'],os.environ['EXPECTED_EPOCH'];path=Path('/evidence/evidence.json')
-    record={'status':'running','run_id':run,'epoch':epoch,'twin_present':False,'scope':'raw custody through once-only recipe consumption'};path.write_text(json.dumps(record,indent=2))
+    record={'status':'running','run_id':run,'epoch':epoch,'twin_present':False,'scope':'raw custody, once-only recipe consumption and fresh finished-output custody'};path.write_text(json.dumps(record,indent=2))
     identities=json.loads(os.environ['MATERIAL_IDENTITIES']);urls=json.loads(os.environ['MATERIAL_DATABASES'])
     clients={app:httpx.Client(base_url=f'http://{app}-api:8000',auth=(identity['username'],identity['password']),timeout=10) for app,identity in identities.items()}
     db={app:psycopg.connect(url,row_factory=dict_row,autocommit=True) for app,url in urls.items()}
@@ -44,7 +44,7 @@ def main():
         for app in clients:wait(lambda:get(app,'status'),lambda s:s['run']['state']=='running' and s['run']['granted']>0,app+' executing')
         # Fault injection changes publication metadata only. The native services
         # still own every business, inventory, movement and receipt transaction.
-        for app,stages in {'manufacturing':['handling.accepted.v1','handling.received.v1'],'storage':['handling.acknowledged.v1']}.items():
+        for app,stages in {'manufacturing':['handling.accepted.v1','handling.received.v1','handling.acknowledged.v1'],'storage':['handling.acknowledged.v1','handling.accepted.v1','handling.received.v1']}.items():
             db[app].execute('CREATE TABLE material_transport_gate(kind text PRIMARY KEY,closed boolean NOT NULL DEFAULT true,dropped integer NOT NULL DEFAULT 0)')
             for stage in stages:db[app].execute('INSERT INTO material_transport_gate(kind) VALUES (%s)',(stage,))
             db[app].execute("""CREATE FUNCTION gate_material_publication() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -81,6 +81,35 @@ def main():
         assert final_source['last_sequence']==3 and final_target['last_sequence']==4,(final_source,final_target)
         assert final_source['barcode']==final_target['barcode']=='HU-'+unit.replace('-','').upper()
         assert final_source['quantity']==final_target['quantity']==2 and final_target['position'] is None
+        # Finished output is created by the actual durable finish job, never a test birth/import.
+        promised=wait(lambda:row('storage',"SELECT * FROM warehouse_custody_receivers WHERE run_id=%s AND state='accepted'",run),bool,'finished dock capacity accepted')
+        output_id=str(promised['unit_id']);assert output_id!=unit
+        fresh=row('manufacturing','SELECT * FROM production_handling_units WHERE id=%s',output_id)
+        assert fresh['state']=='reserved' and fresh['position']=='manufacturing.cell01.output01' and fresh['quantity']==1,fresh
+        assert row('storage','SELECT count(*) n FROM warehouse_handling_units WHERE id=%s',output_id)['n']==0
+        assert row('storage',"SELECT on_hand FROM warehouse_stock WHERE run_id=%s AND sku='PRODUCT' AND location='FINISHED-A'",run)['on_hand']==0
+        assert row('manufacturing',"SELECT count(*) n FROM boundary_outbox WHERE run_id=%s AND envelope->>'type'='storage.receipt.v1'",run)['n']==0
+        db['storage'].execute("UPDATE material_transport_gate SET closed=false WHERE kind='handling.accepted.v1'")
+        imported=wait(lambda:row('storage','SELECT * FROM warehouse_handling_units WHERE id=%s',output_id),bool,'proved finished output imported')
+        assert imported['position']==promised['destination'] and imported['barcode']==fresh['barcode'] and imported['quantity']==1
+        pending=row('manufacturing','SELECT * FROM production_handling_units WHERE id=%s',output_id)
+        assert pending['state']=='in_transit' and pending['position'] is None and pending['custody_generation']==1
+        assert imported['version']==4 and imported['last_sequence']==3 and imported['custody_generation']==1
+        # A receipt remains valid after the destination has moved the unit onward.
+        command('storage',{'action':'putaway','unit_id':output_id,'destination':'storage.finished.r01.b01.l04'})
+        db['storage'].execute("UPDATE material_transport_gate SET closed=false WHERE kind='handling.received.v1'")
+        retired_output=wait(lambda:row('manufacturing','SELECT * FROM production_handling_units WHERE id=%s',output_id),lambda v:v['state']=='dispatched','late finished receipt retires source')
+        assert retired_output['version']==4 and retired_output['last_sequence']==2
+        db['manufacturing'].execute("UPDATE material_transport_gate SET closed=false WHERE kind='handling.acknowledged.v1'")
+        wait(lambda:row('storage','SELECT state FROM warehouse_custody_receivers WHERE unit_id=%s',output_id),lambda v:v['state']=='acknowledged','lost finished acknowledgement converges')
+        assert row('storage',"SELECT on_hand,reserved FROM warehouse_stock WHERE run_id=%s AND sku='PRODUCT' AND location='FINISHED-A'",run)=={'on_hand':1,'reserved':0}
+        final_output=row('storage','SELECT * FROM warehouse_handling_units WHERE id=%s',output_id)
+        assert final_output['position']=='storage.finished.r01.b01.l04' and final_output['last_sequence']==4
+        mfg=get('manufacturing','production')['handling']
+        for lineage in mfg['lineage']:validate_lineage(lineage,mfg['units'],run,epoch)
+        assert len(mfg['lineage'])==1 and mfg['lineage'][0]['input_unit_ids']==[unit] and mfg['lineage'][0]['output_unit_ids']==[output_id]
+        assert row('manufacturing','SELECT count(*) n FROM production_unit_inputs WHERE batch_id=%s',batch)['n']==1
+        record.update(output_unit_id=output_id,output_barcode=fresh['barcode'],output_source_version=retired_output['version'],output_target_version=final_output['version'],lineage=mfg['lineage'])
         frames=[];drops={}
         for app in clients:
             state=get(app,'warehouse' if app=='storage' else 'production');handling=state['handling'];validate_snapshot(handling['units'],run,epoch)
@@ -101,7 +130,7 @@ def main():
         assert all(a['envelope']['payload']['quantity']==2 for a in attempts)
         assert row('storage',"SELECT on_hand,reserved FROM warehouse_stock WHERE run_id=%s AND sku='COMPONENT' AND location='RAW-A'",run)=={'on_hand':0,'reserved':0}
         record.update(status='passed',unit_id=unit,batch_id=batch,barcode=final_source['barcode'],source_sequence=3,receipt_sequence=4,source_version=final_source['version'],target_version=final_target['version'],dropped_publications=drops,handling_frames=frames,material_attempts=[{'event_id':str(a['event_id']),'aggregate_id':str(a['aggregate_id']),'generation':a['generation'],'state':a['state']} for a in attempts])
-        path.write_text(json.dumps(record,indent=2,default=str));print('C#/Java native raw custody: elevated shelf, automatic request/assignment, acceptance/token/receipt/ack loss recovery and once-only recipe consumption passed',flush=True)
+        path.write_text(json.dumps(record,indent=2,default=str));print('C#/Java native custody: raw shelf, shortage recovery, once-only recipe consumption, fresh output lineage and finished receipt after putaway; lost acceptance/receipt/ack recovery on both legs passed',flush=True)
     except Exception as error:
         record.update(status='failed',error=str(error));path.write_text(json.dumps(record,indent=2,default=str));raise
     finally:

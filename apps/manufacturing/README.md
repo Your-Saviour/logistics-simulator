@@ -139,6 +139,16 @@ production API and projection with their quarantine reason. A blocked release
 requires source reconciliation rather than another material order. Migration
 012 preserves requests and reservations emitted by the preceding schema.
 
+Connected batch completion reserves its fresh finished unit at the production
+output and publishes a custody offer on Storage's `supply` boundary. Storage's
+positive acceptance returns on `materials`; departure then clears the output
+position. Only the matching receipt retires Manufacturing's pending custody.
+The default destination is `storage.finished_receipt.dockNN` for cell NN;
+`STORAGE_FINISHED_ENDPOINT` can select another catalogued finished receiving
+dock. Configure both the outgoing `requests` and `supply` routes to Storage.
+The unit barcode and batch lineage survive retries; completion sends no
+quantity-only Storage receipt.
+
 The Java controller persists adapter session and operation intents before HTTP
 mutations. Native initialization, polling/receive processing and time requests
 set a durable pending flag. Preparing a time request marks it in the same SQL
