@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 def publish_boundaries(store, clock, settings, outputs):
     # Current-time work is completed before publishing. Failure here stalls
     # the federation. A restarted live HELICS participant is never auto-resumed.
-    with store.connect() as db:
+    with store.transaction() as db:
         run = store._run(db)
         rows = db.execute('SELECT * FROM boundary_outbox WHERE run_id=%s AND sent_at IS NULL ORDER BY id', (run['id'],)).fetchall()
         for row in rows:

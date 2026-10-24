@@ -46,3 +46,12 @@ Expose database/broker listener ports only on the intended lab interfaces and co
 HELICS uses `tcp_ss`. Set the broker to a routable address and set core/local advertised interfaces and receive ports in `HELICS_CONFIG`/core-init. Ensure peer hosts can reach those ports; do not publish a container-only hostname as a cross-host advertised address. Logical endpoint names such as `storage/events` are not HTTP URLs or TCP ports. See [HELICS networking](https://docs.helics.org/en/main/user-guide/advanced_topics/networking.html).
 
 Local Compose and source configuration are verified; separate physical hosts, TLS ingress, site firewall policy, production authentication and unknown external simulator contracts are not verified by this bootstrap. No cloud resources or adjacent repository changes are included.
+
+
+## Schema changes and service restarts
+
+`schema_migrations` records each applied SQL filename and SHA-256 checksum. Restarting API/worker/controller processes validates existing versions and does not repeat DDL or lock the current run row during initialization. Editing an applied SQL file fails startup; add a new numbered migration instead.
+
+Pending migrations acquire an exclusive database advisory schema gate before touching business tables. Runtime transactions acquire the shared gate before row locks, so DDL waits for active work to commit and new work waits for DDL to finish. This avoids table-lock upgrade deadlocks when worker replicas restart alongside controllers.
+
+For the first upgrade from older bootstrap images that predate this gate, quiesce application API/worker/controller/projection processes before migration, preserving database and broker volumes. The versioned migration protocol is then used for subsequent restarts. A run already marked stalled retains its diagnostic history and requires an operator-confirmed standalone reset or owner-coordinated federation recovery; startup does not silently clear failure state.

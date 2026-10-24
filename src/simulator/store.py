@@ -1,9 +1,10 @@
 """PostgreSQL is the durable completion ledger and the transition authority.
 
-Lock order is always current run, then jobs/outboxes. All replicas serialize
+Lock order is shared schema gate, then current run, then jobs/outboxes. All replicas serialize
 transition boundaries on that run row; no worker trusts its own wall clock.
 """
-import json
+from contextlib import contextmanager
+from hashlib import sha256
 import math
 from pathlib import Path
 from uuid import uuid4
@@ -30,26 +31,53 @@ class Store:
     def connect(self):
         return psycopg.connect(self.url, row_factory=dict_row, connect_timeout=5)
 
+    @contextmanager
+    def transaction(self):
+        with self.connect() as db:
+            db.execute('SELECT pg_advisory_xact_lock_shared(8192103)')
+            yield db
+
     def migrate(self):
         with self.connect() as db:
             db.execute('SELECT pg_advisory_xact_lock(8192101)')
-            for migration in sorted(Path('migrations').glob('*.sql')):
-                db.execute(migration.read_text())
-            if not db.execute('SELECT 1 FROM runs WHERE current').fetchone():
-                if self.mode == 'helics' and not (self.initial_run and self.initial_epoch):
+            migrations=[(path.name,path.read_text()) for path in sorted(Path('migrations').glob('*.sql'))]
+            exists=db.execute("SELECT to_regclass('schema_migrations') AS name").fetchone()['name']
+            applied={row['name']:row['checksum'] for row in db.execute('SELECT name,checksum FROM schema_migrations').fetchall()} if exists else {}
+            pending=[]
+            for name,sql in migrations:
+                checksum=sha256(sql.encode()).hexdigest()
+                if name in applied:
+                    if applied[name]!=checksum:
+                        raise Conflict('Applied migration was edited: '+name)
+                else:
+                    pending.append((name,sql,checksum))
+            if pending:
+                # Acquire the schema gate before touching business tables. All
+                # runtime transactions take its shared form before row locks.
+                db.execute('SELECT pg_advisory_xact_lock(8192103)')
+                db.execute('CREATE TABLE IF NOT EXISTS schema_migrations(name text PRIMARY KEY,checksum text NOT NULL,applied_at timestamptz NOT NULL DEFAULT clock_timestamp())')
+                for name,sql,checksum in pending:
+                    db.execute(sql)
+                    db.execute('INSERT INTO schema_migrations(name,checksum) VALUES (%s,%s)',(name,checksum))
+            else:
+                db.execute('SELECT pg_advisory_xact_lock_shared(8192103)')
+            run=db.execute('SELECT * FROM runs WHERE current').fetchone()
+            if run is None:
+                if self.mode=='helics' and not (self.initial_run and self.initial_epoch):
                     raise Conflict('Federation owner must supply run and epoch IDs')
-                db.execute('INSERT INTO runs(id,epoch,mode) VALUES (%s,%s,%s)',
-                           (self.initial_run or uuid4(), self.initial_epoch or uuid4(), self.mode))
-            run = self._run(db)
+                run=db.execute('INSERT INTO runs(id,epoch,mode,scenario) VALUES (%s,%s,%s,%s) RETURNING *',
+                               (self.initial_run or uuid4(),self.initial_epoch or uuid4(),self.mode,Jsonb(self.initial_scenario))).fetchone()
             if not run['scenario']:
+                run=self._run(db)
                 db.execute('UPDATE runs SET scenario=%s WHERE id=%s',(Jsonb(self.initial_scenario),run['id']))
-            if run['mode'] != self.mode:
+            if run['mode']!=self.mode:
                 raise Conflict('Persisted run mode differs; use a fresh deployment database')
-            if self.mode == 'helics' and (str(run['id']) != self.initial_run or str(run['epoch']) != self.initial_epoch):
+            if self.mode=='helics' and (str(run['id'])!=self.initial_run or str(run['epoch'])!=self.initial_epoch):
                 raise Conflict('Persisted federation identity differs; archive and use a fresh database')
 
     @staticmethod
     def _run(db):
+        db.execute('SELECT pg_advisory_xact_lock_shared(8192103)')
         for _ in range(10):
             run = db.execute('SELECT * FROM runs WHERE current FOR UPDATE').fetchone()
             if run is not None:
@@ -60,7 +88,7 @@ class Store:
         raise Conflict('Current run changed repeatedly; retry the command')
 
     def status(self):
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             jobs = db.execute('SELECT * FROM jobs WHERE run_id=%s ORDER BY created_at DESC LIMIT 100', (run['id'],)).fetchall()
             effects = db.execute('SELECT COALESCE(sum(quantity),0) AS n FROM effects WHERE run_id=%s', (run['id'],)).fetchone()['n']
@@ -73,7 +101,7 @@ class Store:
         boundary_input=SeededInput.model_validate(boundary_input).model_dump(mode='json') if boundary_input else None
         if not key or len(key) > 128 or not math.isfinite(due_at):
             raise Conflict('Valid idempotency key and finite due time required')
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             if boundary_input and (boundary_input['run_id'],boundary_input['epoch']) != (str(run['id']),str(run['epoch'])):
                 raise Conflict('Seeded input belongs to a different run or epoch')
@@ -91,7 +119,7 @@ class Store:
             return job
 
     def execute(self, job_id):
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             job = db.execute('SELECT * FROM jobs WHERE id=%s FOR UPDATE', (job_id,)).fetchone()
             if not job or job['run_id'] != run['id'] or job['epoch'] != run['epoch']:
@@ -117,7 +145,7 @@ class Store:
             return 'completed'
 
     def fail_job(self, job_id, error):
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             job = db.execute('SELECT * FROM jobs WHERE id=%s FOR UPDATE', (job_id,)).fetchone()
             if not job or job['run_id'] != run['id'] or job['status'] in ('completed', 'dead'):
@@ -130,7 +158,7 @@ class Store:
             return 'dead' if attempts >= 3 else 'retry'
 
     def dispatchable(self):
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             if run['state'] != 'running':
                 return []
@@ -142,12 +170,12 @@ class Store:
     def published(self, outbox_id):
         # Resend uncompleted jobs after a bounded wall-time interval. A lost ACK
         # cannot lose a job; duplicates are harmless at the transaction boundary.
-        with self.connect() as db:
+        with self.transaction() as db:
             self._run(db)
             db.execute("UPDATE outbox SET sent_at=clock_timestamp(),retry_after=clock_timestamp()+interval '5 seconds' WHERE id=%s", (outbox_id,))
 
     def grant(self, granted, expected_epoch=None, blocked_reason=None, quantum=1):
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             if expected_epoch is not None and run['epoch'] != expected_epoch:
                 raise Conflict('Stale controller epoch')
@@ -167,7 +195,7 @@ class Store:
         return db.execute("SELECT EXISTS(SELECT 1 FROM jobs WHERE run_id=%s AND due_at<=%s AND status NOT IN ('completed','fenced')) OR EXISTS(SELECT 1 FROM boundary_outbox WHERE run_id=%s AND sent_at IS NULL) AS busy", (run['id'], run['granted'], run['id'])).fetchone()['busy']
 
     def prepare_request(self, target, expected_epoch=None):
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             if expected_epoch is not None and run['epoch'] != expected_epoch:
                 return False
@@ -179,7 +207,7 @@ class Store:
             return True
 
     def control(self, action, speed=1, expected_run_id=None, audit_context=None, scenario=None):
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             if action == 'reset':
                 if expected_run_id is not None and str(run['id']) != str(expected_run_id):
@@ -206,24 +234,24 @@ class Store:
         return self.status()
 
     def rejected_command(self, context, status_code):
-        with self.connect() as db:
+        with self.transaction() as db:
             run_id=context.get('run_id') or self._run(db)['id']
             write_audit(db,run_id,context,'rejected',status_code)
 
     def command_scope(self):
-        with self.connect() as db:
+        with self.transaction() as db:
             return self._run(db)['id']
 
     def audit_events(self):
-        with self.connect() as db:
+        with self.transaction() as db:
             return db.execute('SELECT * FROM command_audit ORDER BY recorded_at DESC,id DESC LIMIT 100').fetchall()
 
     def heartbeat(self, role, detail=''):
-        with self.connect() as db:
+        with self.transaction() as db:
             db.execute('INSERT INTO heartbeats(role,detail) VALUES (%s,%s) ON CONFLICT(role) DO UPDATE SET seen_at=clock_timestamp(),detail=EXCLUDED.detail', (role, detail))
 
     def stall(self, error, expected_epoch=None):
-        with self.connect() as db:
+        with self.transaction() as db:
             # Exception unwinding releases the session lease. Do not overwrite
             # recovery by a replacement controller that acquired it meanwhile.
             if not db.execute('SELECT pg_try_advisory_xact_lock(8192102) AS held').fetchone()['held']:
@@ -236,7 +264,7 @@ class Store:
             db.execute("UPDATE runs SET state='stalled',error=%s WHERE current", (str(error)[:1000],))
 
     def ingest(self, envelope: Envelope, allowed_source, boundary, destination, quantum=1):
-        with self.connect() as db:
+        with self.transaction() as db:
             run = self._run(db)
             if (str(run['id']), str(run['epoch'])) != (str(envelope.run_id), str(envelope.epoch)):
                 return 'fenced'
@@ -253,11 +281,11 @@ class Store:
             return 'accepted'
 
     def sources(self):
-        with self.connect() as db:
+        with self.transaction() as db:
             return db.execute("SELECT name,status,connected AND observed_at>clock_timestamp()-interval '15 seconds' AS connected,observed_at,error FROM source_snapshots ORDER BY name").fetchall()
 
     def project(self, name, status=None, error=None):
-        with self.connect() as db:
+        with self.transaction() as db:
             db.execute('INSERT INTO source_snapshots(name,status,connected,observed_at,error) VALUES (%s,%s,%s,clock_timestamp(),%s) ON CONFLICT(name) DO UPDATE SET status=COALESCE(EXCLUDED.status,source_snapshots.status),connected=EXCLUDED.connected,observed_at=EXCLUDED.observed_at,error=EXCLUDED.error',
                        (name, Jsonb(status) if status else None, error is None, error))
 
@@ -278,7 +306,7 @@ class Store:
                      'action':'seed:'+value.kind,'idempotency_key':str(value.input_id),'peer':'controller'}
             # Avoid an audit row every controller tick when the same seeded
             # command is already present; schedule still enforces uniqueness.
-            with self.connect() as db:
+            with self.transaction() as db:
                 current=self._run(db)
                 if current['epoch']!=run['epoch']:
                     return []

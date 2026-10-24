@@ -4,7 +4,7 @@ Local verification on 2026-10-24, Linux ARM64 containers on Docker Desktop. Scop
 
 | Check | Evidence |
 | --- | --- |
-| PostgreSQL/API tests | `make test`: 46 passed. Includes concurrent duplicates, worker restart, run/epoch fencing, held/future work, controller lease contention, reset races, idempotency replay and unavailable-power deferral. |
+| PostgreSQL/API tests | `make test`: 49 passed. Includes concurrent duplicates, worker restart, run/epoch fencing, held/future work, controller lease contention, reset races, idempotency replay and unavailable-power deferral. |
 | Native HELICS | `make federation-test`: four application processes and external power peer passed delayed-grant, earlier-than-requested grant (5 requested / 2 granted), typed 25 kW, message, input deduplication and production outbox checks. |
 | Connected deployment | Full Docker federation started healthy; each application completed a HELICS peer sample with independent persisted effects. |
 | Independent deployments | Each of manufacturing, storage, logistics, shipping and twin started alone and passed HTTP checks. Independent twin reported zero sources. |
@@ -19,3 +19,5 @@ The backend test run emits one upstream Starlette TestClient deprecation warning
 Hosted verification is tracked in feature-branch workflow history; the delivery report records the hosted result and run URL. Separate physical hosts, production ingress/identity, unknown external simulator interfaces and coordinated federation-wide pause/checkpoint recovery have not been validated. The connected adapter intentionally requires a new owner-coordinated epoch after native state loss; it does not silently fall back to synthetic inputs or independently rewind a live federation.
 
 The [task acceptance matrix](simu-1-acceptance.md) maps the remaining application requirements to implementations and checks. SIMU-13 remains excluded.
+
+Startup concurrency additionally covers applied-migration skipping, shared/exclusive schema gating and a new migration concurrent with business writes. A live restart exposed and reproduced the previous repeated-DDL deadlock; the versioned/gated migration fix passes these regressions.
