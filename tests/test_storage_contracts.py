@@ -54,3 +54,19 @@ def test_material_issue_transports_the_receivers_exact_unit_endpoint_assignment(
     for destinations in ({}, {unit:'storage.raw.r01.b01.l01'}, {'not-a-uuid':'manufacturing.cell02.input03'}):
         wrong={**raw,'payload':{**raw['payload'],'unit_destinations':destinations}}
         with pytest.raises(ValidationError):transport_envelope.validate_python(wrong)
+
+
+def test_production_reservation_carries_the_exact_reserved_source_unit_manifest():
+    raw=json.loads(Path('contracts/v1/fixtures/storage-boundary.json').read_text())
+    unit=json.loads(Path('contracts/handling/v1/fixtures.json').read_text())['placed_unit']
+    unit.update(state='reserved',run_id=raw['run_id'],epoch=raw['epoch'])
+    raw.update(type='storage.reserve.completed.v1',source='storage',destination='manufacturing',boundary='materials',
+               aggregate_version=1,payload={'id':raw['aggregate_id'],'run_id':raw['run_id'],
+               'correlation_id':raw['correlation_id'],'sku':unit['contents'][0]['sku'],
+               'quantity':unit['contents'][0]['quantity'],'location':'RAW-A','purpose':'production',
+               'status':'reserved','version':1,'unit_manifest':[unit]})
+    transport_envelope.validate_python(raw)
+    Publication.model_validate({'endpoint':'manufacturing/events','envelope':raw})
+    for change in ({'quantity':raw['payload']['quantity']+1}, {'unit_manifest':[unit,unit]},
+                   {'unit_manifest':[{**unit,'state':'available'}]}, {'unit_manifest':[{**unit,'version':2147483645}]}):
+        with pytest.raises(ValidationError):transport_envelope.validate_python({**raw,'payload':{**raw['payload'],**change}})

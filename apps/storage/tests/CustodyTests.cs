@@ -17,10 +17,20 @@ public static class CustodyTests
         JsonObject Command(Guid id)=>ledger.Db.Transaction(u=>u.One("SELECT * FROM warehouse_commands WHERE id=@p0",id));
         var manifest=new JsonArray(new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=2},new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=2});
         var receipt=Submit("expect",new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=4,["correlation_id"]=correlation.ToString(),["units"]=manifest});Submit("receive",new JsonObject {["reference"]=receipt.ToString()});
+        var oldVersion=ledger.Db.Transaction(u=>u.One("SELECT version FROM warehouse_handling_units WHERE id=@p0",Rules.Uuid(manifest[0]!["id"]))["version"]!.GetValue<int>());
+        ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_handling_units SET version=@p0 WHERE id=@p1",int.MaxValue-3,Rules.Uuid(manifest[0]!["id"]));return true;});
+        var unsafeReservation=Submit("reserve",new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=4,["purpose"]="production",["correlation_id"]=correlation.ToString()});
+        check(Command(unsafeReservation)["status"]!.ToString()=="rejected"&&Stock()["reserved"]!.GetValue<int>()==0,"production reservation checks downstream departure counter headroom before freezing its manifest");
+        ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_handling_units SET version=@p0 WHERE id=@p1",oldVersion,Rules.Uuid(manifest[0]!["id"]));return true;});
+        ledger.Db.Transaction(u=>{var r=u.Run();u.Exec("UPDATE runs SET mode='helics' WHERE id=@p0",Ledger.Id(r));return true;});
+        var shelved=Submit("putaway",new JsonObject {["unit_id"]=manifest[0]!["id"]!.DeepClone(),["destination"]="storage.raw.r01.b01.l04"});
+        check(Command(shelved)["status"]!.ToString()=="completed"&&ledger.Db.Transaction(u=>u.Query("SELECT 1 FROM boundary_outbox WHERE envelope->>'type'='storage.putaway.completed.v1' AND envelope->>'job_id'=@p0",shelved.ToString()).Count)==0,"connected physical putaway commits without inventing an unsupported scalar peer fact");
         var reservation=Submit("reserve",new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=4,["purpose"]="production",["correlation_id"]=correlation.ToString()});
         JsonObject Issue(){var destinations=new JsonObject();for(int i=0;i<manifest.Count;i++)destinations[manifest[i]!["id"]!.ToString()]=$"manufacturing.cell02.input{i+1:00}";return new JsonObject {["reference"]=reservation.ToString(),["unit_destinations"]=destinations};}
         var providers=settings.Providers;var peers=settings.Peers;var outputs=settings.Outputs;var federation=settings.Federation;
         try {
+            var fact=ledger.Db.Transaction(u=>u.One("SELECT envelope FROM boundary_outbox WHERE envelope->>'job_id'=@p0",reservation.ToString())["envelope"]!);
+            check(fact["payload"]?["unit_manifest"] is JsonArray chosen&&chosen.Count==2&&chosen.All(n=>n!["state"]!.ToString()=="reserved"&&n["owner"]!.ToString()=="storage"),"production reservation publishes exact canonical selected units for receiver planning");
             settings.Federation="custody-test";settings.Providers=new JsonObject {["supply"]="synthetic",["requests"]="helics"};settings.Peers=new JsonObject {["requests"]=new JsonObject {["source"]="manufacturing",["endpoint"]="manufacturing/events"}};
             settings.Outputs=new JsonArray();var unrouted=Submit("issue",Issue());
             check(Command(unrouted)["status"]!.ToString()=="rejected"&&Handling()["units"]!.AsArray().All(n=>n!["position"] is not null),"unconfigured connected issue cannot silently fall back to synthetic departure");
@@ -78,7 +88,7 @@ public static class CustodyTests
             var intent=Submit("issue",Map(a,"manufacturing.cell03.input01"));check(Command(intent)["status"]!.ToString()=="completed","receiver may assign any configured production cell");
             var collision=Submit("issue",Map(b,"manufacturing.cell03.input01"));check(Command(collision)["status"]!.ToString()=="rejected","independent reservations cannot promise the same receiving input");
             var distinct=Submit("issue",Map(b,"manufacturing.cell03.input02"));check(Command(distinct)["status"]!.ToString()=="completed","independent reservations preserve distinct receiver-assigned endpoints");
-        } finally {settings.Providers=providers;settings.Peers=peers;settings.Outputs=outputs;settings.Federation=federation;}
+        } finally {settings.Providers=providers;settings.Peers=peers;settings.Outputs=outputs;settings.Federation=federation;ledger.Db.Transaction(u=>{var r=u.Run();u.Exec("UPDATE runs SET mode='standalone' WHERE id=@p0",Ledger.Id(r));return true;});}
         Reset();
     }
 }

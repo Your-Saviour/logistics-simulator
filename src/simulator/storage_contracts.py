@@ -1,8 +1,10 @@
 """Transport schemas only. Inventory execution remains in the C# department."""
 from .handling_wire import HandlingEnvelope
-from typing import Annotated, Literal
+from .handling_contracts import contract_root, validate_unit
+import json
+from typing import Annotated, Any, Literal
 from uuid import UUID
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, WithJsonSchema, model_validator
 from .contracts import Envelope
 
 Code = Annotated[str, Field(pattern=r'^[A-Z0-9][A-Z0-9_-]{0,31}$')]
@@ -70,6 +72,30 @@ class ReservationFact(StockQuantity):
     purpose: Literal['production', 'customer']
     status: Literal['reserved', 'picked', 'released', 'issued', 'transferred']
     version: int = Field(strict=True, ge=1)
+    unit_manifest: list[Annotated[dict[str, Any], WithJsonSchema(
+        json.loads((contract_root() / 'unit.schema.json').read_text()))]] | None = Field(default=None, min_length=1, max_length=4)
+
+    @model_validator(mode='after')
+    def exact_reserved_units(self):
+        if self.unit_manifest is None:
+            return self
+        if self.purpose != 'production' or self.status != 'reserved':
+            raise ValueError('Only production reservations carry selected unit manifests')
+        identities=set()
+        total=0
+        for unit in self.unit_manifest:
+            validate_unit(unit)
+            if unit['version'] > 2147483644 or unit['last_sequence'] > 2147483645 or unit['custody_generation'] > 2147483646:
+                raise ValueError('Selected counters lack native departure, receipt and consumption headroom')
+            if unit['id'] in identities or unit['owner'] != 'storage' or unit['category'] != 'raw' or unit['state'] != 'reserved' or unit['run_id'] != str(self.run_id):
+                raise ValueError('Invalid selected source custody identity')
+            if len(unit['contents']) != 1 or unit['contents'][0]['sku'] != self.sku:
+                raise ValueError('Selected unit must match reserved SKU')
+            identities.add(unit['id'])
+            total+=unit['contents'][0]['quantity']
+        if total != self.quantity:
+            raise ValueError('Selected units must exactly equal reservation quantity')
+        return self
 
 
 class TransferFact(Strict):
@@ -125,6 +151,13 @@ class FactEnvelope(Envelope):
                   'storage.transfer.completed.v1', 'storage.arrive.completed.v1']
     source: Literal['storage']
     payload: ReceiptFact | ReservationFact | TransferFact
+
+    @model_validator(mode='after')
+    def selected_manifest_scope(self):
+        if isinstance(self.payload, ReservationFact) and self.payload.unit_manifest is not None:
+            if self.aggregate_id != self.payload.id or self.run_id != self.payload.run_id or self.correlation_id != self.payload.correlation_id or self.aggregate_version != self.payload.version or any(unit['epoch'] != str(self.epoch) for unit in self.payload.unit_manifest):
+                raise ValueError('Selected unit manifest envelope scope or identity mismatch')
+        return self
 
 
 # Preserve the published sample schema exactly, while making the adapter a

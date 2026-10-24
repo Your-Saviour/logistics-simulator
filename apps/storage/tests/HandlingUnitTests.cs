@@ -80,5 +80,11 @@ public static class HandlingUnitTests
         var arrival=Submit("arrive",Ref(transfer));
         check(Done(arrival)["status"]!.ToString()=="completed"&&Handling()["units"]!.AsArray().All(n=>n!["position"] is not null&&n["state"]!.ToString()=="available"),"multi-unit arrival places every whole unit once");
         Reset();
+        var candidates=new JsonArray();for(int i=1;i<=5;i++)candidates.Add(new JsonObject {["id"]=$"18000000-0000-4000-8000-{i:000000000000}",["quantity"]=1});var large=Guid.Parse("f8000000-0000-4000-8000-000000000001");candidates.Add(new JsonObject {["id"]=large.ToString(),["quantity"]=5});
+        var supplied=Submit("expect",new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=10,["correlation_id"]=correlation.ToString(),["units"]=candidates});Submit("receive",Ref(supplied));var minimal=Submit("reserve",Reserve(5));
+        check(Done(minimal)["status"]!.ToString()=="completed"&&Unit(large)["state"]!.ToString()=="reserved"&&Handling()["units"]!.AsArray().Count(n=>n!["state"]!.ToString()=="reserved")==1,"production selection considers later smaller-footprint whole-unit solutions");
+        var fourLarge=Guid.Parse("e8000000-0000-4000-8000-000000000001");var extraFour=Submit("expect",new JsonObject {["sku"]="COMPONENT",["location"]="RAW-A",["quantity"]=4,["correlation_id"]=correlation.ToString(),["units"]=new JsonArray(new JsonObject {["id"]=fourLarge.ToString(),["quantity"]=4})});Submit("receive",Ref(extraFour));var fewer=Submit("reserve",Reserve(4));
+        check(Done(fewer)["status"]!.ToString()=="completed"&&Unit(fourLarge)["state"]!.ToString()=="reserved","production minimizes unit footprint even when an earlier four-unit solution already fits");
+        Reset();
     }
 }

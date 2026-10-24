@@ -165,8 +165,11 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
             }
             if(!custodyOffer&&(action is "receive" or "release" or "issue" or "pick" or "arrive")) result["version"]=result["version"]!.GetValue<int>()+1;
             u.Exec("UPDATE warehouse_commands SET status='completed',result=@p0,completed_at=@p1 WHERE id=@p2",result,Ledger.Num(run,"granted"),id);
-            if(!custodyOffer&&run["mode"]!.ToString()=="helics") {
+            // Physical history is projected from the owned ledger. Internal
+            // moves/conversion are not scalar stock outcomes for peer commands.
+            if(!custodyOffer&&run["mode"]!.ToString()=="helics"&&action is not ("putaway" or "retrieve" or "convert")) {
                 var fact=new JsonObject {["type"]="storage."+action+".completed.v1",["job_id"]=id.ToString(),["causation_id"]=boundary?["event_id"]?.DeepClone()??JsonValue.Create(id.ToString()),["correlation_id"]=result["correlation_id"]!.DeepClone(),["aggregate_id"]=result["id"]!.DeepClone(),["time"]=Ledger.Num(run,"granted"),["payload"]=result.DeepClone()};
+                if(action=="reserve"&&result["purpose"]!.ToString()=="production")fact["payload"]!["unit_manifest"]=new JsonArray(u.Query("SELECT * FROM warehouse_handling_units WHERE reservation_id=@p0 AND state='reserved' ORDER BY id",Ledger.Id(result)).Select(row=>(JsonNode?)HandlingUnits.Contract(row)).ToArray());
                 u.Exec("INSERT INTO boundary_outbox(id,run_id,envelope) VALUES (@p0,@p1,@p2)",Guid.NewGuid(),runId,fact);
             }
         } catch(Conflict error) {

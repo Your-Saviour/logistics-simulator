@@ -87,6 +87,7 @@ final class Store {
   if(job==null||!job.get("run_id").equals(run.get("id"))||!job.get("epoch").equals(run.get("epoch")))return "fenced";
   if(job.get("status").equals("completed"))return "duplicate";if(job.get("status").equals("dead"))return "dead";
   if(!run.get("state").equals("running")||number(job,"due_at")>number(run,"granted")||!Boolean.TRUE.equals(job.get("retry_ready"))||one(c,"SELECT 1 FROM heartbeats WHERE role='controller' AND seen_at>clock_timestamp()-interval '15 seconds'")==null)return "waiting";
+  if(json(job.get("payload")).has("material_reservation"))return MaterialPlans.execute(this,c,run,job);
   if(json(job.get("payload")).has("custody"))return Custody.execute(this,c,run,job);
   if(json(job.get("payload")).path("production").asBoolean())return Production.execute(this,c,run,job);
   sql(c,"INSERT INTO inbox(event_id,run_id,epoch) VALUES (?,?,?) ON CONFLICT DO NOTHING",id,run.get("id"),run.get("epoch"));

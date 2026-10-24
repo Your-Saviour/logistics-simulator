@@ -6,6 +6,9 @@ TEST_COMPOSE = docker compose -f deploy/test.compose.yml
 .PHONY: configure build up down suite test federation-test web-check smoke recovery check clean-tests credentials schema-check stack-unit stack-check mixed-check storage-connected-check storage-deployment-check logistics-connected-check logistics-deployment-check manufacturing-connected-check manufacturing-deployment-check shipping-deployment-check shipping-connected-check twin-deployment-check handling-carrier-check
 handling-carrier-check:
 	sh scripts/check_handling_carrier.sh
+handling-material-check:
+	sh scripts/check_handling_material.sh
+.PHONY: handling-material-check
 stack-unit:
 	sh scripts/check_stack_unit.sh $(APP)
 stack-check:

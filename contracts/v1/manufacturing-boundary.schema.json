@@ -1640,6 +1640,244 @@
           "minimum": 1,
           "title": "Version",
           "type": "integer"
+        },
+        "unit_manifest": {
+          "anyOf": [
+            {
+              "items": {
+                "$id": "urn:simulator:handling:unit:1",
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "available",
+                            "reserved"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "position": {
+                          "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                          "type": "string"
+                        },
+                        "handoff_id": {
+                          "type": "null"
+                        },
+                        "origin": {
+                          "type": "null"
+                        },
+                        "destination": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "state": {
+                          "const": "in_transit"
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "position": {
+                          "type": "null"
+                        },
+                        "origin": {
+                          "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                          "type": "string"
+                        },
+                        "destination": {
+                          "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                          "type": "string"
+                        },
+                        "handoff_id": {
+                          "format": "uuid",
+                          "type": "string"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "state": {
+                          "enum": [
+                            "consumed",
+                            "dispatched",
+                            "legacy_unplaced"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "properties": {
+                        "position": {
+                          "type": "null"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "properties": {
+                  "version": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "barcode": {
+                    "pattern": "^HU-[0-9A-F]{32}$",
+                    "type": "string"
+                  },
+                  "run_id": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "epoch": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "contents": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "sku": {
+                          "maxLength": 128,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "quantity": {
+                          "maximum": 10000,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "sku",
+                        "quantity"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "category": {
+                    "enum": [
+                      "raw",
+                      "finished"
+                    ]
+                  },
+                  "state": {
+                    "enum": [
+                      "available",
+                      "reserved",
+                      "in_transit",
+                      "consumed",
+                      "dispatched",
+                      "legacy_unplaced"
+                    ]
+                  },
+                  "owner": {
+                    "enum": [
+                      "storage",
+                      "manufacturing",
+                      "logistics",
+                      "shipping"
+                    ]
+                  },
+                  "custody_generation": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "last_sequence": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "position": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "origin": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "destination": {
+                    "anyOf": [
+                      {
+                        "pattern": "^[a-z][a-z0-9_.-]{1,127}$",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "handoff_id": {
+                    "anyOf": [
+                      {
+                        "format": "uuid",
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "version",
+                  "id",
+                  "barcode",
+                  "run_id",
+                  "epoch",
+                  "contents",
+                  "category",
+                  "state",
+                  "owner",
+                  "custody_generation",
+                  "last_sequence",
+                  "position",
+                  "origin",
+                  "destination",
+                  "handoff_id"
+                ],
+                "type": "object"
+              },
+              "maxItems": 4,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Manifest"
         }
       },
       "required": [

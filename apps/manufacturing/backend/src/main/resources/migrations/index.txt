@@ -9,3 +9,4 @@
 008_control_receipts.sql
 009_handling_units.sql
 010_custody_receiver.sql
+011_material_assignments.sql

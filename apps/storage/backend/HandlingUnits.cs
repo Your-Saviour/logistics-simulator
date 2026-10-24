@@ -80,12 +80,15 @@ public static class HandlingUnits
         if(stock!=tracked) throw new Conflict("Legacy unplaced stock requires an explicit conversion manifest before whole-unit allocation");
         var candidates=u.Query("SELECT * FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND sku=@p2 AND logical_location=@p3 AND state='available' ORDER BY id",Ledger.Id(run),Ledger.Id(run,"epoch"),sku,location);
         var target=reservation["quantity"]!.GetValue<int>();var paths=new Dictionary<int,List<JsonObject>> {[0]=[]};
+        var production=reservation["purpose"]!.ToString()=="production";
         foreach(var candidate in candidates) {
+            if(production&&(candidate["version"]!.GetValue<int>()>int.MaxValue-4||candidate["last_sequence"]!.GetValue<int>()>int.MaxValue-2||candidate["custody_generation"]!.GetValue<int>()>int.MaxValue-1))continue;
             var quantity=candidate["quantity"]!.GetValue<int>();
-            foreach(var entry in paths.ToArray()) { var next=entry.Key+quantity; if(next<=target&&!paths.ContainsKey(next)) paths[next]=[..entry.Value,candidate]; }
-            if(paths.ContainsKey(target)) break;
+            foreach(var entry in paths.ToArray()) {var next=entry.Key+quantity;var count=entry.Value.Count+1;if(next<=target&&(!production||count<=4)&&(!paths.TryGetValue(next,out var old)||production&&count<old.Count))paths[next]=[..entry.Value,candidate];}
+            if(!production&&paths.ContainsKey(target)) break;
         }
         if(!paths.TryGetValue(target,out var selected)) throw new Conflict("No exact available whole-unit allocation; requests cannot split units or overfulfil");
+        if(reservation["purpose"]!.ToString()=="production"&&selected.Count>4)throw new Conflict("Production input capacity permits at most four whole units per reservation");
         foreach(var unit in selected) {
             u.Exec("UPDATE warehouse_handling_units SET state='reserved',reservation_id=@p0,version=version+1 WHERE id=@p1",Ledger.Id(reservation),Ledger.Id(unit));
             u.Exec("INSERT INTO warehouse_unit_allocations VALUES (@p0,@p1)",Ledger.Id(reservation),Ledger.Id(unit));

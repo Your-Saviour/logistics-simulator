@@ -12,6 +12,8 @@ final class Projection {
   var config=one(c,"SELECT config FROM production_config WHERE run_id=?",id);
   snapshot.put("config",config==null?Production.config(json(run.get("scenario")).get("manufacturing")):config.get("config"));
   snapshot.put("orders",rows(c,"SELECT * FROM production_orders WHERE run_id=? ORDER BY id",id));
+  snapshot.put("material_assignments",rows(c,"SELECT * FROM production_material_plans WHERE run_id=? AND epoch=? ORDER BY id",id,run.get("epoch")));
+  snapshot.put("expected_material_units",rows(c,"SELECT * FROM production_material_expected WHERE run_id=? AND epoch=? ORDER BY unit_id",id,run.get("epoch")));
   snapshot.put("materials",rows(c,"SELECT * FROM production_materials WHERE run_id=? ORDER BY sku",id));
   snapshot.put("commands",rows(c,"SELECT p.*,j.due_at,j.status job_status,j.attempts,j.boundary_input FROM production_commands p JOIN jobs j ON p.id=j.id WHERE p.run_id=? ORDER BY j.created_at,p.id",id));
   var history=rows(c,"SELECT h.*,COALESCE(o.correlation_id::text,j.boundary_input->>'correlation_id') AS correlation_id FROM production_history h JOIN jobs j ON j.id=h.job_id LEFT JOIN production_orders o ON o.id=h.order_id WHERE h.run_id=? ORDER BY h.id",id);
