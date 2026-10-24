@@ -10,12 +10,15 @@ public static class WarehouseProviders
         switch(type) {
             case "storage.receipt.v1": action="expect"; boundary="supply"; Rules.Fields(payload,"sku","location","quantity"); break;
             case "storage.request.v1": action="reserve"; boundary="requests"; Rules.Fields(payload,"sku","location","quantity","purpose"); break;
+            case "storage.release.v1": action="release"; boundary="requests"; Rules.Fields(payload,"reference"); break;
+            case "storage.pick.v1": action="pick"; boundary="requests"; Rules.Fields(payload,"reference"); break;
+            case "storage.transfer.v1": action="transfer"; boundary="requests"; Rules.Fields(payload,"reference","destination"); break;
             case "storage.transfer.arrived.v1": action="arrive"; boundary="requests"; Rules.Fields(payload,"reference"); break;
             default: throw new Validation("Unsupported storage boundary event type");
         }
         if(envelope["boundary"]!.ToString()!=boundary) throw new Validation("Storage event type belongs to a different boundary");
         var body=(JsonObject)payload.DeepClone(); body["action"]=action; body["run_id"]=envelope["run_id"]!.DeepClone(); body["epoch"]=envelope["epoch"]!.DeepClone(); body["due_at"]=envelope["effective_time"]!.DeepClone();
-        if(action!="arrive") body["correlation_id"]=envelope["correlation_id"]!.DeepClone();
+        if(action is "expect" or "reserve") body["correlation_id"]=envelope["correlation_id"]!.DeepClone();
         return Warehouse.Validate(body);
     }
     public static void Seed(Ledger ledger,Settings settings)=>ledger.Db.Transaction(u=> {
@@ -60,6 +63,8 @@ public static class WarehouseProviders
         foreach(var reservation in u.Query(Owned("warehouse_reservations")+" AND w.status IN ('reserved','picked')",id)) {
             var reference=new JsonObject {["reference"]=reservation["id"]!.DeepClone()};
             var action=reservation["status"]!.ToString()=="picked"?"transfer":reservation["purpose"]!.ToString()=="production"?"issue":"pick";
+            // Shipping reserves every line before authorizing customer picks/departures.
+            if((action is "pick" or "transfer")&&settings.Providers["requests"]!.ToString()!="synthetic") continue;
             if(action=="transfer") { var origin=reservation["location"]!.ToString(); reference["destination"]=locations.Any(x=>x["code"]!.ToString()=="DISPATCH")&&origin!="DISPATCH"?"DISPATCH":locations.First(x=>x["code"]!.ToString()!=origin)["code"]!.DeepClone(); }
             Schedule(action+":"+reservation["id"],action,reference,localDue);
         }

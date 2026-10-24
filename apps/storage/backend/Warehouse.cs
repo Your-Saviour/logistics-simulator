@@ -84,6 +84,7 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
     }
     public static void Execute(Unit u,JsonObject run,JsonObject job) {
         Ensure(u,run); var id=Ledger.Id(job); var body=job["payload"]!["warehouse"]!.AsObject(); var action=Rules.Text(body["action"]); var runId=Ledger.Id(run); JsonObject result;
+        var boundary=u.Query("SELECT event_id,aggregate_id FROM warehouse_boundary_commands WHERE run_id=@p0 AND command_id=@p1",runId,id).FirstOrDefault();
         // A savepoint makes expected business rejections durable outcomes without
         // retaining any partial writes, or failing the simulation's clock barrier.
         u.Exec("SAVEPOINT warehouse_effect");
@@ -130,12 +131,17 @@ public sealed class Warehouse(Ledger ledger,Settings settings)
             if(action is "receive" or "release" or "issue" or "pick" or "arrive") result["version"]=result["version"]!.GetValue<int>()+1;
             u.Exec("UPDATE warehouse_commands SET status='completed',result=@p0,completed_at=@p1 WHERE id=@p2",result,Ledger.Num(run,"granted"),id);
             if(run["mode"]!.ToString()=="helics") {
-                var fact=new JsonObject {["type"]="storage."+action+".completed.v1",["job_id"]=id.ToString(),["correlation_id"]=result["correlation_id"]!.DeepClone(),["aggregate_id"]=result["id"]!.DeepClone(),["time"]=Ledger.Num(run,"granted"),["payload"]=result.DeepClone()};
+                var fact=new JsonObject {["type"]="storage."+action+".completed.v1",["job_id"]=id.ToString(),["causation_id"]=boundary?["event_id"]?.DeepClone()??JsonValue.Create(id.ToString()),["correlation_id"]=result["correlation_id"]!.DeepClone(),["aggregate_id"]=result["id"]!.DeepClone(),["time"]=Ledger.Num(run,"granted"),["payload"]=result.DeepClone()};
                 u.Exec("INSERT INTO boundary_outbox(id,run_id,envelope) VALUES (@p0,@p1,@p2)",Guid.NewGuid(),runId,fact);
             }
         } catch(Conflict error) {
             u.Exec("ROLLBACK TO SAVEPOINT warehouse_effect");
             u.Exec("UPDATE warehouse_commands SET status='rejected',error=@p0,completed_at=@p1 WHERE id=@p2",error.Message,Ledger.Num(run,"granted"),id);
+            // Older pending jobs predate durable incoming correlation metadata.
+            if(run["mode"]!.ToString()=="helics"&&boundary is not null&&job["payload"]?["boundary"] is JsonObject incoming) {
+                var fact=new JsonObject { ["type"]="storage.command.rejected.v1",["job_id"]=id.ToString(),["causation_id"]=boundary["event_id"]!.DeepClone(),["aggregate_id"]=boundary["aggregate_id"]!.DeepClone(),["aggregate_version"]=1,["correlation_id"]=incoming["correlation_id"]!.DeepClone(),["time"]=Ledger.Num(run,"granted"),["payload"]=new JsonObject { ["action"]=action,["reason"]=error.Message,["request"]=body.DeepClone() } };
+                u.Exec("INSERT INTO boundary_outbox(id,run_id,envelope) VALUES (@p0,@p1,@p2)",Guid.NewGuid(),runId,fact);
+            }
         }
         u.Exec("RELEASE SAVEPOINT warehouse_effect");
     }
