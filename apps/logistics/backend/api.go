@@ -99,6 +99,11 @@ func api(s *Store, broker func() bool) http.Handler {
 		v["simulation_time"] = scenario.instant(num(run, "granted")).Format("2006-01-02T15:04:05.999999999Z07:00")
 		c.JSON(200, v)
 	})
+ r.GET("/api/transport",permit("status:read"),func(c *gin.Context){v,e:=s.Transport(c.Request.Context());if e!=nil{respondError(c,e);return};c.JSON(200,v)})
+ r.POST("/api/transport/commands",permit("jobs:write"),func(c *gin.Context){
+ key:=c.GetHeader("Idempotency-Key");if key==""||len(key)>128{c.JSON(422,gin.H{"detail":"Idempotency-Key must contain 1..128 characters"});return};if reservedTransportKey(key){c.JSON(409,gin.H{"detail":"Reserved internal idempotency namespace"});return}
+ command,e:=parseTransport(c.Request.Body);if e!=nil{c.JSON(422,gin.H{"detail":e.Error()});return};v,e:=s.ScheduleTransport(c.Request.Context(),key,command,c.MustGet("audit").(*Audit));if e!=nil{respondError(c,e);return};c.JSON(200,v)
+ })
 	r.POST("/api/jobs", permit("jobs:write"), func(c *gin.Context) {
 		key := c.GetHeader("Idempotency-Key")
 		if key == "" || len(key) > 128 {

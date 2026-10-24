@@ -70,6 +70,7 @@ func parseJob(r io.Reader) (JobCommand, error) {
 }
 
 type Scenario struct {
+ Transport *TransportConfig `json:"transport,omitempty"`
 	Seed             int    `json:"seed"`
 	TimeZone         string `json:"time_zone"`
 	StartAt          string `json:"start_at"`
@@ -80,7 +81,7 @@ type Scenario struct {
 }
 
 func defaultScenario() Scenario {
-	return Scenario{1, "Australia/Adelaide", "2026-01-05T08:00:00+10:30", "08:00:00", "17:00:00", []int{0, 1, 2, 3, 4}, 30}
+	return Scenario{nil, 1, "Australia/Adelaide", "2026-01-05T08:00:00+10:30", "08:00:00", "17:00:00", []int{0, 1, 2, 3, 4}, 30}
 }
 func minute(s string) (int, error) {
 	for _, layout := range []string{"15:04:05", "15:04"} {
@@ -92,6 +93,7 @@ func minute(s string) (int, error) {
 	return 0, errors.New("whole local minutes required")
 }
 func (s Scenario) Validate() error {
+ if s.Transport!=nil {if e:=s.Transport.Validate();e!=nil{return e}}
 	_, e := time.LoadLocation(s.TimeZone)
 	if e != nil {
 		return e
