@@ -150,3 +150,23 @@ automatic re-import.
 
 Twin upgrade instructions will be added with its native implementation. The shared protocol is in
 [`contracts/handling/v1/README.md`](../contracts/handling/v1/README.md).
+
+## Logistics custody receiver
+
+Migrations `009` and `010` add a separate durable custody ledger and incoming
+control-event journal. Accepted offers reserve their exact compatible endpoint
+without creating stock. Matching departure evidence imports the original unit
+with the next movement sequence; an acknowledgement closes the receiver record.
+The complete native snapshot retains accepted, received and acknowledged states.
+
+Temporary slot pressure leaves the offer unaccepted and marks its command
+retryable. Identical peer redelivery can requeue that same job once capacity is
+free. Lost acceptance/receipt replies reuse the full original envelope and a new
+private adapter operation, with at most one unsent retry per event. The adapter
+relays only to an explicitly matching recipient/boundary route. Counter bounds
+reserve PostgreSQL integer headroom for source departure and destination receipt;
+exhausted local counters reject before mutation rather than failing SQL arithmetic.
+
+These receiver components use existing configured peer endpoints. Logistics
+source handoffs, provisional manifest requests and assigned-vehicle coupling,
+explicit multi-peer routing and connected native acceptance remain required.

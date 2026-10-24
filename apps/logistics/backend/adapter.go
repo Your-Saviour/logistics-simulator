@@ -287,9 +287,17 @@ func (a *Adapter) settle(ctx context.Context, r row) error {
 		return e
 	}
 	for _, out := range outputs {
+		body := out["envelope"].(map[string]any)
+		typed := body["schema_version"] != nil
+		routed := false
 		for _, route := range a.Store.C.Outputs {
 			var envelope any
-			if out["envelope"].(map[string]any)["transfer"] != nil {
+			if typed {
+				if body["destination"] != route.Destination || body["boundary"] != route.Boundary {
+					continue
+				}
+				envelope = body
+			} else if out["envelope"].(map[string]any)["transfer"] != nil {
 				body := out["envelope"].(map[string]any)
 				tr := body["transfer"].(map[string]any)
 				if route.Destination == "storage" && (body["type"] != "logistics.unload.completed.v1" || tr["external_reference"] == nil) {
@@ -299,11 +307,15 @@ func (a *Adapter) settle(ctx context.Context, r row) error {
 			} else {
 				envelope = boundaryEnvelope(a.Store.C, r, out, route)
 			}
+			routed = true
 			routeBody, _ := json.Marshal(route)
 			operationID := uuid.NewSHA1(uuid.MustParse(out["id"].(string)), routeBody).String()
 			if _, e = a.Call(ctx, "publish", row{"endpoint": route.Endpoint, "envelope": envelope}, operationID); e != nil {
 				return e
 			}
+		}
+		if typed && !routed {
+			return Conflict("No explicit route for pending custody output")
 		}
 		e = a.Store.transaction(ctx, func(tx pgx.Tx) error {
 			current, e := lockRun(ctx, tx)

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"strings"
 	"time"
 )
 
@@ -43,6 +44,9 @@ func (s *Store) IngestTransport(ctx context.Context, raw []byte, source string) 
 	peer, ok := s.C.Peers[env.Boundary]
 	if !ok || peer.Source != env.Source || peer.Endpoint != source || env.Destination != "logistics" || env.FederationID != s.C.FederationID {
 		return "", Conflict("Unconfigured HELICS sender or federation")
+	}
+	if strings.HasPrefix(env.Type, "handling.") {
+		return s.ingestCustody(ctx, raw, env)
 	}
 	if env.SchemaVersion != "1.0" || env.QuantityUnit != "item" || (env.AggregateVersion < 1 || (env.Type != "storage.transfer.completed.v1" && env.AggregateVersion != 1)) || !finite(env.EffectiveTime) || env.EffectiveTime < 0 {
 		return "", errors.New("Invalid transport envelope metadata")

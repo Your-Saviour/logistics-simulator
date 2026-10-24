@@ -77,6 +77,7 @@ func controller(ctx context.Context, s *Store) error {
 				return e
 			}
 		}
+		lastCustodyRetry := time.Time{}
 		for ctx.Err() == nil {
 			if _, e = lease.Exec(ctx, "SELECT 1"); e != nil {
 				break
@@ -116,6 +117,23 @@ func controller(ctx context.Context, s *Store) error {
 				if e = s.advanceLocal(ctx); e != nil {
 					break
 				}
+			}
+			if adapter != nil && r["state"] == "running" && time.Since(lastCustodyRetry) >= time.Second {
+				e = s.transaction(ctx, func(tx pgx.Tx) error {
+					current, err := lockRun(ctx, tx)
+					if err != nil {
+						return err
+					}
+					if current["state"] != "running" {
+						return nil
+					}
+					_, err = recoverCustody(ctx, tx, current)
+					return err
+				})
+				if e != nil {
+					break
+				}
+				lastCustodyRetry = time.Now()
 			}
 			if !pause(ctx, 50*time.Millisecond) {
 				break

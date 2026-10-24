@@ -38,7 +38,7 @@ var physicalLocations = func() map[string]physicalLocation {
 }()
 
 func freeHandlingPosition(ctx context.Context, tx pgx.Tx, run row, prefix, category string) (string, error) {
-	occupied, err := objects(ctx, tx, "SELECT position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND position IS NOT NULL UNION SELECT destination AS position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND state='in_transit'", run["id"], run["epoch"])
+	occupied, err := objects(ctx, tx, "SELECT position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND position IS NOT NULL UNION SELECT destination AS position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND state='in_transit' UNION SELECT destination AS position FROM transport_custody WHERE run_id=$1 AND epoch=$2 AND state='accepted'", run["id"], run["epoch"])
 	if err != nil {
 		return "", err
 	}
@@ -88,10 +88,36 @@ func handlingSnapshot(ctx context.Context, tx pgx.Tx, run row) (row, error) {
 	if err != nil {
 		return nil, err
 	}
-	return row{"version": 1, "catalog_version": 1, "units": values, "unit_context": contexts, "movements": movements, "handoffs": []row{}, "lineage": []row{}}, nil
+	handoffs, err := objects(ctx, tx, "SELECT state,acceptance,receipt FROM transport_custody WHERE run_id=$1 AND epoch=$2 ORDER BY id", run["id"], run["epoch"])
+	if err != nil {
+		return nil, err
+	}
+	records := []row{}
+	for _, record := range handoffs {
+		value := record["receipt"]
+		if value == nil {
+			value = record["acceptance"]
+		}
+		h := copyCustody(value.(map[string]any))
+		h["state"] = record["state"]
+		records = append(records, h)
+	}
+	return row{"version": 1, "catalog_version": 1, "units": values, "unit_context": contexts, "movements": movements, "handoffs": records, "lineage": []row{}}, nil
+}
+
+const handlingMaxCounter = 2147483647
+
+func handlingCounterRoom(unit row, movement bool) error {
+	if num(unit, "version") >= handlingMaxCounter || (movement && num(unit, "last_sequence") >= handlingMaxCounter) {
+		return Conflict("Handling-unit counter capacity exhausted; reconcile before further movement")
+	}
+	return nil
 }
 
 func handlingMovement(ctx context.Context, tx pgx.Tx, run, job, unit row, action string, origin any, destination string, correlation string, transfer any) error {
+	if err := handlingCounterRoom(unit, true); err != nil {
+		return err
+	}
 	updated, err := object(ctx, tx, "UPDATE transport_handling_units SET last_sequence=last_sequence+1,version=version+1 WHERE id=$1 RETURNING *", unit["id"])
 	if err != nil {
 		return err
@@ -181,6 +207,9 @@ func reserveHandling(ctx context.Context, tx pgx.Tx, run, transfer row, command 
 		return Conflict("Transport quantity must exactly equal the selected whole units; no splitting or overfulfilment")
 	}
 	for _, unit := range units {
+		if err := handlingCounterRoom(unit, false); err != nil {
+			return err
+		}
 		if _, err := tx.Exec(ctx, "UPDATE transport_handling_units SET state='reserved',transfer_id=$1,version=version+1 WHERE id=$2", transfer["id"], unit["id"]); err != nil {
 			return err
 		}
@@ -245,6 +274,9 @@ func departHandling(ctx context.Context, tx pgx.Tx, run, transfer row) error {
 		return err
 	}
 	for _, unit := range units {
+		if err := handlingCounterRoom(unit, false); err != nil {
+			return err
+		}
 		destination := "external." + strings.ToLower(transfer["destination"].(string))
 		if transfer["destination"] != "CUSTOMER" {
 			prefix := "logistics.outbound.staging"
@@ -291,12 +323,18 @@ func unloadHandling(ctx context.Context, tx pgx.Tx, run, job, transfer row) erro
 }
 
 func receiveHandling(ctx context.Context, tx pgx.Tx, transfer row) error {
-	if _, err := allocatedHandling(ctx, tx, transfer); err != nil {
+	units, err := allocatedHandling(ctx, tx, transfer)
+	if err != nil {
 		return err
+	}
+	for _, unit := range units {
+		if err := handlingCounterRoom(unit, false); err != nil {
+			return err
+		}
 	}
 	if _, err := tx.Exec(ctx, "UPDATE transport_handling_units SET state=CASE WHEN position IS NULL THEN 'dispatched' ELSE 'available' END,transfer_id=NULL,version=version+1 WHERE transfer_id=$1", transfer["id"]); err != nil {
 		return err
 	}
-	_, err := tx.Exec(ctx, "UPDATE transport_unit_allocations SET active=false WHERE transfer_id=$1", transfer["id"])
+	_, err = tx.Exec(ctx, "UPDATE transport_unit_allocations SET active=false WHERE transfer_id=$1", transfer["id"])
 	return err
 }

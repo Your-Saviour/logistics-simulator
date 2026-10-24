@@ -280,6 +280,10 @@ func (s *Store) Execute(ctx context.Context, id string) (result string, e error)
 		if !eligible {
 			return nil
 		}
+		if j["payload"].(map[string]any)["custody"] != nil {
+			result = "completed"
+			return s.executeCustody(ctx, tx, r, j)
+		}
 		if j["payload"].(map[string]any)["transport"] != nil {
 			result = "completed"
 			return executeTransport(ctx, tx, r, j)
