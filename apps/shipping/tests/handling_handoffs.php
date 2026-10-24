@@ -1,0 +1,80 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/shipping.php';
+use Shipping\{HandlingHandoffs,Rules};
+$r=$ledger->status()['run'];$id=Rules::uuid4();$handoff=Rules::uuid4();$correlation=Rules::uuid4();
+$unit=['id'=>$id,'barcode'=>'HU-'.strtoupper(str_replace('-','',$id)),'run_id'=>$r['id'],'epoch'=>$r['epoch'],'contents'=>[['sku'=>'PRODUCT','quantity'=>3]],'category'=>'finished','state'=>'reserved','owner'=>'storage','version'=>4,'custody_generation'=>0,'last_sequence'=>3,'position'=>'storage.dispatch.dock01','origin'=>null,'destination'=>null,'handoff_id'=>null];
+$offer=['id'=>$handoff,'run_id'=>$r['id'],'epoch'=>$r['epoch'],'source'=>'storage','destination_owner'=>'shipping','origin'=>$unit['position'],'destination'=>'shipping.outbound.dock01','state'=>'offered','unit'=>$unit,'departure_token'=>null,'receipt_id'=>null,'reason'=>null];
+// A real command row supplies the worker's durable transaction identity.
+$intake=shippingSubmit(['action'=>'intake','sku'=>'FIXTURE','quantity'=>1,'units'=>[['id'=>Rules::uuid4(),'quantity'=>1]]]);$intakeCommand=$intake['id'];
+$apply=function($body)use($db,$s,$correlation,$intakeCommand){return $db->transaction(fn($u)=>HandlingHandoffs::receive($u,$u->run(),$s,$body,$correlation,$intakeCommand));};
+$missing=$offer;unset($missing['reason']);shippingReject(fn()=>$apply($missing),'handoff requires the complete published nullable-field shape');
+$accepted=$apply($offer);shippingCheck($accepted['state']==='accepted','receiver durably accepts an exact free endpoint');
+shippingCheck($shipping->snapshot()['handling']['units']===[],'offer and acceptance never create confirmed destination stock');
+shippingCheck($apply($offer)==$accepted,'same offer replay preserves durable acceptance');
+$db->transaction(fn($u)=>$u->execute("UPDATE boundary_outbox SET sent_at=clock_timestamp()-interval '10 seconds' WHERE run_id=?",[$r['id']]));
+shippingCheck($db->transaction(fn($u)=>HandlingHandoffs::recover($u,$u->run()))===1,'lost acceptance is republished from durable native custody state');
+shippingCheck($db->transaction(fn($u)=>HandlingHandoffs::recover($u,$u->run()))===0,'an unsent retry prevents unbounded publication duplicates');
+$copies=$db->transaction(fn($u)=>$u->query("SELECT envelope FROM boundary_outbox WHERE envelope->>'event_id'=?",[Rules::uuid5($handoff,'shipping:accepted')]));shippingCheck(count($copies)===2&&$copies[0]['envelope']==$copies[1]['envelope'],'retry keeps stable peer event identity and immutable departure evidence');
+$other=[...$offer,'id'=>Rules::uuid4(),'unit'=>[...$unit,'id'=>Rules::uuid4()]];$other['unit']['barcode']='HU-'.strtoupper(str_replace('-','',$other['unit']['id']));shippingReject(fn()=>$apply($other),'two accepted offers cannot reserve the same physical slot');
+shippingReject(fn()=>$apply([...$offer,'destination'=>'shipping.outbound.dock02']),'handoff identity cannot change destination');
+$departed=[...$accepted,'state'=>'departed','unit'=>[...$unit,'state'=>'in_transit','position'=>null,'origin'=>$offer['origin'],'destination'=>$offer['destination'],'handoff_id'=>$handoff,'custody_generation'=>1,'version'=>5,'last_sequence'=>4],'departure_token'=>['id'=>Rules::uuid4(),'handoff_id'=>$handoff,'unit_id'=>$id,'run_id'=>$r['id'],'epoch'=>$r['epoch'],'custody_generation'=>1,'last_sequence'=>4,'unit_version'=>5]];
+$bad=$departed;$bad['departure_token']['unit_id']=Rules::uuid4();shippingReject(fn()=>$apply($bad),'departure token must bind the accepted unit');
+shippingCheck($shipping->snapshot()['handling']['units']===[],'invalid departure proof leaves stock unplaced');
+$received=$apply($departed);$units=$shipping->snapshot()['handling']['units'];shippingCheck($received['state']==='received'&&count($units)===1&&$units[0]['id']===$id&&$units[0]['position']===$offer['destination'],'valid source departure permits one confirmed destination receipt');
+shippingCheck($units[0]['last_sequence']===5&&$units[0]['custody_generation']===1,'receipt continues the source movement sequence and custody generation');
+shippingCheck($apply($departed)==$received&&count($shipping->snapshot()['handling']['movements'])===1,'departure redelivery after restart reuses receipt without a second movement');
+$ack=[...$received,'state'=>'acknowledged'];shippingReject(fn()=>$apply([...$ack,'receipt_id'=>Rules::uuid4()]),'acknowledgement cannot replace the confirmed receipt identity');$apply($ack);$record=array_values(array_filter($shipping->snapshot()['handling']['handoffs'],fn($row)=>$row['id']===$handoff))[0];shippingCheck($record['state']==='acknowledged','projection exposes the durable acknowledged custody state');shippingCheck(count($shipping->snapshot()['handling']['units'])===1,'source acknowledgement cannot duplicate or remove destination stock');
+shippingReject(fn()=>$apply([...$offer,'id'=>Rules::uuid4(),'epoch'=>Rules::uuid4()]),'old scope cannot import a whole unit');
+echo "Shipping durable destination handoff checks passed\n";
+
+// The source side must relinquish placement before it can publish departure.
+$source=$db->transaction(function($u)use($id){$u->run();$u->execute("UPDATE shipping_handling_units SET state='reserved' WHERE id=?",[$id]);return $u->one('SELECT * FROM shipping_handling_units WHERE id=?',[$id]);});
+$intakeCommand=shippingSubmit(['action'=>'intake','sku'=>'UNUSED','quantity'=>1,'units'=>[['id'=>Rules::uuid4(),'quantity'=>1]]])['id'];
+$fixtureLine=Rules::uuid4();$db->transaction(function($u)use($r,$id,$intakeCommand,$fixtureLine,$correlation){$u->run();$u->execute('INSERT INTO shipping_orders(id,run_id,customer,destination,correlation_id) VALUES (?,?,?,?,?)',[$intakeCommand,$r['id'],'CUSTODY-FIXTURE','CUSTOMER-A',$correlation]);$u->execute('INSERT INTO shipping_lines(id,order_id,sku,quantity,reserved,received,unit_ids) VALUES (?,?,?,3,3,3,?)',[$fixtureLine,$intakeCommand,'PRODUCT',[$id]]);$u->execute('UPDATE shipping_handling_units SET line_id=? WHERE id=?',[$fixtureLine,$id]);$u->execute('INSERT INTO shipping_unit_allocations(line_id,unit_id) VALUES (?,?)',[$fixtureLine,$id]);});
+$out=$db->transaction(fn($u)=>HandlingHandoffs::offer($u,$u->run(),$s,$id,'logistics','logistics.outbound.truck01.slot01',$correlation,$intakeCommand));
+shippingCheck($out['state']==='offered'&&$shipping->snapshot()['handling']['units'][0]['position']!==null,'source offer retains confirmed placement until receiver accepts');
+$line=$db->transaction(fn($u)=>$u->one('SELECT * FROM shipping_lines WHERE id=?',[$fixtureLine]));
+shippingReject(fn()=>$db->transaction(fn($u)=>Shipping\HandlingUnits::releaseLocal($u,$u->run(),$line)),'pending source offer fences cancellation and unit reallocation');
+shippingReject(fn()=>$db->transaction(fn($u)=>Shipping\HandlingUnits::departSynthetic($u,$u->run(),$intakeCommand,$line,Rules::uuid4(),$correlation)),'pending source offer fences a second synthetic departure');
+$accept=[...$out,'state'=>'accepted'];$depart=$db->transaction(fn($u)=>HandlingHandoffs::source($u,$u->run(),$s,$accept,$correlation,$intakeCommand));
+shippingCheck($depart['state']==='departed'&&$shipping->snapshot()['handling']['units'][0]['position']===null,'accepted destination retires source placement before departure publication');
+shippingCheck($depart['unit']['last_sequence']===6&&$depart['unit']['custody_generation']===2,'source departure continues imported sequence and generation');
+shippingCheck($db->transaction(fn($u)=>HandlingHandoffs::source($u,$u->run(),$s,$accept,$correlation,$intakeCommand))==$depart,'duplicate acceptance cannot depart twice');
+$receipt=[...$depart,'state'=>'received','receipt_id'=>Rules::uuid4()];$ack=$db->transaction(fn($u)=>HandlingHandoffs::source($u,$u->run(),$s,$receipt,$correlation,$intakeCommand));
+shippingCheck($ack['state']==='acknowledged'&&$shipping->snapshot()['handling']['units'][0]['state']==='dispatched','receiver confirmation durably acknowledges retired source custody');
+shippingReject(fn()=>$db->transaction(fn($u)=>HandlingHandoffs::source($u,$u->run(),$s,[...$receipt,'receipt_id'=>Rules::uuid4()],$correlation,$intakeCommand)),'conflicting receipt cannot replace an acknowledged handoff');
+echo "Shipping durable source handoff checks passed\n";
+$settings=clone $s;$settings->providers['goods']='helics';$settings->federationId='custody-test';$settings->peers['goods']=['source'=>'storage','endpoint'=>'storage/events'];$connected=new Shipping\Fulfilment($db,$settings);
+$wire=['schema_version'=>'1.0','type'=>'handling.offered.v1','event_id'=>Rules::uuid4(),'federation_id'=>'custody-test','run_id'=>$r['id'],'epoch'=>$r['epoch'],'correlation_id'=>$correlation,'causation_id'=>$offer['id'],'aggregate_id'=>$offer['id'],'aggregate_version'=>$offer['unit']['version'],'source'=>'storage','destination'=>'shipping','boundary'=>'goods','effective_time'=>$r['granted']+2,'quantity_unit'=>'item','payload'=>$offer];
+shippingReject(fn()=>$connected->ingest($wire,'intruder/events'),'custody offer rejects an unconfigured peer endpoint');
+shippingCheck($connected->ingest($wire,'storage/events')==='accepted','authorized future custody offer is durably scheduled');
+shippingCheck($connected->ingest($wire,'storage/events')==='duplicate','custody wire replay deduplicates before execution');
+shippingReject(fn()=>$connected->ingest([...$wire,'event_id'=>Rules::uuid4(),'aggregate_id'=>Rules::uuid4()],'storage/events'),'custody envelope identity must bind the payload handoff');
+echo "Shipping custody wire checks passed\n";
+// Execute the future wire command through the real worker transaction.
+$db->transaction(fn($u)=>$u->execute('UPDATE boundary_outbox SET sent_at=clock_timestamp() WHERE run_id=?',[$r['id']]));
+shippingCheck($ledger->prepare($wire['effective_time'],$r['epoch']),'custody wire waits behind the native grant barrier');$ledger->grant($wire['effective_time'],$r['epoch']);$ledger->heartbeat('controller');
+$job=$db->transaction(fn($u)=>$u->one("SELECT id FROM jobs WHERE payload->'shipping'->'envelope'->>'event_id'=?",[$wire['event_id']]));$ledger->execute($job['id']);
+$outcome=$db->transaction(fn($u)=>$u->one('SELECT outcome FROM shipping_commands WHERE id=?',[$job['id']]));shippingCheck($outcome['outcome']==='completed'&&count($shipping->snapshot()['handling']['units'])===1,'wire replay executes without resurrecting transferred stock');
+$late=[...$wire,'event_id'=>Rules::uuid4(),'effective_time'=>0.0];shippingCheck($connected->ingest($late,'storage/events')==='accepted','delayed custody recovery is scheduled at the current grant');
+$job=$db->transaction(fn($u)=>$u->one("SELECT id,due_at FROM jobs WHERE payload->'shipping'->'envelope'->>'event_id'=?",[$late['event_id']]));shippingCheck($job['due_at']===$wire['effective_time'],'late protocol evidence does not rewind simulation time');$ledger->execute($job['id']);
+$settings->providers['carrier']='helics';$settings->peers['carrier']=['source'=>'logistics','endpoint'=>'logistics/events'];$connected=new Shipping\Fulfilment($db,$settings);
+$reply=[...$wire,'type'=>'handling.received.v1','event_id'=>Rules::uuid4(),'source'=>'logistics','boundary'=>'carrier','aggregate_id'=>$receipt['id'],'causation_id'=>$receipt['id'],'aggregate_version'=>$receipt['unit']['version'],'payload'=>$receipt];
+$connected->ingest($reply,'logistics/events');$job=$db->transaction(fn($u)=>$u->one("SELECT id FROM jobs WHERE payload->'shipping'->'envelope'->>'event_id'=?",[$reply['event_id']]));$ledger->execute($job['id']);
+$db->transaction(fn($u)=>$u->execute("UPDATE boundary_outbox SET sent_at=clock_timestamp()-interval '10 seconds' WHERE run_id=?",[$r['id']]));
+$before=count($shipping->snapshot()['handling']['movements']);shippingCheck($connected->ingest($reply,'logistics/events')==='duplicate','lost source acknowledgement can be recovered by receipt redelivery');
+$copies=$db->transaction(fn($u)=>$u->query("SELECT envelope FROM boundary_outbox WHERE envelope->>'event_id'=?",[Rules::uuid5($receipt['id'],'shipping:acknowledged')]));shippingCheck(count($copies)===2&&$copies[0]['envelope']==$copies[1]['envelope']&&count($shipping->snapshot()['handling']['movements'])===$before,'lost acknowledgement replay retains one retirement and immutable proof');
+echo "Shipping worker handoff recovery checks passed\n";
+
+// A temporarily occupied endpoint must not poison a stable offer identity.
+$blockedId=Rules::uuid4();$blockedUnit=[...$unit,'id'=>$blockedId,'barcode'=>'HU-'.strtoupper(str_replace('-','',$blockedId))];
+$blocked=[...$offer,'id'=>Rules::uuid4(),'unit'=>$blockedUnit,'destination'=>'shipping.outbound.dock02'];
+$db->transaction(function($u)use($r,$intakeCommand){$u->run();$u->execute("INSERT INTO shipping_handling_units(id,barcode,run_id,epoch,sku,quantity,state,position,command_id) VALUES (?,?,?,?,?,1,'available','shipping.outbound.dock02',?)",[Rules::uuid5($intakeCommand,'occupied'),'HU-'.strtoupper(str_replace('-','',Rules::uuid5($intakeCommand,'occupied'))),$r['id'],$r['epoch'],'OCCUPIED',$intakeCommand]);});
+$blockedWire=[...$wire,'event_id'=>Rules::uuid4(),'aggregate_id'=>$blocked['id'],'causation_id'=>$blocked['id'],'payload'=>$blocked];
+$connected->ingest($blockedWire,'storage/events');$job=$db->transaction(fn($u)=>$u->one("SELECT id FROM jobs WHERE payload->'shipping'->'envelope'->>'event_id'=?",[$blockedWire['event_id']]));$ledger->execute($job['id']);
+shippingCheck(!$db->transaction(fn($u)=>$u->query('SELECT 1 FROM shipping_handling_handoffs WHERE id=?',[$blocked['id']])),'full destination leaves offer unaccepted and stock unplaced');
+$db->transaction(function($u)use($r){$u->run();$u->execute("UPDATE shipping_handling_units SET state='dispatched',position=NULL WHERE run_id=? AND position='shipping.outbound.dock02'",[$r['id']]);});
+shippingCheck($connected->ingest($blockedWire,'storage/events')==='duplicate','capacity retry keeps its immutable incoming event identity');$ledger->execute($job['id']);
+shippingCheck($db->transaction(fn($u)=>$u->one('SELECT state FROM shipping_handling_handoffs WHERE id=?',[$blocked['id']]))['state']==='accepted','same offer can succeed after destination capacity becomes free');
+echo "Shipping capacity and competing-transition recovery checks passed\n";

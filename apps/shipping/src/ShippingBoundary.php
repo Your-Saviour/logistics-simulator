@@ -9,7 +9,10 @@ final class ShippingBoundary
         foreach(['federation_id','source','destination','boundary'] as $key)Rules::text($e[$key]??null,128);
         if(($e['schema_version']??null)!=='1.0'||($e['quantity_unit']??null)!=='item'||Rules::number($e['effective_time']??null)<0)throw new Validation('Invalid shipping envelope metadata');Rules::integer($e['aggregate_version']??null,1,PHP_INT_MAX);
         if(!is_array($e['payload']??null))throw new Validation('Payload required');
-        if($e['type']==='shipping.order.v1'){
+        if(str_starts_with($e['type'],'handling.')){
+            $h=$e['payload'];HandlingHandoffs::validate($h);$sourceSide=$h['source']==='shipping';$peer=$sourceSide?$h['destination_owner']:$h['source'];
+            if($e['source']!==$peer||$e['destination']!=='shipping'||$e['boundary']!==($peer==='logistics'?'carrier':'goods')||$e['type']!=='handling.'.$h['state'].'.v1'||$e['run_id']!==$h['run_id']||$e['epoch']!==$h['epoch']||$e['aggregate_id']!==$h['id']||$e['causation_id']!==$h['id']||$e['aggregate_version']!==$h['unit']['version']||!in_array($h['state'],$sourceSide?['accepted','received']:['offered','departed','acknowledged'],true))throw new Conflict('Custody envelope owner, scope or identity mismatch');
+        }elseif($e['type']==='shipping.order.v1'){
             Rules::fields($e['payload'],['customer','destination','lines']);
             if($e['boundary']!=='orders'||$e['source']!=='external-orders'||$e['aggregate_version']!==1)throw new Conflict('Customer order owner/version mismatch');
             ShippingRules::command(['run_id'=>$e['run_id'],'epoch'=>$e['epoch'],'due_at'=>$e['effective_time'],'action'=>'create',...$e['payload']]);

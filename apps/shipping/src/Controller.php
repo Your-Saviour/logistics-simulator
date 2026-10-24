@@ -4,7 +4,7 @@ namespace Shipping;
 final class Controller
 {
     public static function run(Ledger $ledger,Settings $settings):void {
-        $stop=false;$owned=false;$epoch=null;$lease=null;$leaseUnit=null;$adapter=null;pcntl_async_signals(true);pcntl_signal(SIGTERM,function()use(&$stop){$stop=true;});pcntl_signal(SIGINT,function()use(&$stop){$stop=true;});
+        $stop=false;$owned=false;$epoch=null;$lease=null;$leaseUnit=null;$adapter=null;$lastCustodyRetry=0.0;pcntl_async_signals(true);pcntl_signal(SIGTERM,function()use(&$stop){$stop=true;});pcntl_signal(SIGINT,function()use(&$stop){$stop=true;});
         try{$lease=$ledger->db->connect();$leaseUnit=new Unit($lease);if(!$leaseUnit->one('SELECT pg_try_advisory_lock(8192102) AS held')['held'])throw new Conflict('Another controller owns this simulator');$owned=true;$run=$ledger->status()['run'];$epoch=$run['epoch'];if($settings->mode==='helics'&&in_array($run['state'],['failed','stalled','finalized'],true))throw new Conflict('Run requires operator recovery');$initialized=$settings->mode==='standalone';$pending=false;$waiting=microtime(true);
             if($settings->mode==='helics'){$expected=array_keys(array_filter($settings->providers,fn($v)=>$v==='helics'));$peers=array_keys($settings->peers);sort($expected);sort($peers);if($expected!==$peers||!$settings->outputs)throw new Conflict('Connected mode requires explicit peer routes and outputs');$adapter=new Adapter($ledger,$settings,$run);$adapter->begin();$adapter->command('initialize',[],'initialize');}
             while(!$stop){$leaseUnit->execute('SELECT 1');$run=$ledger->status()['run'];$epoch=$run['epoch'];$ledger->heartbeat('controller');if(in_array($run['state'],['failed','stalled','finalized'],true)){if($settings->mode==='standalone'){usleep(100000);continue;}break;}
@@ -15,6 +15,7 @@ final class Controller
                 }
                 if($run['state']==='held'){usleep(100000);continue;}if(strtolower(Settings::env('AUTONOMOUS_SAMPLE','true'))==='true'){try{$ledger->seed();}catch(Conflict $e){if($settings->mode!=='standalone')throw $e;}}
                 if(strtolower(Settings::env('AUTONOMOUS_SHIPPING',Settings::env('AUTONOMOUS_SAMPLE','true')))==='true')$ledger->db->transaction(function($u)use($ledger,$settings){$r=$u->run();if($r['state']==='running')(new Fulfilment($ledger->db,$settings))->seed($u,$r);});
+                if($adapter&&microtime(true)-$lastCustodyRetry>=1){$ledger->db->transaction(function($u){$r=$u->run();if($r['state']==='running')HandlingHandoffs::recover($u,$r);});$lastCustodyRetry=microtime(true);}
                 $target=$run['granted']+$settings->quantum;if($adapter&&!$pending&&$ledger->prepare($target,$epoch)){$adapter->command('request_time',['target'=>$target,'committed'=>$run['granted'],'pending_work'=>0,'pending_outputs'=>0]);$pending=true;$waiting=microtime(true);}elseif(!$adapter&&(microtime(true)-(float)(new \DateTimeImmutable($run['anchor']))->format('U.u'))*$run['speed']>=$settings->quantum&&$ledger->prepare($target,$epoch)){try{$ledger->grant($target,$epoch);}catch(Conflict $e){if($ledger->status()['run']['epoch']===$epoch)throw $e;}}usleep(50000);
             }
             $leaseUnit=null;$lease=null;if($stop&&$owned&&$settings->mode==='helics')$ledger->stall('Connected controller stopped; coordinate a new epoch',$epoch);

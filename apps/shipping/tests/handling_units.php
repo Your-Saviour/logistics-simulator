@@ -1,0 +1,31 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/shipping.php';
+
+$six=Shipping\Rules::uuid4();
+$intake=shippingSubmit(['action'=>'intake','sku'=>'PRODUCT','quantity'=>6,'units'=>[['id'=>$six,'quantity'=>6]]]);shippingDrain();
+$units=fn()=>$shipping->snapshot()['handling']['units'];
+$unit=function(string $id)use($units):array {foreach($units() as $row)if($row['id']===$id)return $row;throw new RuntimeException('Unit absent');};
+shippingCheck($unit($six)['barcode']==='HU-'.strtoupper(str_replace('-','',$six))&&$unit($six)['contents']===[['sku'=>'PRODUCT','quantity'=>6]],'Shipping receipt preserves barcode and whole contents');
+shippingCheck(str_starts_with($unit($six)['position'],'shipping.outbound.'),'Shipping records its own exact finite staging endpoint');
+$five=shippingSubmit(['action'=>'create','customer'=>'WHOLE-FIVE','destination'=>'CUSTOMER-A','lines'=>[['sku'=>'PRODUCT','quantity'=>5]]]);shippingDrain();
+shippingSubmit(['action'=>'fulfil','reference'=>$five['id']]);shippingDrain();
+shippingCheck($unit($six)['state']==='available'&&$unit($six)['contents'][0]['quantity']===6,'incompatible demand never splits the existing six-item unit');
+$fiveOrder=$shipping->order($five['id']);
+shippingCheck($fiveOrder['status']==='ready'&&count($fiveOrder['lines'][0]['unit_ids'])===1,'synthetic replenishment receives a distinct exact whole unit');
+$fiveUnit=$unit($fiveOrder['lines'][0]['unit_ids'][0]);shippingCheck($fiveUnit['id']!==$six&&$fiveUnit['contents'][0]['quantity']===5,'replenishment preserves requested quantity without overfulfilment');
+$exact=shippingSubmit(['action'=>'create','customer'=>'WHOLE-SIX','destination'=>'CUSTOMER-A','lines'=>[['sku'=>'PRODUCT','quantity'=>6]]]);shippingDrain();
+shippingSubmit(['action'=>'fulfil','reference'=>$exact['id']]);shippingDrain();
+$exactOrder=$shipping->order($exact['id']);shippingCheck($exactOrder['status']==='ready'&&$exactOrder['lines'][0]['unit_ids']===[$six],'exact local allocation binds the existing whole unit');
+shippingCheck($unit($six)['state']==='reserved','allocated unit is not available to another order');
+$other=shippingSubmit(['action'=>'create','customer'=>'ANOTHER-SIX','destination'=>'CUSTOMER-A','lines'=>[['sku'=>'PRODUCT','quantity'=>6]]]);shippingDrain();shippingSubmit(['action'=>'fulfil','reference'=>$other['id']]);shippingDrain();
+shippingCheck($shipping->order($other['id'])['lines'][0]['unit_ids']!==[$six],'two orders cannot allocate the same handling unit');
+shippingSubmit(['action'=>'pack','reference'=>$exact['id']]);shippingDrain();$dispatch=shippingSubmit(['action'=>'dispatch','reference'=>$exact['id']]);shippingDrain();
+shippingCheck($shipping->order($exact['id'])['status']==='delivered'&&$unit($six)['position']===null&&$unit($six)['state']==='dispatched','only confirmed carrier delivery retires a unit without inventing destination placement');
+$before=$shipping->snapshot()['handling']['movements'];shippingCheck($ledger->execute($dispatch['id'])==='duplicate'&&$shipping->snapshot()['handling']['movements']===$before,'dispatch redelivery cannot load a unit twice');
+$liveBefore=count($units());$historyBefore=count($before);$manifest=[];for($n=0;$n<133;$n++)$manifest[]=['id'=>Shipping\Rules::uuid4(),'quantity'=>1];
+$full=shippingSubmit(['action'=>'intake','sku'=>'PRODUCT','quantity'=>133,'units'=>$manifest]);shippingDrain();
+$command=array_values(array_filter($shipping->snapshot()['commands'],fn($c)=>$c['id']===$full['id']))[0];
+shippingCheck($command['outcome']==='rejected'&&count($units())===$liveBefore&&count($shipping->snapshot()['handling']['movements'])===$historyBefore,'full staging rejection rolls back all unit and physical-history writes');
+$projection=$shipping->projection();shippingCheck($projection['snapshot']['handling']['units']===$units(),'Shipping projection exposes the authoritative unit ledger');
+echo "Shipping whole handling-unit checks passed\n";

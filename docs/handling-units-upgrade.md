@@ -110,8 +110,43 @@ create transport stock. Source projection and the website receive unit data plus
 coordinates. Cross-database token/acknowledgement integration remains required
 before connected whole-unit cutover.
 
-## Remaining applications
+## Shipping local units and custody protocol
 
-Shipping and Twin upgrade instructions will be added
-with their native implementations. The shared protocol is in
+Shipping migrations `010`–`014` add immutable single-SKU unit contents, unique
+barcodes and occupied positions, active line allocations, explicit synthetic
+supply plans, sequenced movements and durable incoming/outgoing handoffs. Old
+quantity-only orders remain historical records; they are not backfilled with
+invented barcodes or positions. Drain active workflows before upgrading.
+
+`intake` accepts a complete `sku`, `quantity` and explicit `units` manifest of
+UUID/quantity entries. It creates stock only at compatible, free Shipping
+positions; rejection rolls back the complete manifest. Fulfilment first searches
+for an exact subset of available whole units. Synthetic replenishment creates
+new, explicitly planned units; an existing larger unit remains intact. Packing
+requires owned, reserved units with confirmed physical positions.
+
+The native custody receiver persists slot acceptance without placing stock.
+Only the matching source departure token can import the reserved barcode,
+contents, generation and continuing movement sequence. The native source clears
+placement before publishing departure and acknowledges only its exact departure
+proof. Conflicting identities, endpoints, contents and receipts reject atomically.
+Temporary destination capacity rejection marks the original command retryable;
+the identical peer offer can requeue that same command after capacity frees.
+Pending source offers fence release and alternative synthetic departure.
+Pending stages retry at five-second wall-clock intervals using the same immutable
+event envelope; a fresh private adapter operation performs each actual retry.
+Duplicate receipt messages can recover a lost acknowledgement without repeating
+retirement or movement history. Protocol evidence received after its original
+simulation time runs at the current grant and cannot rewind history.
+
+These PHP protocol components and controlled peer fixtures are not evidence of
+a connected four-department lifecycle. Automatic vehicle-assignment offers,
+whole-unit peer request integration, the other native protocol participants and
+connected failure acceptance remain required before any whole-unit cutover.
+Known returning barcodes currently require explicit reconciliation rather than
+automatic re-import.
+
+## Twin instructions pending
+
+Twin upgrade instructions will be added with its native implementation. The shared protocol is in
 [`contracts/handling/v1/README.md`](../contracts/handling/v1/README.md).

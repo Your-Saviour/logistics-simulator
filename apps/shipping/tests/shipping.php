@@ -3,7 +3,7 @@ declare(strict_types=1);
 require __DIR__.'/../vendor/autoload.php';
 use Shipping\{Database,Ledger,Settings,Rules,Fulfilment,Conflict,Validation};
 function shippingCheck(bool $ok,string $message):void {if(!$ok)throw new RuntimeException($message);echo "PASS $message\n";}
-function shippingReject(callable $fn,string $message):void {try{$fn();}catch(Conflict|Validation){shippingCheck(true,$message);return;}throw new RuntimeException('Expected rejection: '.$message);}
+function shippingReject(callable $fn,string $message):void {try{$fn();}catch(Conflict|Validation|Shipping\CustodyCapacity){shippingCheck(true,$message);return;}throw new RuntimeException('Expected rejection: '.$message);}
 $s=new Settings();$db=new Database($s);$db->migrate();$ledger=new Ledger($db,$s);
 $a=['actor'=>'employee','role'=>'employee','request_id'=>Rules::uuid4(),'action'=>'test:shipping','peer'=>'test'];
 $ledger->control('reset',['confirm_run_id'=>$ledger->scope()],$a);

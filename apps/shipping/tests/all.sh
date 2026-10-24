@@ -9,6 +9,8 @@ php /app/tests/feature.php
 php /app/tests/web.php
 php /app/tests/ui_scope.php
 php /app/tests/shipping.php
+php /app/tests/handling_handoffs.php
+php /app/tests/handling_units.php
 php /app/tests/shipping_http.php
 php /app/tests/shipping_web.php
 php /app/tests/shipping_boundary.php

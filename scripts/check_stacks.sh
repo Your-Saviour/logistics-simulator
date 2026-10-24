@@ -58,6 +58,13 @@ for selected_app in $selected; do
   work compose -f "$manifest" up -d --wait manufacturing-broker
   work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase broker-up
  fi
+ if [ "$selected_app" = shipping ]; then
+  work compose -f "$manifest" run --rm shipping-verify python scripts/shipping_acceptance.py
+  work compose -f "$manifest" stop shipping-worker
+  work compose -f "$manifest" run --rm shipping-verify python scripts/shipping_acceptance.py --phase queue
+  work compose -f "$manifest" start shipping-worker
+  work compose -f "$manifest" run --rm shipping-verify python scripts/shipping_acceptance.py --phase recovered
+ fi
  if [ "$selected_app" = storage ]; then
   work compose -f "$manifest" up -d --scale storage-worker=2 storage-worker
   replicas=$(docker compose -f "$manifest" ps -q --status running storage-worker | wc -l)

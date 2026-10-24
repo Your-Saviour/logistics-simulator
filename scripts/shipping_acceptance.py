@@ -6,6 +6,7 @@ import time
 from uuid import uuid4
 
 import httpx
+from simulator.handling_contracts import validate_snapshot, validate_movement
 
 
 def wait(client, path, predicate, timeout=90):
@@ -25,8 +26,13 @@ def wait(client, path, predicate, timeout=90):
 
 
 def verify(phase=None):
-    operator = (os.environ['SHIPPING_USERNAME'], os.environ['SHIPPING_PASSWORD'])
-    employee = ('employee', os.environ['SHIPPING_EMPLOYEE_PASSWORD'])
+    if 'APP_USERNAME' in os.environ:
+        operator = (os.environ['APP_USERNAME'], os.environ['APP_PASSWORD'])
+        identity = next(account for account in json.loads(os.environ['APP_IDENTITIES']) if account['role'] == 'employee')
+        employee = (identity['username'], identity['password'])
+    else:
+        operator = (os.environ['SHIPPING_USERNAME'], os.environ['SHIPPING_PASSWORD'])
+        employee = ('employee', os.environ['SHIPPING_EMPLOYEE_PASSWORD'])
     with httpx.Client(base_url='http://shipping-api:8000', auth=operator, timeout=10) as client:
         wait(client, '/api/status' if phase == 'queue' else '/api/health/ready', lambda x: True)
         if phase == 'recovered':
@@ -69,11 +75,27 @@ def verify(phase=None):
         assert len(order['lines']) == 2 and all(l['received'] == l['quantity'] for l in order['lines'])
         assert any(h['event'] == 'shortage' for h in order['history'])
         assert any(h['event'] == 'produced' for h in order['history'])
+        snapshot=client.get('/api/shipping').json()
+        handling=snapshot['handling']
+        validate_snapshot(handling['units'],snapshot['run_id'],snapshot['epoch'])
+        for movement in handling['movements']:
+            validate_movement(movement,snapshot['run_id'],snapshot['epoch'])
+        units={unit['id']:unit for unit in handling['units']}
+        selected=[]
+        for line in order['lines']:
+            selected.extend(line['unit_ids'])
+            assert line['unit_ids'] and sum(units[key]['contents'][0]['quantity'] for key in line['unit_ids'])==line['quantity']
+            assert all(units[key]['state']=='reserved' and units[key]['position'] for key in line['unit_ids'])
+        assert len(selected)==len(set(selected))
         submit('pack', reference=order_id)
         submit('cancel', expected='rejected', reference=order_id)
         submit('dispatch', reference=order_id)
         order = wait(client, '/api/shipping/orders/' + order_id, lambda o: o['status'] == 'delivered')
         assert order['shipment']['confirmation_id'] and order['shipment']['journey_id']
+        snapshot=client.get('/api/shipping').json()
+        validate_snapshot(snapshot['handling']['units'],snapshot['run_id'],snapshot['epoch'])
+        units={unit['id']:unit for unit in snapshot['handling']['units']}
+        assert all(units[key]['state']=='dispatched' and units[key]['position'] is None for key in selected)
         assert all(i['state'] == 'completed' for i in order['intents'])
         line_ids = {line['id'] for line in order['lines']}
         for kind, result in [('dispatch', 'departed'), ('deliver', 'delivered')]:
