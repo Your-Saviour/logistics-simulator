@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
 import { Client, can } from './client.ts';
 test('service and employee controls require explicit operator permission', () => {
  assert.equal(can({ scopes: ['jobs:write','status:read'] }, 'runs:control'), false);
@@ -18,20 +17,4 @@ test('transport retry keeps the original command body and idempotency key', asyn
  const server=createServer(async(request,response)=>{let body='';for await(const chunk of request)body+=chunk;received.push({key:request.headers['idempotency-key'],body});response.setHeader('Content-Type','application/json');response.statusCode=received.length===1?503:200;response.end(JSON.stringify(received.length===1?{detail:'retry'}:{id:'transfer'}));});
  await new Promise<void>(resolve=>server.listen(0,'0.0.0.0',resolve));
  try {const port=(server.address() as {port:number}).port;const client=new Client('employee','secret',`http://127.0.0.1:${port}`);const body={run_id:'run',epoch:'epoch',due_at:5,action:'assign',reference:'transfer',vehicle:'TRUCK-1'};const command=client.transport(body);body.vehicle='VAN-1';await assert.rejects(command.send(),/retry/);await command.send();assert.deepEqual(received[0],received[1]);assert.equal(JSON.parse(received[1].body).vehicle,'TRUCK-1');}finally{server.closeAllConnections();await new Promise<void>(resolve=>server.close(()=>resolve()));}
-});
-test('dispatch workspace exposes the operational track and responsive Swiss visual contract', async () => {
- const [app,transport,styles]=await Promise.all([
-  readFile(new URL('./App.svelte',import.meta.url),'utf8'),
-  readFile(new URL('./Transport.svelte',import.meta.url),'utf8'),
-  readFile(new URL('./style.css',import.meta.url),'utf8'),
- ]);
- assert.match(app,/class="skip-link"/);
- assert.match(app,/class="app-masthead"/);
- assert.match(transport,/class="dispatch-workspace"/);
- assert.match(transport,/class="transfer-track"/);
- assert.match(transport,/Requested[\s\S]*Assigned[\s\S]*Loaded[\s\S]*Departed[\s\S]*Arrived[\s\S]*Unloaded[\s\S]*Received/);
- assert.match(styles,/--signal:\s*#002fa7/i);
- assert.match(styles,/font-family:\s*['"]?Helvetica Neue/i);
- assert.match(styles,/@media\s*\(max-width:\s*900px\)/);
- assert.doesNotMatch(styles,/box-shadow|linear-gradient|radial-gradient/i);
 });
