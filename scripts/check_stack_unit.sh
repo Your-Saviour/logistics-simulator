@@ -15,6 +15,7 @@ manufacturing)
  manifest=apps/manufacturing/compose.test.yml
  cleanup() { docker compose -f "$manifest" down; }; trap cleanup EXIT HUP INT TERM
  work compose -f "$manifest" run --rm backend-test sh -c 'mvn -B -q verify dependency:tree -DoutputFile=/tmp/dependencies.actual && diff -u dependencies.lock /tmp/dependencies.actual'
+ work compose -f "$manifest" run --rm frontend-test
  ;;
 logistics)
  manifest=apps/logistics/compose.test.yml

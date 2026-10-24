@@ -22,3 +22,9 @@ The historical Python bootstrap verification predates the selected framework mig
 Reproduce framework checks with `sh scripts/check_stack_unit.sh APP`, independent production-container checks with `sh scripts/check_stacks.sh APP` (or `all`), and the mixed federation with `sh scripts/check_mixed_stacks.sh`. The final mixed run used `STACK_REUSE_IMAGES=1 sh scripts/check_mixed_stacks.sh` after the application images had passed standalone verification; the adapter was rebuilt and tested. CI uses the default fresh-build path. These commands serialize Docker work, reserve 20 GiB host space by default and cap unused build cache. Generated manifests expose no host ports and do not attach live deployment volumes. Runtime logs and browser artifacts are retained under the ignored `.superpowers/sdd/simu-framework-migration/` directory during verification.
 
 Separate physical hosts, production ingress/identity and unknown external simulator interfaces have not been validated. Native adapter loss requires an externally coordinated new epoch; local controls do not reconstruct lost native state, silently fall back to synthetic inputs, or rewind an active federation. The [acceptance matrix](simu-1-acceptance.md) identifies the included Jira tasks and application-owned implementations.
+
+Manufacturing V1 adds independent production acceptance; see
+[SIMU-3 acceptance](simu-3-acceptance.md). Docker guards in linked worktrees use
+the source repository's shared lock. Set `DOCKER_GUARD_WAIT_SECONDS=900` to queue
+for that lock during parallel feature work; the default still exits 75 when
+busy. Waiting does not lower the configured free-space reserve.

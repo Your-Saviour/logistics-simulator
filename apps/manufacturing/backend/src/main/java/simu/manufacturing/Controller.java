@@ -52,7 +52,7 @@ final class Controller {
        if(settings.providers.path("power").asText().equals("helics")){
         String target=settings.peers.path("power").path("value_target").asText("external-power/available_power_kw");
         var value=snapshot.path("values").path(target);double power=value.isNumber()?value.doubleValue():0;
-        if(!(power>0&&power<1e12))blocked="External power unavailable; sample work deferred";
+        if(!(power>0&&power<1e12))blocked="External power unavailable; production deferred";
        }
        store.grant(granted,epoch,blocked);
        var ids=new ArrayList<String>();
@@ -65,7 +65,7 @@ final class Controller {
      if(run.get("state").equals("finalizing")){finalizeNative(adapter);break;}
      if(connected&&run.get("state").equals("finalized"))break;
      if(!initialized||run.get("state").equals("held")){Thread.sleep(100);continue;}
-     if(settings.get("AUTONOMOUS_SAMPLE","true").equalsIgnoreCase("true"))store.seed();
+     if(settings.get("AUTONOMOUS_PRODUCTION",settings.get("AUTONOMOUS_SAMPLE","true")).equalsIgnoreCase("true"))store.seed();
      double target=Store.number(run,"granted")+settings.quantum;
      if(adapter!=null&&!pending){
       if(store.prepare(target,epoch)){adapter.call("request_time",Map.of("target",target,"committed",run.get("granted"),"pending_work",0,"pending_outputs",0));pending=true;waitingSince=System.nanoTime();}
@@ -114,7 +114,9 @@ final class Controller {
  void publish(Adapter adapter)throws Exception{
   var run=store.run();var outputs=store.tx(c->{var active=Store.current(c);return Store.rows(c,"SELECT * FROM boundary_outbox WHERE run_id=? AND sent_at IS NULL ORDER BY id",active.get("id"));});
   for(var row:outputs){JsonNode sample=Store.json(row.get("envelope"));
+   if(sample.has("type")){boolean routed=false;for(var output:settings.outputs)if(output.path("destination").asText().equals(sample.path("destination").asText())&&output.path("boundary").asText().equals(sample.path("boundary").asText()))routed=true;if(!routed)throw new Store.Conflict("No HELICS route for committed production output");}
    for(var output:settings.outputs){
+    if(sample.has("type")){if(!output.path("destination").asText().equals(sample.path("destination").asText())||!output.path("boundary").asText().equals(sample.path("boundary").asText()))continue;UUID operation=Store.uuid5(Store.uuid(row.get("id")),"publish:"+output.path("endpoint").asText());adapter.call(operation,"publish",Map.of("endpoint",output.path("endpoint").asText(),"envelope",sample));continue;}
     // Operation and envelope identities remain stable across lost HTTP replies.
     String route=output.path("endpoint").asText();UUID operation=Store.uuid5(Store.uuid(row.get("id")),"publish:"+route);
     var envelope=new LinkedHashMap<String,Object>();envelope.put("schema_version","1.0");envelope.put("type","sample.completed.v1");envelope.put("event_id",row.get("id"));envelope.put("federation_id",settings.federation);envelope.put("run_id",run.get("id"));envelope.put("epoch",run.get("epoch"));for(String key:List.of("correlation_id","causation_id","aggregate_id"))envelope.put(key,sample.path("job_id").asText());envelope.put("aggregate_version",1);envelope.put("source","manufacturing");envelope.put("destination",output.path("destination").asText());envelope.put("boundary",output.path("boundary").asText());envelope.put("effective_time",Store.number(run,"granted")+settings.quantum);envelope.put("quantity_unit","item");envelope.put("payload",Map.of("quantity",sample.path("quantity").asInt()));

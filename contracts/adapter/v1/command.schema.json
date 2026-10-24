@@ -198,6 +198,7 @@
               "envelope": {
                 "discriminator": {
                   "mapping": {
+                    "manufacturing.demand.v1": "#/$defs/DemandEnvelope",
                     "sample.completed.v1": "#/$defs/Envelope",
                     "storage.arrive.completed.v1": "#/$defs/FactEnvelope",
                     "storage.expect.completed.v1": "#/$defs/FactEnvelope",
@@ -228,6 +229,9 @@
                   },
                   {
                     "$ref": "#/$defs/FactEnvelope"
+                  },
+                  {
+                    "$ref": "#/$defs/DemandEnvelope"
                   }
                 ],
                 "title": "Envelope"
@@ -438,6 +442,143 @@
         "reference"
       ],
       "title": "ArrivalInput",
+      "type": "object"
+    },
+    "DemandEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "type": {
+          "const": "manufacturing.demand.v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "federation_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Federation Id",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uuid",
+          "title": "Epoch",
+          "type": "string"
+        },
+        "correlation_id": {
+          "format": "uuid",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "causation_id": {
+          "format": "uuid",
+          "title": "Causation Id",
+          "type": "string"
+        },
+        "aggregate_id": {
+          "format": "uuid",
+          "title": "Aggregate Id",
+          "type": "string"
+        },
+        "aggregate_version": {
+          "maximum": 1,
+          "minimum": 1,
+          "title": "Aggregate Version",
+          "type": "integer"
+        },
+        "source": {
+          "minLength": 1,
+          "title": "Source",
+          "type": "string"
+        },
+        "destination": {
+          "const": "manufacturing",
+          "title": "Destination",
+          "type": "string"
+        },
+        "boundary": {
+          "const": "demand",
+          "title": "Boundary",
+          "type": "string"
+        },
+        "effective_time": {
+          "minimum": 0,
+          "title": "Effective Time",
+          "type": "number"
+        },
+        "wall_time": {
+          "format": "date-time",
+          "title": "Wall Time",
+          "type": "string"
+        },
+        "quantity_unit": {
+          "const": "item",
+          "default": "item",
+          "title": "Quantity Unit",
+          "type": "string"
+        },
+        "payload": {
+          "$ref": "#/$defs/DemandInput"
+        }
+      },
+      "required": [
+        "type",
+        "federation_id",
+        "run_id",
+        "epoch",
+        "correlation_id",
+        "causation_id",
+        "aggregate_id",
+        "aggregate_version",
+        "source",
+        "destination",
+        "boundary",
+        "effective_time",
+        "payload"
+      ],
+      "title": "DemandEnvelope",
+      "type": "object"
+    },
+    "DemandInput": {
+      "additionalProperties": false,
+      "properties": {
+        "product": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Product",
+          "type": "string"
+        },
+        "line": {
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
+          "title": "Line",
+          "type": "string"
+        },
+        "quantity": {
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Quantity",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "product",
+        "line",
+        "quantity"
+      ],
+      "title": "DemandInput",
       "type": "object"
     },
     "Envelope": {

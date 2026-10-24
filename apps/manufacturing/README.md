@@ -1,10 +1,10 @@
-# Manufacturing foundation (SIMU-49)
+# Manufacturing V1 (SIMU-3)
 
 This application owns its business API, PostgreSQL transitions, RabbitMQ worker,
 scheduler, clock, sample effects and Angular website. Java never forwards API or
 business work to Python. Connected mode uses only the private department-local
 HELICS adapter defined in [the adapter protocol](../../docs/adapter-protocol.md).
-This remains a sample quantity workflow; it does not implement manufacturing V1.
+The production model, employee workflow and typed storage boundaries are documented in [Manufacturing V1](../../docs/manufacturing-v1.md). The sample quantity API remains available for bootstrap compatibility.
 
 The UI follows the Industrial anchor: warm black `#0B0C0A`, amber `#FFB800`,
 monospace typography, square controls and 1px rules. The granted-time number is
@@ -42,7 +42,7 @@ sh scripts/check_stacks.sh manufacturing
 
 The first command runs the backend suite and compares the resolved Maven
 dependency tree with `backend/dependencies.lock`. The latest verified result is
-**24 tests passed** with an exact dependency-lock match. The second builds the
+**40 tests passed** with an exact dependency-lock match. The second builds the
 production backend/frontend images and runs shared HTTP, recovery and browser
 checks against the independent manufacturing deployment. Its current production
 verification is tracked separately from the unit result in `VERIFYING.md`.
@@ -89,7 +89,7 @@ attributed audit transaction; an unavailable database produces HTTP 503 and an
 explicit audit-unavailable log, never an invented durable record.
 
 The website listens on port 80 and proxies `/api` to `API_UPSTREAM` (default
-`manufacturing-api:8000`). It offers login, run/grant status, sample jobs,
+`manufacturing-api:8000`). It offers login, run/grant status, production orders, material shortages, line capacity,
 role-scoped controls, and operator audit history. Reset requires the current run
 ID. The command idempotency key remains visible and retained after failed requests.
 
@@ -108,7 +108,7 @@ controller heartbeat. Outbox resend survives lost broker ACKs. Three business
 failures fail the run and dead-letter the delivery; dependency outages do not
 consume the business retry budget.
 
-`AUTONOMOUS_SAMPLE=true` enables seeded materials/supply and demand inputs only
+`AUTONOMOUS_PRODUCTION=true` enables seeded materials/supply and demand inputs only
 for explicit synthetic providers. `BOUNDARY_PROVIDERS` names exactly `materials`,
 `demand`, `power`, each `synthetic` or `helics` (standalone allows only synthetic).
 `SCENARIO` accepts `seed`, `time_zone`, offset-aware `start_at`, local whole-minute
@@ -166,7 +166,8 @@ backup, then start the Java API with the same independent database and credentia
 Copied migrations 001–003 are byte-identical to the repository SQL and are verified
 with SHA-256 against `schema_migrations`. Migration 004 adds manufacturing
 adapter session/operation tables; migration 005 adds the persisted native
-pending/state barrier. Any checksum mismatch aborts startup. The new
+pending/state barrier. V1 migrations 006–007 add production records, canonical
+workflow states and the correlated completion-event outbox. Any checksum mismatch aborts startup. The new
 worker reuses `sample.jobs.v1` and the existing dead-letter topology. Start exactly
 one controller only after validating mode/run/epoch configuration. Never run old
 and new controllers together. Connected active native sessions require coordinated
@@ -183,3 +184,44 @@ the same controller observes and schedules; resetting does not require a process
 restart. Connected terminal runs retain their coordinated new-epoch recovery rule.
 The shared production-container acceptance checks finalize/reset and failed/stalled
 SQL fixtures followed by reset and successful new-epoch execution.
+
+## Independent persistent deployment / CyberLab
+
+Copy `manufacturing.env.example` outside the repository and replace secrets.
+Build from the repository root, one image at a time:
+
+```sh
+python3 scripts/docker_guard.py --label manufacturing-api -- docker compose --env-file /absolute/path/manufacturing.env -f apps/manufacturing/compose.v1.yaml build manufacturing-api
+python3 scripts/docker_guard.py --label manufacturing-web -- docker compose --env-file /absolute/path/manufacturing.env -f apps/manufacturing/compose.v1.yaml build manufacturing-web
+python3 scripts/docker_guard.py --label manufacturing-start -- docker compose --env-file /absolute/path/manufacturing.env -f apps/manufacturing/compose.v1.yaml --profile local up -d --no-build
+```
+
+The employee website binds localhost:8083 by default. Named SQL/broker volumes
+persist; normal shutdown omits `--volumes`. Put TLS at the lab ingress.
+For independent CyberLab role placement, omit `--profile local`, configure
+`MANUFACTURING_DATABASE_URL`, `MANUFACTURING_AMQP_URL` and
+`MANUFACTURING_API_UPSTREAM` with reachable addresses, then run API, worker
+and controller on their assigned machines. Workers can replicate; only one
+controller owns the SQL lease. Docker DNS does not span machines. Configure
+role-local credentials and network access; no central service is required.
+Connected mode additionally needs the private adapter/HELICS broker and explicit
+peer routes described in the production document and adapter protocol.
+
+Verify disposable deployments (preserves persistent V1 state):
+
+```sh
+make stack-unit APP=manufacturing
+make stack-check APP=manufacturing
+make manufacturing-connected-check
+make manufacturing-deployment-check
+```
+
+The native check uses a real HELICS storage/power reference peer. It does not
+claim a live hosted CyberLab or separate physical-machine deployment. See
+[SIMU-3 acceptance](../../docs/simu-3-acceptance.md) for actual results.
+
+`SCENARIO_PRESET=pump-assembly` selects the seeded pump/BOM/two-slot assembly
+scenario on a fresh deployment. The canonical work-order states are queued,
+ready, held, running and completed. Completion facts publish good output and
+scrap together to the owned durable `production.events.v1` queue; see the
+production document for scope, correlation and redelivery semantics.

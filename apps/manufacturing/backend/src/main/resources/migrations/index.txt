@@ -3,3 +3,6 @@
 003_scenarios.sql
 004_manufacturing_adapter.sql
 005_manufacturing_native_barrier.sql
+
+006_manufacturing_production.sql
+007_manufacturing_workflow_events.sql

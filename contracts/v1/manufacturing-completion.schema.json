@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "event_id",
+    "run_id",
+    "epoch",
+    "correlation_id",
+    "aggregate_id",
+    "aggregate_version",
+    "simulation_time",
+    "payload"
+  ],
+  "properties": {
+    "type": {
+      "const": "manufacturing.batch.completed.v1"
+    },
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "epoch": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "correlation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "aggregate_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "aggregate_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "simulation_time": {
+      "type": "number",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product",
+        "line",
+        "quantity",
+        "output_quantity",
+        "scrap_quantity"
+      ],
+      "properties": {
+        "product": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+        },
+        "line": {
+          "type": "string",
+          "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "output_quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "scrap_quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      }
+    }
+  }
+}

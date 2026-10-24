@@ -70,3 +70,10 @@ See [shared verification](../../docs/verification.md) for complete commands and
 platforms. Hosted CI, production ingress and separate physical hosts were not
 executed locally. Native state loss requires externally coordinated recovery and
 a new epoch. The guarded scripts stop only their own disposable projects.
+
+## Manufacturing V1
+
+The foundation evidence above remains historical. Current domain, frontend,
+recovery, native transport, packaging and scope decisions are recorded in
+[SIMU-3 acceptance](../../docs/simu-3-acceptance.md). The final unit suite contains
+40 backend tests plus four frontend tests and the Angular production build.

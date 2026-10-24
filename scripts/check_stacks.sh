@@ -31,6 +31,20 @@ for selected_app in $selected; do
   work compose -f "$manifest" run --rm "$selected_app-verify" python scripts/stack_acceptance.py --app "$selected_app" --url "http://$selected_app-api:8000" --terminal-reset
   if [ "${STACK_STARTUP_ONLY:-0}" != 1 ]; then sh scripts/recovery_stacks.sh "$manifest" "$selected_app"; fi
  fi
+ if [ "$selected_app" = manufacturing ]; then
+  work compose -f "$manifest" up -d --scale manufacturing-worker=2 manufacturing-worker
+  replicas=$(docker compose -f "$manifest" ps -q --status running manufacturing-worker | wc -l)
+  [ "$replicas" -eq 2 ]
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py
+  work compose -f "$manifest" stop manufacturing-worker
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase workers-down
+  work compose -f "$manifest" start manufacturing-worker
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase workers-up
+  work compose -f "$manifest" stop manufacturing-broker
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase broker-down
+  work compose -f "$manifest" up -d --wait manufacturing-broker
+  work compose -f "$manifest" run --rm manufacturing-verify python scripts/manufacturing_acceptance.py --phase broker-up
+ fi
  if [ "$selected_app" = storage ]; then
   work compose -f "$manifest" up -d --scale storage-worker=2 storage-worker
   replicas=$(docker compose -f "$manifest" ps -q --status running storage-worker | wc -l)

@@ -69,3 +69,12 @@ The twin is never a time regulator or business mutator. Its source snapshots
 contain public status/identity fields, not source credentials. Each source has
 its own observed/granted/committed watermark; source connectivity does not prove
 a federation-wide atomic snapshot or a ready business scheduler.
+
+## Manufacturing domain extension
+
+[Manufacturing V1](manufacturing-v1.md) adds queued production commands and
+run-scoped manufacturing snapshots. The transport-only
+[`manufacturing-boundary` schema](../contracts/v1/manufacturing-boundary.schema.json)
+adds typed demand while retaining storage's issued reservation facts and
+request/receipt inputs. The adapter command schema includes this union;
+published sample and storage-boundary schemas remain unchanged.
