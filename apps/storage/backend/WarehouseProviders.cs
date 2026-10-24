@@ -13,7 +13,7 @@ public static class WarehouseProviders
             case "storage.release.v1": action="release"; boundary="requests"; Rules.Fields(payload,"reference"); break;
             case "storage.issue.v1": action="issue";boundary="requests";Rules.Fields(payload,"reference","unit_destinations");if(payload["unit_destinations"] is not JsonObject)throw new Validation("Explicit input endpoint map required");break;
             case "storage.pick.v1": action="pick"; boundary="requests"; Rules.Fields(payload,"reference"); break;
-            case "storage.transfer.v1": action="transfer"; boundary="requests"; Rules.Fields(payload,"reference","destination"); break;
+            case "storage.transfer.v1": action="transfer"; boundary="requests"; Rules.Fields(payload,"reference","destination","unit_destinations"); break;
             case "storage.transfer.arrived.v1": action="arrive"; boundary="requests"; Rules.Fields(payload,"reference"); break;
             default: throw new Validation("Unsupported storage boundary event type");
         }

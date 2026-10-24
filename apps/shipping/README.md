@@ -122,6 +122,20 @@ Connected mode also requires `FEDERATION_ID`, `FEDERATION_RUN_ID`,
 The separate adapter owns `HELICS_CONFIG` and native HELICS. `HELICS_TIMEOUT_SECONDS`
 defaults to 60. No synthetic fallback or unilateral live rejoin is permitted.
 
+Native Storage reservations declare one to eight canonical units per line.
+Shipping retains those identities as promises, then admits the complete order
+to finite receiving positions before requesting picks. Other receipts and
+intakes respect these promised positions. Capacity waits remain durable jobs;
+an order exceeding the facility's complete footprint becomes blocked with its
+source reservations retained. Cancellation remains available before any pick
+intent begins, including while admission waits for capacity.
+
+Transfer requests include the receiver-assigned `unit_destinations` map. Only
+matching departure proofs import those units and continue their counters.
+Complete local custody receipts make the order ready; delayed source receipt
+confirmations settle intent history while preserving onward shipment state.
+The website and command handler share cancellation eligibility.
+
 The controller holds a PostgreSQL session lease. It persists its native session
 and each operation's request ID/body before HTTP; retries use the original
 request. Poll intents fence finalization before receiving messages. Only committed

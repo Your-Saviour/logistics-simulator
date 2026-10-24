@@ -29,7 +29,7 @@ final class ShippingBoundary
         $e['aggregate_id']=$e['event_id'];$e['aggregate_version']=1;$e['wall_time']=(new \DateTimeImmutable('now',new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.uP');
         if($kind==='reserve'){$e['type']='storage.request.v1';$e['payload']=['sku'=>$line['sku'],'location'=>Settings::env('SHIPPING_STOCK_LOCATION','FINISHED-A'),'quantity'=>$line['quantity'],'purpose'=>'customer'];}
         elseif(in_array($kind,['pick','release'],true)){$e['type']='storage.'.$kind.'.v1';$e['payload']=['reference'=>$line['reservation_id']];}
-        elseif($kind==='transfer'){$e['type']='storage.transfer.v1';$e['payload']=['reference'=>$line['reservation_id'],'destination'=>Settings::env('SHIPPING_STOCK_DESTINATION','DISPATCH')];}
+        elseif($kind==='transfer'){$e['type']='storage.transfer.v1';$e['payload']=['reference'=>$line['reservation_id'],'destination'=>Settings::env('SHIPPING_STOCK_DESTINATION','DISPATCH'),'unit_destinations'=>$line['unit_destinations']];}
         elseif($kind==='produce'){$e['type']='manufacturing.demand.v1';$e['payload']=['product'=>$line['sku'],'line'=>Settings::env('SHIPPING_PRODUCTION_LINE','LINE-1'),'quantity'=>$line['quantity']];}
         elseif($kind==='dispatch'){$e['type']='logistics.request.v1';$e['payload']=['route'=>Settings::env('SHIPPING_CARRIER_ROUTE','DISPATCH-CUSTOMER'),'sku'=>$line['sku'],'quantity'=>$line['quantity'],'external_reference'=>$e['event_id'],'customer_destination'=>$order['destination'],'unit_ids'=>$line['unit_ids'],'unit_manifest'=>$line['unit_manifest']];}
         return $e;

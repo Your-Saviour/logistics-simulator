@@ -12,6 +12,9 @@ php /app/tests/shipping.php
 php /app/tests/handling_handoffs.php
 php /app/tests/handling_units.php
 php /app/tests/shipping_carrier_handoff.php
+php /app/tests/shipping_goods_capacity_cancel.php
+php /app/tests/shipping_goods_handoff.php
+php /app/tests/shipping_goods_admission.php
 php /app/tests/shipping_http.php
 php /app/tests/shipping_web.php
 php /app/tests/shipping_boundary.php

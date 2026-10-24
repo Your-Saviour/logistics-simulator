@@ -127,6 +127,20 @@ Local receipts and movements respect these incoming promises. A blocked dock
 retries the identical offer when capacity becomes available. The warehouse API
 and projection include receiving handoffs alongside outgoing raw handoffs.
 
+`HELICS_PEERS.requests` accepts either one peer object or a list containing
+Manufacturing and Shipping. Incoming reference commands are bound to the peer
+that created the referenced receipt, reservation or transfer. Replies route to
+that peer: Manufacturing receives `materials`, Shipping receives `goods`.
+
+Connected customer transfers carry Shipping's exact `unit_destinations` map.
+They remain `awaiting_acceptance` with reserved stock at Storage until every
+receiving endpoint is accepted. Departure then retires the complete allocation.
+The transfer's `destination_owner` is `shipping`; `DISPATCH` remains its logical
+routing label. Matching receipts complete the transfer without adding inventory
+to Storage's DISPATCH location. These transfers require custody proofs for
+receipt rather than an `arrive` command. A finished Manufacturing import also
+publishes its correlated stock-receipt notification to waiting Shipping orders.
+
 ## Dependencies and preserved-state cutover
 
 The SDK is pinned in `global.json` to 10.0.402 and the runtime image to ASP.NET

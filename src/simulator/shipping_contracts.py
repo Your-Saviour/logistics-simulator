@@ -73,6 +73,13 @@ class ReferenceInput(Strict):
 
 class TransferInput(ReferenceInput):
     destination: Code
+    unit_destinations: dict[UUID, Annotated[str, Field(pattern=r'^shipping\.outbound\.(?:dock0[1-4]|staging\.r(?:0[1-9]|1[0-6])\.b0[1-8])$')]] | None = Field(default=None, min_length=1, max_length=8)
+
+    @model_validator(mode='after')
+    def distinct_receiving_slots(self):
+        if self.unit_destinations is not None and len(set(self.unit_destinations.values())) != len(self.unit_destinations):
+            raise ValueError('Each whole unit requires a distinct Shipping receiving endpoint')
+        return self
 
 
 class StorageReferenceEnvelope(Envelope):

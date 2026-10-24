@@ -42,3 +42,17 @@ def test_each_explicit_provider_can_report_its_own_failure(owner,boundary):
     e=envelope();e['source']=owner;e['boundary']=boundary
     e['payload'].update(owner=owner,result='failed',reason='Provider declined')
     assert transport_envelope.validate_python(e).payload.result=='failed'
+
+
+def test_customer_transfer_carries_exact_shipping_endpoint_assignments():
+    from simulator.adapter_protocol import Publication
+    e=envelope('storage.transfer.v1')
+    unit=str(uuid4())
+    e.update(source='shipping',destination='storage',boundary='requests',
+             payload={'reference':str(uuid4()),'destination':'DISPATCH',
+                      'unit_destinations':{unit:'shipping.outbound.staging.r01.b02'}})
+    assert str(next(iter(transport_envelope.validate_python(e).payload.unit_destinations)))==unit
+    Publication.model_validate({'endpoint':'storage/events','envelope':e})
+    for destinations in ({}, {unit:'manufacturing.cell01.input01'}, {'not-uuid':'shipping.outbound.dock01'}):
+        wrong={**e,'payload':{**e['payload'],'unit_destinations':destinations}}
+        with pytest.raises(ValidationError):transport_envelope.validate_python(wrong)

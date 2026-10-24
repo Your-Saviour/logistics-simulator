@@ -1883,7 +1883,7 @@
                 ],
                 "type": "object"
               },
-              "maxItems": 4,
+              "maxItems": 8,
               "minItems": 1,
               "type": "array"
             },
@@ -2233,6 +2233,19 @@
           ],
           "title": "Status",
           "type": "string"
+        },
+        "destination_owner": {
+          "anyOf": [
+            {
+              "const": "shipping",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Destination Owner"
         },
         "version": {
           "minimum": 1,

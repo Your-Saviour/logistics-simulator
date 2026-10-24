@@ -123,6 +123,7 @@ if (Environment.GetEnvironmentVariable("STORAGE_INTEGRATION")=="true") {
     await HandlingUnitTests.Run(ledger,settings,Check);
     CustodyTests.Run(ledger,settings,Check);
     FinishedCustodyTests.Run(ledger,settings,Check);
+    ShippingCustodyTests.Run(ledger,settings,Check);
     await WarehouseTests.Run(ledger,settings,Check);
     WarehouseBoundaryTests.Run(ledger,settings,Check);
     Console.WriteLine($"{count} total checks passed (PostgreSQL and RabbitMQ)");

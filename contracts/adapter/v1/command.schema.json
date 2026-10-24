@@ -2751,7 +2751,7 @@
                 ],
                 "type": "object"
               },
-              "maxItems": 4,
+              "maxItems": 8,
               "minItems": 1,
               "type": "array"
             },
@@ -3431,6 +3431,19 @@
           "title": "Status",
           "type": "string"
         },
+        "destination_owner": {
+          "anyOf": [
+            {
+              "const": "shipping",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Destination Owner"
+        },
         "version": {
           "minimum": 1,
           "title": "Version",
@@ -3464,6 +3477,27 @@
           "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$",
           "title": "Destination",
           "type": "string"
+        },
+        "unit_destinations": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "pattern": "^shipping\\.outbound\\.(?:dock0[1-4]|staging\\.r(?:0[1-9]|1[0-6])\\.b0[1-8])$",
+                "type": "string"
+              },
+              "maxProperties": 8,
+              "minProperties": 1,
+              "propertyNames": {
+                "format": "uuid"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit Destinations"
         }
       },
       "required": [

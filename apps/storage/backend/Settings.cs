@@ -13,6 +13,11 @@ public sealed class Settings
     public Scenario Scenario=new(JsonNode.Parse(Env("SCENARIO","{}"))!.AsObject());
     public List<Identity> Identities=[];
     static readonly Dictionary<string,string[]> Permissions=new() { ["operator"]=["status:read","jobs:write","runs:control","audit:read"],["employee"]=["status:read","jobs:write"],["service"]=["status:read","jobs:write"] };
+    public bool HasPeer(string boundary,string source,string? endpoint=null) {
+        var value=Peers[boundary];var routes=value is JsonArray array?array:new JsonArray(value?.DeepClone());
+        return routes.Any(p=>p is JsonObject&&p["source"]?.ToString()==source&&(endpoint is null||p["endpoint"]?.ToString()==endpoint));
+    }
+    public bool HasOutput(string owner,string boundary)=>Outputs.Any(o=>o?["destination"]?.ToString()==owner&&o["boundary"]?.ToString()==boundary);
     public Settings() {
         if(Env("SIMULATOR","storage")!="storage" || !new[]{"api","worker","controller"}.Contains(Role) || !new[]{"standalone","helics"}.Contains(Mode)) throw new Validation("Invalid simulator, role or clock mode");
         if(!double.IsFinite(Quantum)||Quantum<1) throw new Validation("Finite quantum of at least one second required");

@@ -73,21 +73,23 @@ class ReservationFact(StockQuantity):
     status: Literal['reserved', 'picked', 'released', 'issued', 'transferred']
     version: int = Field(strict=True, ge=1)
     unit_manifest: list[Annotated[dict[str, Any], WithJsonSchema(
-        json.loads((contract_root() / 'unit.schema.json').read_text()))]] | None = Field(default=None, min_length=1, max_length=4)
+        json.loads((contract_root() / 'unit.schema.json').read_text()))]] | None = Field(default=None, min_length=1, max_length=8)
 
     @model_validator(mode='after')
     def exact_reserved_units(self):
         if self.unit_manifest is None:
             return self
-        if self.purpose != 'production' or self.status != 'reserved':
-            raise ValueError('Only production reservations carry selected unit manifests')
+        if self.status != 'reserved' or len(self.unit_manifest) > (4 if self.purpose == 'production' else 8):
+            raise ValueError('Only compatible reserved allocations carry selected unit manifests')
+        category = 'raw' if self.purpose == 'production' else 'finished'
+        maximum_sequence = 2147483645 if self.purpose == 'production' else 2147483644
         identities=set()
         total=0
         for unit in self.unit_manifest:
             validate_unit(unit)
-            if unit['version'] > 2147483644 or unit['last_sequence'] > 2147483645 or unit['custody_generation'] > 2147483646:
+            if unit['version'] > 2147483644 or unit['last_sequence'] > maximum_sequence or unit['custody_generation'] > 2147483646:
                 raise ValueError('Selected counters lack native departure, receipt and consumption headroom')
-            if unit['id'] in identities or unit['owner'] != 'storage' or unit['category'] != 'raw' or unit['state'] != 'reserved' or unit['run_id'] != str(self.run_id):
+            if unit['id'] in identities or unit['owner'] != 'storage' or unit['category'] != category or unit['state'] != 'reserved' or unit['run_id'] != str(self.run_id):
                 raise ValueError('Invalid selected source custody identity')
             if len(unit['contents']) != 1 or unit['contents'][0]['sku'] != self.sku:
                 raise ValueError('Selected unit must match reserved SKU')
@@ -108,6 +110,7 @@ class TransferFact(Strict):
     quantity: Quantity
     correlation_id: UUID
     status: Literal['in_transit', 'received']
+    destination_owner: Literal['shipping'] | None = None
     version: int = Field(strict=True, ge=1)
 
 

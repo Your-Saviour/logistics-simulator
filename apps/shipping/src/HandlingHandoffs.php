@@ -37,9 +37,11 @@ final class HandlingHandoffs
         if($old&&$old['correlation_id']!==$correlation)throw new Conflict('Handoff correlation changed');
         if($h['state']==='offered'){
             if($old){if($old['offer']!=$h)throw new Conflict('Handoff identity changed');return $old['acceptance'];}
+            GoodsPlans::checkOffer($u,$r,$h,$correlation);
             if($u->query('SELECT 1 FROM shipping_handling_units WHERE id=?',[$h['unit']['id']]))throw new Conflict('Barcode already known; explicit returning-custody reconciliation required');
             if($u->query("SELECT 1 FROM shipping_handling_handoffs WHERE run_id=? AND epoch=? AND state='accepted' AND unit_id=?",[$r['id'],$r['epoch'],$h['unit']['id']]))throw new Conflict('Whole-unit identity already has an accepted handoff');
             if($u->query("SELECT 1 FROM shipping_handling_handoffs WHERE run_id=? AND epoch=? AND state='accepted' AND destination=?",[$r['id'],$r['epoch'],$h['destination']])||$u->query('SELECT 1 FROM shipping_handling_units WHERE run_id=? AND epoch=? AND position=?',[$r['id'],$r['epoch'],$h['destination']]))throw new CustodyCapacity('Destination capacity unavailable; identical offer can retry after the slot becomes free');
+            if($u->query("SELECT 1 FROM shipping_unit_plans WHERE run_id=? AND state='expected' AND destination=? AND unit_id<>?",[$r['id'],$h['destination'],$h['unit']['id']]))throw new CustodyCapacity('Receiving endpoint belongs to another expected whole unit');
             $accepted=[...$h,'state'=>'accepted'];$u->execute('INSERT INTO shipping_handling_handoffs(id,run_id,epoch,unit_id,destination,correlation_id,state,offer,acceptance,command_id) VALUES (?,?,?,?,?,?,?,?,?,?)',[$h['id'],$r['id'],$r['epoch'],$h['unit']['id'],$h['destination'],$correlation,'accepted',$h,$accepted,$command]);self::publish($u,$r,$s,$accepted,$correlation);return $accepted;
         }
         if(!$old)throw new Conflict('Departure cannot precede durable capacity acceptance');
@@ -54,7 +56,7 @@ final class HandlingHandoffs
         // Only this receiver writes its confirmed position. Source placement was
         // already removed in the durable departure represented by this token.
         HandlingUnits::import($u,$r,$command,$h,$correlation);
-        $received=[...$h,'state'=>'received','receipt_id'=>Rules::uuid5($h['id'],'shipping-receipt')];$u->execute("UPDATE shipping_handling_handoffs SET state='received',receipt=? WHERE id=?",[$received,$h['id']]);self::publish($u,$r,$s,$received,$correlation);return $received;
+        $received=[...$h,'state'=>'received','receipt_id'=>Rules::uuid5($h['id'],'shipping-receipt')];$u->execute("UPDATE shipping_handling_handoffs SET state='received',receipt=? WHERE id=?",[$received,$h['id']]);GoodsPlans::received($u,$r,$h['unit']['id']);self::publish($u,$r,$s,$received,$correlation);return $received;
     }
     public static function offerLine(Unit $u,array $r,Settings $s,array $line,string $shipment,string $correlation,array $destinations):void {
         $missing=[];foreach($line['unit_ids'] as $id)if(!$u->query('SELECT 1 FROM shipping_handling_departures WHERE id=?',[Rules::uuid5($shipment,$id)]))$missing[$id]=true;

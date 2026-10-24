@@ -21,18 +21,21 @@ final class HandlingUnits
     public static function import(Unit $u,array $r,string $command,array $h,string $correlation):void {
         $source=$h['unit'];$item=$source['contents'][0];
         if($u->query('SELECT 1 FROM shipping_handling_units WHERE run_id=? AND epoch=? AND position=?',[$r['id'],$r['epoch'],$h['destination']]))throw new Conflict('Accepted destination is occupied; preserve source transit for recovery');
-        $line=$u->query("SELECT l.* FROM shipping_lines l JOIN shipping_orders o ON o.id=l.order_id JOIN shipping_intents i ON i.line_id=l.id AND i.kind='receive' AND i.state='pending' WHERE o.run_id=? AND o.correlation_id=? AND l.sku=?",[$r['id'],$correlation,$item['sku']])[0]??null;
+        $line=$u->query("SELECT l.* FROM shipping_lines l JOIN shipping_orders o ON o.id=l.order_id JOIN shipping_unit_plans p ON p.line_id=l.id WHERE p.unit_id=? AND p.provider='storage' AND p.state='expected' AND o.run_id=? AND o.correlation_id=?",[$source['id'],$r['id'],$correlation])[0]??null;
+        if(!$line)$line=$u->query("SELECT l.* FROM shipping_lines l JOIN shipping_orders o ON o.id=l.order_id JOIN shipping_intents i ON i.line_id=l.id AND i.kind='receive' AND i.state='pending' WHERE o.run_id=? AND o.correlation_id=? AND l.sku=?",[$r['id'],$correlation,$item['sku']])[0]??null;
         if($line){$quantity=$u->one("SELECT COALESCE(sum(h.quantity),0) AS n FROM shipping_handling_units h JOIN shipping_unit_allocations a ON a.unit_id=h.id AND a.active WHERE a.line_id=?",[$line['id']])['n'];if($quantity+$item['quantity']>$line['quantity'])throw new Conflict('Receipt would overfulfil the complete line');}
         $unit=$u->one("INSERT INTO shipping_handling_units(id,barcode,run_id,epoch,sku,quantity,state,position,command_id,version,last_sequence,custody_generation,line_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *",[$source['id'],$source['barcode'],$r['id'],$r['epoch'],$item['sku'],$item['quantity'],$line?'reserved':'available',$h['destination'],$command,$source['version'],$source['last_sequence'],$source['custody_generation'],$line['id']??null]);
-        if($line){$u->execute('INSERT INTO shipping_unit_allocations(line_id,unit_id) VALUES (?,?)',[$line['id'],$unit['id']]);$ids=[...$line['unit_ids'],$unit['id']];sort($ids);$u->execute('UPDATE shipping_lines SET unit_ids=? WHERE id=?',[$ids,$line['id']]);}
-        self::movement($u,$r,$command,$unit,'receive',$h['origin'],$h['destination'],$correlation);
+        if($line){$u->execute('INSERT INTO shipping_unit_allocations(line_id,unit_id) VALUES (?,?)',[$line['id'],$unit['id']]);$ids=array_values(array_unique([...$line['unit_ids'],$unit['id']]));sort($ids);$u->execute('UPDATE shipping_lines SET unit_ids=? WHERE id=?',[$ids,$line['id']]);}
+        self::movement($u,$r,$command,$unit,'receive',$h['origin'],$h['destination'],$correlation);$u->execute("UPDATE shipping_unit_plans SET state='received' WHERE unit_id=? AND provider='storage'",[$source['id']]);
     }
-    public static function freePosition(Unit $u,array $r):string {
+    public static function positions():array {$locations=self::catalog();ksort($locations);$result=[];foreach($locations as $id=>$location)if($location['owner']==='shipping'&&in_array('finished',$location['compatible'],true))$result[]=$id;return $result;}
+    public static function freePositions(Unit $u,array $r):array {
         $occupied=array_column($u->query('SELECT position FROM shipping_handling_units WHERE run_id=? AND epoch=? AND position IS NOT NULL',[$r['id'],$r['epoch']]),'position');
         $occupied=[...$occupied,...array_column($u->query("SELECT destination FROM shipping_handling_handoffs WHERE run_id=? AND epoch=? AND state='accepted'",[$r['id'],$r['epoch']]),'destination')];
-        $locations=self::catalog();ksort($locations);foreach($locations as $id=>$location)if($location['owner']==='shipping'&&in_array('finished',$location['compatible'],true)&&!in_array($id,$occupied,true))return $id;
-        throw new Conflict('No Shipping staging slot capacity; free a position and retry the receipt');
+        $occupied=[...$occupied,...array_column($u->query("SELECT destination FROM shipping_unit_plans WHERE run_id=? AND state='expected' AND destination IS NOT NULL",[$r['id']]),'destination')];
+        return array_values(array_diff(self::positions(),$occupied));
     }
+    public static function freePosition(Unit $u,array $r):string {return self::freePositions($u,$r)[0]??throw new Conflict('No Shipping staging slot capacity; free a position and retry the receipt');}
     public static function counterRoom(array $unit,bool $movement=false,bool $generation=false):void {
         if($unit['version']>=2147483647||($movement&&$unit['last_sequence']>=2147483647)||($generation&&$unit['custody_generation']>=2147483647))throw new Conflict('Handling-unit counter capacity exhausted; reconcile before further movement');
     }
@@ -78,7 +81,9 @@ final class HandlingUnits
         $units=$u->query("SELECT * FROM shipping_handling_units WHERE run_id=? AND line_id=? AND state='reserved'",[$r['id'],$line['id']]);if(!$units)return false;foreach($units as $unit)self::counterRoom($unit);
         $u->execute("UPDATE shipping_handling_units SET state='available',line_id=NULL,version=version+1 WHERE run_id=? AND line_id=? AND state='reserved'",[$r['id'],$line['id']]);$u->execute('UPDATE shipping_unit_allocations SET active=false WHERE line_id=?',[$line['id']]);$u->execute('UPDATE shipping_lines SET reserved=0 WHERE id=?',[$line['id']]);return true;
     }
-    public static function releasePlan(Unit $u,array $line):void {$u->execute("UPDATE shipping_unit_plans SET state='released' WHERE line_id=? AND state='expected'",[$line['id']]);}
+    public static function releasePlan(Unit $u,array $line):void {
+        if($u->query("SELECT 1 FROM shipping_unit_plans p LEFT JOIN shipping_handling_units h ON h.id=p.unit_id LEFT JOIN shipping_handling_handoffs c ON c.unit_id=p.unit_id AND c.state='accepted' WHERE p.line_id=? AND p.provider='storage' AND (h.id IS NOT NULL OR c.id IS NOT NULL)",[$line['id']]))throw new Conflict('Source release cannot reverse accepted or received whole-unit custody');
+        $u->execute("DELETE FROM shipping_unit_plans WHERE line_id=? AND provider='storage' AND state='expected'",[$line['id']]);$u->execute("UPDATE shipping_goods_reservations SET state='released',reason=NULL WHERE line_id=?",[$line['id']]);$u->execute("UPDATE shipping_unit_plans SET state='released' WHERE line_id=? AND state='expected'",[$line['id']]);}
     private static function carrierPosition(Unit $u,array $r,int $quantity):string {
         $pending=$u->query("SELECT destination,quantity FROM shipping_handling_units WHERE run_id=? AND epoch=? AND state='in_transit'",[$r['id'],$r['epoch']]);$used=array_column($pending,'destination');$locations=self::catalog();ksort($locations);
         foreach($locations as $id=>$location)if($location['owner']==='logistics'&&str_starts_with($id,'logistics.outbound.truck')&&!in_array($id,$used,true)){
@@ -108,6 +113,6 @@ final class HandlingUnits
     public static function snapshot(Unit $u,array $r):array {
         return ['version'=>1,'catalog_version'=>1,'units'=>array_map(self::contract(...),$u->query('SELECT * FROM shipping_handling_units WHERE run_id=? AND epoch=? ORDER BY id',[$r['id'],$r['epoch']])),
             'movements'=>$u->query('SELECT id,unit_id,barcode,run_id,epoch,sequence,custody_generation,action,origin,destination,simulation_time,"references",correlation_id FROM shipping_unit_movements WHERE run_id=? AND epoch=? ORDER BY unit_id,sequence',[$r['id'],$r['epoch']]),
-            'plans'=>$u->query('SELECT * FROM shipping_unit_plans WHERE run_id=? ORDER BY unit_id',[$r['id']]),'handoffs'=>[...array_map(fn($row)=>[...($row['receipt']??$row['acceptance']),'state'=>$row['state']],$u->query('SELECT state,acceptance,receipt FROM shipping_handling_handoffs WHERE run_id=? AND epoch=? ORDER BY id',[$r['id'],$r['epoch']])),...array_map(fn($row)=>$row['acknowledgement']??$row['departure']??$row['offer'],$u->query('SELECT offer,departure,acknowledgement FROM shipping_handling_departures WHERE run_id=? AND epoch=? ORDER BY id',[$r['id'],$r['epoch']]))],'lineage'=>[]];
+            'goods_reservations'=>$u->query('SELECT * FROM shipping_goods_reservations WHERE run_id=? ORDER BY id',[$r['id']]),'plans'=>$u->query('SELECT * FROM shipping_unit_plans WHERE run_id=? ORDER BY unit_id',[$r['id']]),'handoffs'=>[...array_map(fn($row)=>[...($row['receipt']??$row['acceptance']),'state'=>$row['state']],$u->query('SELECT state,acceptance,receipt FROM shipping_handling_handoffs WHERE run_id=? AND epoch=? ORDER BY id',[$r['id'],$r['epoch']])),...array_map(fn($row)=>$row['acknowledgement']??$row['departure']??$row['offer'],$u->query('SELECT offer,departure,acknowledgement FROM shipping_handling_departures WHERE run_id=? AND epoch=? ORDER BY id',[$r['id'],$r['epoch']]))],'lineage'=>[]];
     }
 }

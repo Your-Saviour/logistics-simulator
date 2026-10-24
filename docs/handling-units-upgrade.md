@@ -203,6 +203,39 @@ Artifacts are under `.superpowers/sdd/2026-10-25-simu64-implementation/carrier-n
 This is outbound-pair evidence, not Storage/Manufacturing or whole-factory
 acceptance.
 
+## Native Storage-to-Shipping transfers
+
+Storage migration `012_shipping_custody_source.sql` adds the external destination
+owner and an `awaiting_acceptance` transfer state. Shipping migration
+`015_goods_reservations.sql` retains canonical reservation facts and receiving
+plans. Existing transfers keep their existing internal Storage destination;
+their destination owner is not guessed or backfilled as Shipping.
+
+Drain old connected customer transfers and quantity-only pending writers before
+enabling the new route. An existing internal DISPATCH receipt is not a Shipping
+custody receipt. Preserve the original records and reconcile incomplete legacy
+orders through the established drain/conversion process.
+
+Configure Storage's request peers with Manufacturing and Shipping, and its
+outputs with Manufacturing `materials` and Shipping `goods`. Shipping requires
+Storage on `goods` and Logistics on `carrier`; `goods` can also include
+Manufacturing. Finished-stock feedback comes from Storage. Shipping
+outgoing routes are Storage `requests`,
+Manufacturing `demand` and Logistics `transport`. Customer reservation manifests
+contain at most eight whole units per line. Shipping reserves receiving capacity
+for the complete order before picks begin. Source reference commands are fenced
+to their originating peer.
+
+`make handling-factory-check` runs the four real departmental backends, four
+private adapters and a native HELICS broker without Twin. It starts an order
+against empty stock, adds an explicit raw receipt through Storage's API, and
+checks recipe consumption, fresh output lineage, all four custody legs and the
+native customer receipt. Twelve publication gates drop acceptance, receipt and
+acknowledgement messages. The verifier checks that late confirmations preserve
+onward delivery and newer custody generations. This is local single-order
+acceptance; renderer performance and broader outage/upgrade acceptance remain
+separate checks.
+
 ## Twin instructions pending
 
 Twin upgrade instructions will be added with its native implementation. The shared protocol is in

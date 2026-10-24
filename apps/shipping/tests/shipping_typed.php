@@ -8,11 +8,11 @@ function typedEnvelope(array $o,array $i,array $payload,string $type,float $due,
 // Controlled peer fixture: these native calls stand in for the external
 // source/receiver handshake. They are not evidence of connected native IO.
 function typedReceiveHandoff(array $o,array $line,array $intent):void {global $db,$ledger,$settings;
- $db->transaction(function($u)use($o,$line,$intent,$settings){$r=$u->run();$id=Rules::uuid5($intent['id'],'whole-unit');$handoff=Rules::uuid5($intent['id'],'handoff');$destination=Shipping\HandlingUnits::freePosition($u,$r);
-  $unit=['id'=>$id,'barcode'=>'HU-'.strtoupper(str_replace('-','',$id)),'run_id'=>$r['id'],'epoch'=>$r['epoch'],'contents'=>[['sku'=>$line['sku'],'quantity'=>$line['quantity']]],'category'=>'finished','state'=>'reserved','owner'=>'storage','version'=>1,'custody_generation'=>0,'last_sequence'=>0,'position'=>'storage.dispatch.dock01','origin'=>null,'destination'=>null,'handoff_id'=>null];
+ $db->transaction(function($u)use($o,$line,$intent,$settings){$r=$u->run();$plan=$u->one("SELECT * FROM shipping_unit_plans WHERE line_id=? AND provider='storage' AND state='expected'",[$line['id']]);$unit=$plan['source_manifest'];$id=$unit['id'];$handoff=Rules::uuid5($intent['id'],'handoff');$destination=$plan['destination'];$unit['position']='storage.outbound.dock01';$unit['version']++;$unit['last_sequence']++;
   $h=['id'=>$handoff,'run_id'=>$r['id'],'epoch'=>$r['epoch'],'source'=>'storage','destination_owner'=>'shipping','origin'=>$unit['position'],'destination'=>$destination,'state'=>'offered','unit'=>$unit,'departure_token'=>null,'receipt_id'=>null,'reason'=>null];
   Shipping\HandlingHandoffs::receive($u,$r,$settings,$h,$o['correlation_id'],$o['id']);
-  $h=[...$h,'state'=>'departed','unit'=>[...$unit,'state'=>'in_transit','position'=>null,'origin'=>$h['origin'],'destination'=>$destination,'handoff_id'=>$handoff,'custody_generation'=>1,'last_sequence'=>1,'version'=>2],'departure_token'=>['id'=>Rules::uuid5($handoff,'token'),'handoff_id'=>$handoff,'unit_id'=>$id,'run_id'=>$r['id'],'epoch'=>$r['epoch'],'custody_generation'=>1,'last_sequence'=>1,'unit_version'=>2]];
+  $transit=[...$unit,'state'=>'in_transit','position'=>null,'origin'=>$h['origin'],'destination'=>$destination,'handoff_id'=>$handoff,'custody_generation'=>$unit['custody_generation']+1,'last_sequence'=>$unit['last_sequence']+1,'version'=>$unit['version']+1];
+  $h=[...$h,'state'=>'departed','unit'=>$transit,'departure_token'=>['id'=>Rules::uuid5($handoff,'token'),'handoff_id'=>$handoff,'unit_id'=>$id,'run_id'=>$r['id'],'epoch'=>$r['epoch'],'custody_generation'=>$transit['custody_generation'],'last_sequence'=>$transit['last_sequence'],'unit_version'=>$transit['version']]];
   Shipping\HandlingHandoffs::receive($u,$r,$settings,$h,$o['correlation_id'],$o['id']);
  });
 }
@@ -32,11 +32,11 @@ function typedUntil(string $target,string $id):void {global $db,$ledger,$shippin
    switch($i['kind']){
     case 'reserve':
      if(!$shortage){$shortage=true;$p=['action'=>'reserve','reason'=>'Insufficient available stock; complete quantities required','request'=>['action'=>'reserve','sku'=>$line['sku'],'quantity'=>$line['quantity']]];$type='storage.command.rejected.v1';}
-     else{$p+=['location'=>'FINISHED-A','purpose'=>'customer','status'=>'reserved'];$type='storage.reserve.completed.v1';}break;
+     else{$unitId=Rules::uuid5($line['id'],'canonical-stock');$unit=['id'=>$unitId,'barcode'=>'HU-'.strtoupper(str_replace('-','',$unitId)),'run_id'=>$r['id'],'epoch'=>$r['epoch'],'contents'=>[['sku'=>$line['sku'],'quantity'=>$line['quantity']]],'category'=>'finished','state'=>'reserved','owner'=>'storage','version'=>3,'custody_generation'=>0,'last_sequence'=>1,'position'=>'storage.finished.r01.b01.l01','origin'=>null,'destination'=>null,'handoff_id'=>null];$p+=['location'=>'FINISHED-A','purpose'=>'customer','status'=>'reserved','unit_manifest'=>[$unit]];$type='storage.reserve.completed.v1';}break;
     case 'produce':$p+=['location'=>'FINISHED-A','status'=>'received'];$type='storage.receive.completed.v1';break;
     case 'pick':$p['id']=$line['reservation_id'];$p['version']=2;$version=2;$p+=['location'=>'FINISHED-A','purpose'=>'customer','status'=>'picked'];$type='storage.pick.completed.v1';break;
-    case 'transfer':$p+=['reservation_id'=>$line['reservation_id'],'origin'=>'FINISHED-A','destination'=>'DISPATCH','status'=>'in_transit'];$type='storage.transfer.completed.v1';break;
-    case 'receive':typedReceiveHandoff($o,$line,$i);$p['id']=$line['transfer_id'];$p['version']=2;$version=2;$p+=['reservation_id'=>$line['reservation_id'],'origin'=>'FINISHED-A','destination'=>'DISPATCH','status'=>'received'];$type='storage.arrive.completed.v1';break;
+    case 'transfer':$p+=['reservation_id'=>$line['reservation_id'],'origin'=>'FINISHED-A','destination'=>'DISPATCH','destination_owner'=>'shipping','status'=>'in_transit'];$type='storage.transfer.completed.v1';break;
+    case 'receive':typedReceiveHandoff($o,$line,$i);$p['id']=$line['transfer_id'];$p['version']=2;$version=2;$p+=['reservation_id'=>$line['reservation_id'],'origin'=>'FINISHED-A','destination'=>'DISPATCH','destination_owner'=>'shipping','status'=>'received'];$type='storage.arrive.completed.v1';break;
     case 'dispatch':case 'deliver':
      if($i['kind']==='dispatch')typedCarrierHandoff($o,$i);
      $dispatch=$i;if($i['kind']==='deliver')foreach($o['intents'] as $candidate)if($candidate['kind']==='dispatch'&&$candidate['line_id']===$line['id'])$dispatch=$candidate;

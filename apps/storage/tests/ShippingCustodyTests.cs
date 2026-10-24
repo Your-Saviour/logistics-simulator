@@ -1,0 +1,42 @@
+using Storage;
+using System.Text.Json.Nodes;
+
+public static class ShippingCustodyTests
+{
+    public static void Run(Ledger ledger,Settings settings,Action<bool,string> check) {
+        var audit=new Audit(Guid.NewGuid(),"shipping-custody","operator","test:custody","","tests");var providers=settings.Providers;var peers=settings.Peers;var outputs=settings.Outputs;var federation=settings.Federation;
+        void Reset(){var run=ledger.Status()["run"]!.AsObject();ledger.Control("reset",new JsonObject {["confirm_run_id"]=run["id"]!.DeepClone()},audit);}
+        Reset();double time=0;var warehouse=new Warehouse(ledger,settings);var correlation=Guid.NewGuid();
+        void Execute(Guid id){ledger.Heartbeat("controller");ledger.Db.Transaction(u=>{var r=u.Run();u.Exec("UPDATE runs SET granted=@p0,requested=@p0 WHERE id=@p1",time,Ledger.Id(r));return true;});check(ledger.Execute(id)=="completed","Shipping source transaction executes");}
+        Guid Submit(string action,JsonObject fields){var run=ledger.Status()["run"]!.AsObject();fields["run_id"]=run["id"]!.DeepClone();fields["epoch"]=run["epoch"]!.DeepClone();fields["due_at"]=++time;fields["action"]=action;var result=warehouse.Submit(Guid.NewGuid().ToString(),fields,audit);Execute(Ledger.Id(result));return Ledger.Id(result);}
+        JsonObject Stock(string location)=>warehouse.Snapshot()["inventory"]!.AsArray().Single(n=>n!["sku"]!.ToString()=="PRODUCT"&&n["location"]!.ToString()==location)!.AsObject();
+        JsonArray Units()=>warehouse.Snapshot()["handling"]!["units"]!.AsArray();
+        JsonObject Command(Guid id)=>ledger.Db.Transaction(u=>u.One("SELECT * FROM warehouse_commands WHERE id=@p0",id));
+        var manifest=new JsonArray(new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=2},new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=2});
+        var receipt=Submit("expect",new JsonObject {["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=4,["correlation_id"]=correlation.ToString(),["units"]=manifest});Submit("receive",new JsonObject {["reference"]=receipt.ToString()});
+        var reservation=Submit("reserve",new JsonObject {["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=4,["purpose"]="customer",["correlation_id"]=correlation.ToString()});Submit("pick",new JsonObject {["reference"]=reservation.ToString()});
+        try {
+            settings.Federation="shipping-custody";settings.Providers=new JsonObject {["supply"]="synthetic",["requests"]="helics"};settings.Peers=new JsonObject {["requests"]=new JsonArray(new JsonObject {["source"]="manufacturing",["endpoint"]="manufacturing/events"},new JsonObject {["source"]="shipping",["endpoint"]="shipping/events"})};settings.Outputs=new JsonArray(new JsonObject {["destination"]="manufacturing",["boundary"]="materials",["endpoint"]="manufacturing/events"},new JsonObject {["destination"]="shipping",["boundary"]="goods",["endpoint"]="shipping/events"});
+            var map=new JsonObject();for(int i=0;i<manifest.Count;i++)map[manifest[i]!["id"]!.ToString()]=$"shipping.outbound.staging.r01.b{i+1:00}";
+            var transfer=Submit("transfer",new JsonObject {["reference"]=reservation.ToString(),["destination"]="DISPATCH",["unit_destinations"]=map});
+            check(Command(transfer)["status"]!.ToString()=="completed","customer transfer persists native Shipping offers");
+            check(Units().All(n=>n!["position"] is not null&&n["state"]!.ToString()=="reserved")&&Stock("FINISHED-A")["on_hand"]!.GetValue<int>()==4,"Shipping offers retain source placement and stock until every endpoint is accepted");
+            var offers=ledger.Db.Transaction(u=>u.Query("SELECT envelope FROM boundary_outbox WHERE run_id=(SELECT id FROM runs WHERE current) AND envelope->>'type'='handling.offered.v1' ORDER BY id"));check(offers.Count==2,"one immutable Shipping offer per selected whole unit");
+            JsonObject Reply(JsonObject original,string stage){var e=(JsonObject)original.DeepClone();e["source"]="shipping";e["destination"]="storage";e["boundary"]="requests";e["type"]="handling."+stage+".v1";e["event_id"]=Guid.NewGuid().ToString();e["effective_time"]=++time;e["payload"]!["state"]=stage;if(stage=="received")e["payload"]!["receipt_id"]=Guid.NewGuid().ToString();return e;}
+            void Receive(JsonObject e){check(ledger.Ingest(e,"shipping/events")=="accepted","Shipping is authorized alongside Manufacturing on the request boundary");var job=ledger.Db.Transaction(u=>Ledger.Id(u.One("SELECT id FROM jobs WHERE idempotency_key=@p0","boundary:"+e["event_id"]!.ToString())));Execute(job);check(Command(job)["status"]!.ToString()=="completed","matching Shipping custody proof applies");}
+            Receive(Reply(offers[0]["envelope"]!.AsObject(),"accepted"));check(Units().All(n=>n!["position"] is not null),"partial acceptance cannot retire part of a customer allocation");Receive(Reply(offers[1]["envelope"]!.AsObject(),"accepted"));
+            check(Units().All(n=>n!["position"] is null&&n["state"]!.ToString()=="in_transit")&&Stock("FINISHED-A")["on_hand"]!.GetValue<int>()==0,"complete Shipping capacity proof atomically departs every customer unit");
+            var arrive=Submit("arrive",new JsonObject {["reference"]=transfer.ToString()});check(Command(arrive)["status"]!.ToString()=="rejected"&&Stock("DISPATCH")["on_hand"]!.GetValue<int>()==0,"external Shipping transfer cannot be received into Storage by a scalar arrive command");
+            var departures=ledger.Db.Transaction(u=>u.Query("SELECT envelope FROM boundary_outbox WHERE run_id=(SELECT id FROM runs WHERE current) AND envelope->>'type'='handling.departed.v1' ORDER BY id"));foreach(var d in departures)Receive(Reply(d["envelope"]!.AsObject(),"received"));
+            check(Units().All(n=>n!["state"]!.ToString()=="dispatched"),"Shipping receipt retires only the departed source generations");check(Stock("DISPATCH")["on_hand"]!.GetValue<int>()==0,"proved Shipping receipt never creates Storage DISPATCH inventory");
+            check(ledger.Db.Transaction(u=>u.One("SELECT status FROM warehouse_transfers WHERE id=@p0",transfer))["status"]!.ToString()=="received","all real Shipping receipts complete the customer transfer");
+            var small=new JsonArray();for(int n=1;n<=8;n++)small.Add(new JsonObject {["id"]=$"00000000-0000-4000-8000-{n:000000000000}",["quantity"]=1});
+            var smallReceipt=Submit("expect",new JsonObject {["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=8,["correlation_id"]=correlation.ToString(),["units"]=small});Submit("receive",new JsonObject {["reference"]=smallReceipt.ToString()});
+            for(int n=0;n<8;n++)Submit("putaway",new JsonObject {["unit_id"]=small[n]!["id"]!.DeepClone(),["destination"]=$"storage.finished.r02.b{n/4+1:00}.l{n%4+1:00}"});
+            var ninth=Submit("expect",new JsonObject {["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=1,["correlation_id"]=correlation.ToString(),["units"]=new JsonArray(new JsonObject {["id"]="00000000-0000-4000-8000-000000000009",["quantity"]=1})});Submit("receive",new JsonObject {["reference"]=ninth.ToString()});
+            var oversized=Submit("reserve",new JsonObject {["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=9,["purpose"]="customer",["correlation_id"]=correlation.ToString()});check(Command(oversized)["status"]!.ToString()=="rejected"&&Stock("FINISHED-A")["reserved"]!.GetValue<int>()==0,"customer allocation rejects more than eight whole units before publishing an unusable manifest");
+            var bundle=Submit("expect",new JsonObject {["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=8,["correlation_id"]=correlation.ToString(),["units"]=new JsonArray(new JsonObject {["id"]="ffffffff-ffff-4fff-8fff-ffffffffffff",["quantity"]=8})});Submit("receive",new JsonObject {["reference"]=bundle.ToString()});
+            var compact=Submit("reserve",new JsonObject {["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=8,["purpose"]="customer",["correlation_id"]=correlation.ToString()});var selected=ledger.Db.Transaction(u=>u.Query("SELECT id FROM warehouse_handling_units WHERE reservation_id=@p0",compact));check(selected.Count==1&&selected[0]["id"]!.ToString()=="ffffffff-ffff-4fff-8fff-ffffffffffff","customer exact allocation prefers the compatible smallest whole-unit footprint over an earlier eight-unit path");
+        }finally{settings.Providers=providers;settings.Peers=peers;settings.Outputs=outputs;settings.Federation=federation;Reset();}
+    }
+}

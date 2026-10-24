@@ -70,3 +70,19 @@ def test_production_reservation_carries_the_exact_reserved_source_unit_manifest(
     for change in ({'quantity':raw['payload']['quantity']+1}, {'unit_manifest':[unit,unit]},
                    {'unit_manifest':[{**unit,'state':'available'}]}, {'unit_manifest':[{**unit,'version':2147483645}]}):
         with pytest.raises(ValidationError):transport_envelope.validate_python({**raw,'payload':{**raw['payload'],**change}})
+
+
+def test_customer_reservation_preserves_finished_unit_identity_for_shipping():
+    raw=json.loads(Path('contracts/v1/fixtures/storage-boundary.json').read_text())
+    unit=json.loads(Path('contracts/handling/v1/fixtures.json').read_text())['placed_unit']
+    unit.update(state='reserved',category='finished',run_id=raw['run_id'],epoch=raw['epoch'],
+                position='storage.finished.r01.b01.l01')
+    raw.update(type='storage.reserve.completed.v1',source='storage',destination='shipping',boundary='goods',
+               aggregate_version=1,payload={'id':raw['aggregate_id'],'run_id':raw['run_id'],
+               'correlation_id':raw['correlation_id'],'sku':unit['contents'][0]['sku'],
+               'quantity':unit['contents'][0]['quantity'],'location':'FINISHED-A','purpose':'customer',
+               'status':'reserved','version':1,'unit_manifest':[unit]})
+    Publication.model_validate({'endpoint':'shipping/events','envelope':raw})
+    for change in ({'quantity':raw['payload']['quantity']+1}, {'unit_manifest':[unit,unit]},
+                   {'unit_manifest':[{**unit,'category':'raw'}]}):
+        with pytest.raises(ValidationError):Publication.model_validate({'endpoint':'shipping/events','envelope':{**raw,'payload':{**raw['payload'],**change}}})

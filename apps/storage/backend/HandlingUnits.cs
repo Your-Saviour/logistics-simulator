@@ -6,6 +6,7 @@ public static class HandlingUnits
 {
     static readonly Dictionary<string,JsonObject> Locations=JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,"handling-facility.json")))!["locations"]!.AsArray().Select(n=>n!.AsObject()).ToDictionary(n=>n["id"]!.ToString());
     public static bool ManufacturingInput(string id)=>Locations.TryGetValue(id,out var location)&&location["owner"]!.ToString()=="manufacturing"&&location["kind"]!.ToString()=="cell_input"&&location["compatible"]!.AsArray().Any(n=>n!.ToString()=="raw");
+    public static bool ShippingInput(string id)=>Locations.TryGetValue(id,out var location)&&location["owner"]!.ToString()=="shipping"&&location["kind"]!.ToString()=="dock"&&location["compatible"]!.AsArray().Any(n=>n!.ToString()=="finished");
     public static void ValidateManifest(JsonObject body) {
         if(body["units"] is not JsonArray units||units.Count is <1 or >256) throw new Validation("Explicit whole-unit manifest required (1..256 units); legacy stock needs conversion");
         var ids=new HashSet<Guid>(); var total=0;
@@ -85,12 +86,11 @@ public static class HandlingUnits
         if(stock!=tracked) throw new Conflict("Legacy unplaced stock requires an explicit conversion manifest before whole-unit allocation");
         var candidates=u.Query("SELECT * FROM warehouse_handling_units WHERE run_id=@p0 AND epoch=@p1 AND sku=@p2 AND logical_location=@p3 AND state='available' ORDER BY id",Ledger.Id(run),Ledger.Id(run,"epoch"),sku,location);
         var target=reservation["quantity"]!.GetValue<int>();var paths=new Dictionary<int,List<JsonObject>> {[0]=[]};
-        var production=reservation["purpose"]!.ToString()=="production";
+        var production=reservation["purpose"]!.ToString()=="production";var maximum=production?4:8;
         foreach(var candidate in candidates) {
             if(candidate["version"]!.GetValue<int>()>int.MaxValue-4||candidate["last_sequence"]!.GetValue<int>()>int.MaxValue-(production?2:3)||production&&candidate["custody_generation"]!.GetValue<int>()>int.MaxValue-1)continue;
             var quantity=candidate["quantity"]!.GetValue<int>();
-            foreach(var entry in paths.ToArray()) {var next=entry.Key+quantity;var count=entry.Value.Count+1;if(next<=target&&(!production||count<=4)&&(!paths.TryGetValue(next,out var old)||production&&count<old.Count))paths[next]=[..entry.Value,candidate];}
-            if(!production&&paths.ContainsKey(target)) break;
+            foreach(var entry in paths.ToArray()) {var next=entry.Key+quantity;var count=entry.Value.Count+1;if(next<=target&&(count<=maximum)&&(!paths.TryGetValue(next,out var old)||count<old.Count))paths[next]=[..entry.Value,candidate];}
         }
         if(!paths.TryGetValue(target,out var selected)) throw new Conflict("No exact available whole-unit allocation; requests cannot split units or overfulfil");
         if(reservation["purpose"]!.ToString()=="production"&&selected.Count>4)throw new Conflict("Production input capacity permits at most four whole units per reservation");

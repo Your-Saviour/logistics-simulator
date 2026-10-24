@@ -41,7 +41,7 @@ public static class WarehouseBoundaryTests
     }
     static void PeerCommands(Ledger ledger,Settings settings,Action<bool,string> check,Audit audit) {
         var run=ledger.Status()["run"]!.AsObject(); var runId=Ledger.Id(run); var warehouse=new Warehouse(ledger,settings);
-        var providers=settings.Providers; var peers=settings.Peers; var federation=settings.Federation;
+        var providers=settings.Providers; var peers=settings.Peers; var federation=settings.Federation;var outputs=settings.Outputs;
         var correlation=Guid.NewGuid(); double time=0;
         JsonObject Input(string type,JsonObject payload) => new() { ["schema_version"]="1.0",["type"]="storage."+type+".v1",["event_id"]=Guid.NewGuid().ToString(),["federation_id"]="warehouse-test",["run_id"]=run["id"]!.DeepClone(),["epoch"]=run["epoch"]!.DeepClone(),["correlation_id"]=correlation.ToString(),["causation_id"]=Guid.NewGuid().ToString(),["aggregate_id"]=Guid.NewGuid().ToString(),["aggregate_version"]=1,["source"]="shipping",["destination"]="storage",["boundary"]="requests",["effective_time"]=++time,["quantity_unit"]="item",["payload"]=payload };
         void Execute(Guid id) { ledger.Heartbeat("controller"); ledger.Db.Transaction(u=> { u.Run(); u.Exec("UPDATE runs SET granted=@p0,requested=@p0 WHERE id=@p1",time,runId); return true; }); check(ledger.Execute(id)=="completed","peer command completes its durable job"); }
@@ -51,8 +51,8 @@ public static class WarehouseBoundaryTests
         }
         JsonObject Fact(Guid id) => ledger.Db.Transaction(u=>u.One("SELECT envelope FROM boundary_outbox WHERE run_id=@p0 AND envelope->>'job_id'=@p1",runId,id.ToString())["envelope"]!.AsObject());
         try {
-            settings.Providers=new JsonObject { ["supply"]="helics",["requests"]="helics" }; settings.Federation="warehouse-test";
-            settings.Peers=new JsonObject { ["requests"]=new JsonObject { ["endpoint"]="shipping/events",["source"]="shipping" } };
+            settings.Providers=new JsonObject { ["supply"]="helics",["requests"]="helics" }; settings.Federation="warehouse-test";settings.Outputs=new JsonArray(new JsonObject {["destination"]="shipping",["boundary"]="goods",["endpoint"]="shipping/events"});
+            settings.Peers=new JsonObject { ["requests"]=new JsonArray(new JsonObject { ["endpoint"]="shipping/events",["source"]="shipping" },new JsonObject {["endpoint"]="manufacturing/events",["source"]="manufacturing"}) };
             var initial=warehouse.Submit("peer-stock-receipt",new JsonObject {["run_id"]=run["id"]!.DeepClone(),["epoch"]=run["epoch"]!.DeepClone(),["due_at"]=++time,["action"]="expect",["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=10,["correlation_id"]=correlation.ToString(),["units"]=new JsonArray(new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=3},new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=2},new JsonObject {["id"]=Guid.NewGuid().ToString(),["quantity"]=5})},audit);Execute(Ledger.Id(initial));
             var received=warehouse.Submit("peer-stock-confirm",new JsonObject {["run_id"]=run["id"]!.DeepClone(),["epoch"]=run["epoch"]!.DeepClone(),["due_at"]=++time,["action"]="receive",["reference"]=Ledger.Id(initial).ToString()},audit);Execute(Ledger.Id(received));
             ledger.Db.Transaction(u=> { u.Run();u.Exec("UPDATE runs SET mode='helics' WHERE id=@p0",runId);return true; });
@@ -60,10 +60,16 @@ public static class WarehouseBoundaryTests
             check(Fact(reserved.command)["causation_id"]?.ToString()==reserved.envelope["event_id"]!.ToString(),"completed boundary fact retains incoming event causation");
             ledger.Seed();
             check(warehouse.Snapshot()["commands"]!.AsArray().Count==3&&warehouse.Snapshot()["reservations"]![0]!["status"]!.ToString()=="reserved","HELICS requests leave reservations for explicit peer decisions");
+            var foreign=Input("release",new JsonObject {["reference"]=reserved.command.ToString()});foreign["source"]="manufacturing";check(ledger.Ingest(foreign,"manufacturing/events")=="accepted","second configured request peer can submit its own boundary input");var foreignCommand=ledger.Db.Transaction(u=>Ledger.Id(u.One("SELECT command_id AS id FROM warehouse_boundary_commands WHERE event_id=@p0",Ledger.Id(foreign,"event_id"))));Execute(foreignCommand);
+            check(ledger.Db.Transaction(u=>u.One("SELECT status FROM warehouse_commands WHERE id=@p0",foreignCommand))["status"]!.ToString()=="rejected"&&warehouse.Snapshot()["reservations"]![0]!["status"]!.ToString()=="reserved","configured peer cannot release another peer's reservation");
             var picked=Send("pick",new JsonObject { ["reference"]=reserved.command.ToString() });
             ledger.Seed();
-            check(warehouse.Snapshot()["commands"]!.AsArray().Count==4&&warehouse.Snapshot()["transfers"]!.AsArray().Count==0,"HELICS requests leave picked stock for explicit peer transfer");
-            var transferred=Send("transfer",new JsonObject { ["reference"]=reserved.command.ToString(),["destination"]="DISPATCH" });
+            check(warehouse.Snapshot()["commands"]!.AsArray().Count==5&&warehouse.Snapshot()["transfers"]!.AsArray().Count==0,"HELICS requests leave picked stock for explicit peer transfer");
+            var destinations=new JsonObject();foreach(var unit in Fact(reserved.command)["payload"]!["unit_manifest"]!.AsArray())destinations[unit!["id"]!.ToString()]="shipping.outbound.staging.r01.b01";
+            var transferred=Send("transfer",new JsonObject { ["reference"]=reserved.command.ToString(),["destination"]="DISPATCH",["unit_destinations"]=destinations });
+            check(warehouse.Snapshot()["transfers"]![0]!["status"]!.ToString()=="awaiting_acceptance"&&ledger.Db.Transaction(u=>u.Query("SELECT 1 FROM boundary_outbox WHERE run_id=@p0 AND envelope->>'job_id'=@p1",runId,transferred.command.ToString()).Count)==0,"transfer outcome waits for real receiver acceptance");
+            var offer=ledger.Db.Transaction(u=>u.One("SELECT envelope FROM boundary_outbox WHERE run_id=@p0 AND envelope->>'type'='handling.offered.v1'",runId)["envelope"]!.AsObject());var acceptance=(JsonObject)offer.DeepClone();acceptance["source"]="shipping";acceptance["destination"]="storage";acceptance["boundary"]="requests";acceptance["type"]="handling.accepted.v1";acceptance["event_id"]=Guid.NewGuid().ToString();acceptance["effective_time"]=++time;acceptance["payload"]!["state"]="accepted";
+            ledger.Ingest(acceptance,"shipping/events");var acceptedJob=ledger.Db.Transaction(u=>Ledger.Id(u.One("SELECT id FROM jobs WHERE idempotency_key=@p0","boundary:"+acceptance["event_id"]!.ToString())));Execute(acceptedJob);
             check(Fact(picked.command)["causation_id"]!.ToString()==picked.envelope["event_id"]!.ToString()&&Fact(transferred.command)["causation_id"]!.ToString()==transferred.envelope["event_id"]!.ToString(),"pick and transfer facts match their incoming intents");
             check(warehouse.Snapshot()["transfers"]![0]!["status"]!.ToString()=="in_transit","explicit peer pick and transfer dispatch reserved goods");
             var second=Send("request",new JsonObject { ["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=2,["purpose"]="customer" });
@@ -93,7 +99,7 @@ public static class WarehouseBoundaryTests
             var standalone=Send("request",new JsonObject { ["sku"]="PRODUCT",["location"]="FINISHED-A",["quantity"]=100,["purpose"]="customer" });
             check(ledger.Db.Transaction(u=>u.Query("SELECT 1 FROM boundary_outbox WHERE run_id=@p0 AND envelope->>'job_id'=@p1",runId,standalone.command.ToString()).Count)==0,"standalone rejection creates no boundary fact");
         } finally {
-            settings.Providers=providers; settings.Peers=peers; settings.Federation=federation;
+            settings.Providers=providers; settings.Peers=peers; settings.Federation=federation;settings.Outputs=outputs;
             ledger.Db.Transaction(u=> { u.Exec("UPDATE runs SET mode='standalone' WHERE id=@p0",runId); return true; });
         }
     }
