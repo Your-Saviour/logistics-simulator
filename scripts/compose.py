@@ -50,8 +50,8 @@ def stack(app, suite=False):
                 source_list.append({'name': peer, 'url': f'http://{peer}-api:8000', 'username': peer+'-observer', 'password': peer_secret['observer']})
         env['TWIN_SOURCES'] = '${TWIN_SOURCES:-' + json.dumps(source_list, separators=(',', ':')) + '}'
     services = {
-        service('db'): {'image': 'postgres:17-alpine', 'environment': {'POSTGRES_USER': app, 'POSTGRES_PASSWORD': secret['database'], 'POSTGRES_DB': app}, 'volumes': [service('data') + ':/var/lib/postgresql/data'], 'healthcheck': {'test': ['CMD-SHELL', f'pg_isready -U {app} -d {app}'], 'interval': '2s', 'timeout': '3s', 'retries': 40}},
-        service('broker'): {'image': 'rabbitmq:4.1-alpine', 'environment': {'RABBITMQ_DEFAULT_USER': app, 'RABBITMQ_DEFAULT_PASS': secret['broker'], 'RABBITMQ_DEFAULT_VHOST': app}, 'volumes': [service('broker-data') + ':/var/lib/rabbitmq'], 'healthcheck': {'test': ['CMD', 'rabbitmq-diagnostics', '-q', 'ping'], 'interval': '5s', 'timeout': '5s', 'retries': 30}},
+        service('db'): {'image': 'postgres:17-alpine', 'environment': {'POSTGRES_USER': app, 'POSTGRES_PASSWORD': secret['database'], 'POSTGRES_DB': app}, 'volumes': [service('data') + ':/var/lib/postgresql/data'], 'healthcheck': {'test': ['CMD-SHELL', f'pg_isready -h 127.0.0.1 -U {app} -d {app}'], 'interval': '2s', 'timeout': '3s', 'retries': 40}},
+        service('broker'): {'image': 'rabbitmq:4.1-alpine', 'environment': {'RABBITMQ_DEFAULT_USER': app, 'RABBITMQ_DEFAULT_PASS': secret['broker'], 'RABBITMQ_DEFAULT_VHOST': app}, 'volumes': [service('broker-data') + ':/var/lib/rabbitmq'], 'healthcheck': {'test': ['CMD', 'nc', '-z', '-w', '2', '127.0.0.1', '5672'], 'interval': '5s', 'timeout': '3s', 'start_period': '45s', 'retries': 30}},
     }
     depends = {service('db'): {'condition': 'service_healthy'}, service('broker'): {'condition': 'service_healthy'}}
     roles = ['api', 'projection'] if app == 'twin' else ['api', 'worker', 'controller']

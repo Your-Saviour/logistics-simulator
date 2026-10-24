@@ -33,7 +33,7 @@ jobs:
         run: python3 scripts/connected_check.py
       - name: Container logs on failure
         if: failure()
-        run: docker compose -f deploy/generated/suite.json logs --tail 50
+        run: python3 scripts/ci_diagnostics.py
       - name: Stop verification containers
         if: always()
         run: |
