@@ -18,7 +18,9 @@ export class PendingCommand {
  key='';
  async send(api:Api,body:Record<string,unknown>){
   if(this.body)throw new Error('Retry or discard the pending command first.');
-  this.body=structuredClone(body);this.key=crypto.randomUUID();return this.retry(api);
+  this.body=structuredClone(body);
+  if(this.body['action']==='supply'&&!('units' in this.body))this.body['units']=[{id:crypto.randomUUID(),quantity:this.body['quantity']}];
+  this.key=crypto.randomUUID();return this.retry(api);
  }
  async retry(api:Api){
   if(!this.body)throw new Error('No pending command.');

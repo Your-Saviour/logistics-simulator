@@ -8,6 +8,7 @@ import httpx
 import pika
 import psycopg
 from stack_acceptance import wait_for
+from simulator.handling_contracts import validate_snapshot, validate_movement, validate_lineage
 
 
 def main(phase):
@@ -16,12 +17,22 @@ def main(phase):
         auth=(employee['username'],employee['password'])
         def submit(action,key=None,**fields):
             s=c.get('/api/status').json();r=s['run']
+            if action=='supply' and 'units' not in fields:
+                fields['units']=[{'id':str(uuid4()),'quantity':fields['quantity']}]
             body={'run_id':r['id'],'epoch':r['epoch'],'due_at':max(r['granted'],r['requested'])+2*s['quantum']+2*r['speed'],'action':action,**fields}
             headers={'Idempotency-Key':key or uuid4().hex};response=c.post('/api/production/commands',json=body,headers=headers,auth=auth);response.raise_for_status();command=response.json()
             assert c.post('/api/production/commands',json=body,headers=headers,auth=auth).json()['id']==command['id']
             snap=wait_for(c,'/api/production',lambda p:any(x['id']==command['id'] and x['status']!='pending' for x in p['commands']))
             result=next(x for x in snap['commands'] if x['id']==command['id']);assert result['status']=='completed',result
             return command['id']
+        def validate_handling(snapshot):
+            run=c.get('/api/status').json()['run']
+            handling=snapshot['handling']
+            validate_snapshot(handling['units'],run['id'],run['epoch'])
+            for movement in handling['movements']:
+                validate_movement(movement,run['id'],run['epoch'])
+            for lineage in handling['lineage']:
+                validate_lineage(lineage,handling['units'],run['id'],run['epoch'])
         if phase=='verify':
             s=wait_for(c,'/api/status',lambda s:bool(s['run']));c.post('/api/control/reset',json={'confirm_run_id':s['run']['id'],'scenario':{}}).raise_for_status();c.post('/api/control/speed',json={'speed':20}).raise_for_status()
             order=submit('create',product='PRODUCT',line='LINE-1',quantity=4)
@@ -32,6 +43,8 @@ def main(phase):
             submit('release',reference=order)
             p=wait_for(c,'/api/production',lambda p:any(o['id']==order and o['status']=='completed' for o in p['orders']))
             assert p['orders'][0]['output_quantity']==4 and p['materials'][0]['quantity']==0,p
+            validate_handling(p)
+            assert len(p['handling']['lineage'])==1
             assert c.post('/api/control/hold',json={},auth=auth).status_code==403
             assert c.get('/api/audit',auth=auth).status_code==403
             assert c.post('/api/production/commands',json={},auth=auth).status_code==422
@@ -64,13 +77,14 @@ def main(phase):
                 for _ in range(4):channel.basic_publish('', 'sample.jobs.v1',json.dumps({'job_id':str(row[0])}),properties=pika.BasicProperties(delivery_mode=2))
             connection.close();time.sleep(1)
             p=c.get('/api/production').json();assert sum(o['output_quantity'] for o in p['orders'])==8
+            validate_handling(p)
             assert len([m for m in p['movements'] if m['kind']=='output'])==2
             assert len([m for m in p['movements'] if m['kind']=='consume'])==2
             assert p['materials'][0]['quantity']==0
             print('manufacturing V1: worker restart and duplicate deliveries across two workers produce exactly one consumption/output per batch',flush=True)
         elif phase=='broker-down':
             s=c.get('/api/status').json();r=s['run'];due=max(r['granted'],r['requested'])+2*s['quantum']+2*r['speed']
-            response=c.post('/api/production/commands',json={'run_id':r['id'],'epoch':r['epoch'],'due_at':due,'action':'supply','sku':'COMPONENT','quantity':2},headers={'Idempotency-Key':'broker-recovery'});assert response.status_code==200,response.text
+            response=c.post('/api/production/commands',json={'run_id':r['id'],'epoch':r['epoch'],'due_at':due,'action':'supply','sku':'COMPONENT','quantity':2,'units':[{'id':str(uuid4()),'quantity':2}]},headers={'Idempotency-Key':'broker-recovery'});assert response.status_code==200,response.text
             s=wait_for(c,'/api/status',lambda s:s['run']['granted']>=due);time.sleep(.5)
             p=c.get('/api/production').json();assert p['materials'][0]['quantity']==0
             assert c.get('/api/status').json()['run']['granted']==s['run']['granted']

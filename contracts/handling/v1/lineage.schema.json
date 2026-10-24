@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:handling:lineage:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "batch_id",
+    "run_id",
+    "epoch",
+    "product",
+    "input_unit_ids",
+    "output_unit_ids",
+    "recipe",
+    "batch_quantity",
+    "output_quantity",
+    "scrap_quantity",
+    "simulation_time"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "batch_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "epoch": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "product": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9_-]{0,31}$"
+    },
+    "input_unit_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "minItems": 1
+    },
+    "output_unit_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      }
+    },
+    "batch_quantity": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "output_quantity": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "scrap_quantity": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "simulation_time": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

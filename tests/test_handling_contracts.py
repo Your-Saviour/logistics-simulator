@@ -175,3 +175,26 @@ def test_storage_boundary_requires_exact_unique_whole_unit_manifests():
     del event['payload']['units']
     with pytest.raises(ModelError):
         transport_envelope.validate_python(event)
+
+
+def test_lineage_preserves_whole_input_recipe_and_fresh_output_accounting():
+    schema = contract('lineage')
+    from simulator.handling_contracts import validate_lineage
+
+    raw = {**fixture('consumed_unit'), 'owner': 'manufacturing'}
+    finished = {**fixture('placed_unit'), 'id': '99999999-9999-4999-8999-999999999999',
+                'barcode': 'HU-99999999999949998999999999999999', 'owner': 'manufacturing',
+                'position': 'manufacturing.cell01.output01', 'category': 'finished',
+                'contents': [{'sku': 'PRODUCT', 'quantity': 2}]}
+    value = {'id': '77777777-7777-4777-8777-777777777777', 'batch_id': '88888888-8888-4888-8888-888888888888',
+             'run_id': raw['run_id'], 'epoch': raw['epoch'], 'product': 'PRODUCT',
+             'input_unit_ids': [raw['id']], 'output_unit_ids': [finished['id']],
+             'recipe': {'RAW-STEEL': 2}, 'batch_quantity': 2, 'output_quantity': 2,
+             'scrap_quantity': 0, 'simulation_time': 20}
+    schema.validate(value)
+    validate_lineage(value, [raw, finished], raw['run_id'], raw['epoch'])
+    for change in ({'recipe': {'RAW-STEEL': 3}}, {'output_quantity': 3},
+                   {'output_unit_ids': [raw['id']]}, {'input_unit_ids': [raw['id'], raw['id']]},
+                   {'epoch': '33333333-3333-4333-8333-333333333333'}):
+        with pytest.raises(ValueError):
+            validate_lineage({**value, **change}, [raw, finished], raw['run_id'], raw['epoch'])

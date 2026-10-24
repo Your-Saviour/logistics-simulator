@@ -50,8 +50,40 @@ Rollback to old writers is supported only before whole-unit writes are enabled,
 or by restoring a verified pre-upgrade backup and reconciling operations. Old
 binaries cannot preserve the new unit invariants after those writes occur.
 
+## Manufacturing
+
+Migration `009_handling_units.sql` is appended to the native migration index.
+It adds barcoded raw/finished units, single-position capacity constraints,
+once-only input consumption membership, completed batch lineage and durable
+physical receipt/production movements. Applied migrations 001–008 are unchanged.
+
+`supply` requires an explicit `units` manifest of fresh UUIDs and quantities
+summing to the command quantity. The website plans one whole unit per receipt.
+The fixed facility maps the first four configured production lines, in persisted
+configuration order, to `manufacturing.cell01` through `cell04`. Raw receipts use
+input positions; good output uses output positions. A batch waits when its exact
+recipe cannot be made from whole units at its cell, or when output positions are
+full. It never splits inputs. Start atomically consumes whole inputs and records
+batch membership; completion creates a fresh output unit and durable lineage.
+All-scrap batches retain their input lineage and create no zero-quantity unit.
+
+Unconverted raw quantities appear in `handling.legacy_stock`. After draining
+active work orders and pending boundary work, an operator can queue `convert`
+through `POST /api/production/commands` with current run/epoch, future `due_at`,
+`sku`, exact legacy `quantity`, and `units` containing UUID, quantity and exact
+`manufacturing.cellNN.inputNN` position. Conversion requires untouched legacy
+stock and commits atomically without changing aggregate quantity or fabricating
+physical history. Preserve its idempotency key when retrying. Existing running
+batches without whole-input provenance require operator reconciliation; the new
+worker will not manufacture invented output lineage for them.
+
+Legacy quantity-only Storage facts remain visible observations. They do not
+authorize material placement or create new barcodes in Manufacturing. The
+cross-database token/acknowledgement protocol must be deployed before enabling
+connected whole-unit operations. Independent reset never imports old-scope stock.
+
 ## Remaining applications
 
-Manufacturing, Logistics, Shipping and Twin upgrade instructions will be added
+Logistics, Shipping and Twin upgrade instructions will be added
 with their native implementations. The shared protocol is in
 [`contracts/handling/v1/README.md`](../contracts/handling/v1/README.md).

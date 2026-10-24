@@ -139,3 +139,41 @@ def validate_handoff(handoff, run_id, epoch):
     elif handoff['state'] in {'offered', 'accepted'} and (unit['state'] != 'reserved' or unit['position'] != handoff['origin']):
         raise ValueError('Offered units must be reserved at the source origin')
     return handoff
+
+
+def validate_lineage(lineage, units, run_id, epoch):
+    """Check completed recipe accounting against retained immutable unit contents."""
+    check('lineage', lineage)
+    if lineage['run_id'] != run_id or lineage['epoch'] != epoch:
+        raise ValueError('Lineage scope mismatch')
+    by_id = {}
+    for unit in units:
+        validate_unit(unit)
+        if unit['id'] in by_id:
+            raise ValueError('Duplicate unit identity in lineage input')
+        by_id[unit['id']] = unit
+    inputs, outputs = lineage['input_unit_ids'], lineage['output_unit_ids']
+    if set(inputs) & set(outputs):
+        raise ValueError('Manufacturing outputs must have fresh unit identities')
+    totals = {}
+    for identity in inputs:
+        unit = by_id.get(identity)
+        if not unit or unit['state'] != 'consumed' or unit['category'] != 'raw' or unit['run_id'] != run_id or unit['epoch'] != epoch:
+            raise ValueError('Lineage input must reference a consumed whole unit in scope')
+        for item in unit['contents']:
+            totals[item['sku']] = totals.get(item['sku'], 0) + item['quantity']
+    required = {sku: quantity * lineage['batch_quantity'] for sku, quantity in lineage['recipe'].items()}
+    if totals != required:
+        raise ValueError('Whole input contents do not conserve recipe quantities')
+    output_quantity = 0
+    for identity in outputs:
+        unit = by_id.get(identity)
+        if not unit or unit['category'] != 'finished' or unit['run_id'] != run_id or unit['epoch'] != epoch:
+            raise ValueError('Lineage output must reference a newly created finished unit in scope')
+        for item in unit['contents']:
+            if item['sku'] != lineage['product']:
+                raise ValueError('Finished unit SKU differs from the production recipe')
+            output_quantity += item['quantity']
+    if output_quantity != lineage['output_quantity'] or output_quantity + lineage['scrap_quantity'] != lineage['batch_quantity']:
+        raise ValueError('Finished output and scrap must conserve batch quantity')
+    return lineage

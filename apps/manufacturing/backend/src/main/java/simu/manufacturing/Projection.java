@@ -17,11 +17,13 @@ final class Projection {
   var history=rows(c,"SELECT h.*,COALESCE(o.correlation_id::text,j.boundary_input->>'correlation_id') AS correlation_id FROM production_history h JOIN jobs j ON j.id=h.job_id LEFT JOIN production_orders o ON o.id=h.order_id WHERE h.run_id=? ORDER BY h.id",id);
   var movements=rows(c,"SELECT m.*,COALESCE(o.correlation_id::text,j.boundary_input->>'correlation_id') AS correlation_id FROM production_movements m JOIN jobs j ON j.id=m.job_id LEFT JOIN production_orders o ON o.id=m.order_id WHERE m.run_id=? ORDER BY m.id",id);
   var facts=rows(c,"SELECT * FROM production_events WHERE run_id=? ORDER BY id",id);
-  snapshot.put("history",history);snapshot.put("movements",movements);snapshot.put("events",facts);
+  snapshot.put("handling",HandlingUnits.snapshot(c,run));snapshot.put("history",history);snapshot.put("movements",movements);snapshot.put("events",facts);
   var events=new ArrayList<Map<String,Object>>();
   for(var h:history)events.add(event("history",h));
   for(var m:movements)events.add(event("movement",m));
   for(var f:facts){var e=event("fact",f);e.remove("sent_at");var envelope=json(f.get("envelope"));if(envelope.hasNonNull("correlation_id"))e.put("correlation_id",envelope.get("correlation_id").asText());if(envelope.hasNonNull("simulation_time"))e.put("simulation_time",envelope.get("simulation_time").doubleValue());else if(envelope.hasNonNull("effective_time"))e.put("simulation_time",envelope.get("effective_time").doubleValue());else if(envelope.hasNonNull("time"))e.put("simulation_time",envelope.get("time").doubleValue());events.add(e);}
+  for(var movement:rows(c,"SELECT * FROM production_unit_movements WHERE run_id=? AND epoch=? ORDER BY unit_id,sequence",id,run.get("epoch")))events.add(event("unit-movement",movement));
+  for(var lineage:rows(c,"SELECT payload FROM production_unit_lineage WHERE run_id=? AND epoch=? ORDER BY id",id,run.get("epoch"))){Map<String,Object> record=Json.M.convertValue(json(lineage.get("payload")),Map.class);events.add(event("lineage",record));}
   var value=new LinkedHashMap<String,Object>();value.put("version",1);value.put("source","manufacturing");value.put("effects",one(c,"SELECT COALESCE(sum(quantity),0) n FROM effects WHERE run_id=?",id).get("n"));value.put("run",run);value.put("snapshot",snapshot);value.put("events",events);
   var health=new LinkedHashMap<String,Object>();health.put("heartbeats",rows(c,"SELECT role,seen_at,seen_at>clock_timestamp()-interval '15 seconds' AS healthy FROM heartbeats ORDER BY role"));
   health.put("pending_jobs",one(c,"SELECT count(*) n FROM jobs WHERE run_id=? AND status IN ('pending','queued')",id).get("n"));health.put("dead_letters",one(c,"SELECT count(*) n FROM jobs WHERE run_id=? AND status='dead'",id).get("n"));health.put("broker",null);health.put("ready",null);value.put("health",health);
