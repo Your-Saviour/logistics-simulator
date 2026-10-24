@@ -1,0 +1,7 @@
+import {mount,flushPromises} from '@vue/test-utils'
+import {afterEach,expect,it,vi} from 'vitest'
+import App from './App.vue'
+afterEach(()=>vi.unstubAllGlobals())
+const status={identity:{username:'employee',role:'employee',scopes:['status:read','jobs:write']},application:'storage',providers:{supply:'synthetic',requests:'synthetic'},quantum:1,simulation_time:'2026-01-05T08:00:00+10:30',run:{id:'a',epoch:'b',mode:'standalone',state:'held',granted:2,requested:2,committed:2,speed:1,scenario:{seed:1,time_zone:'Australia/Adelaide'}},jobs:[],effects:0,heartbeats:[],pending_boundary_outputs:0}
+it('shows committed remote status and hides operator controls from employees',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>status}));const page=mount(App);await page.get('input[name=username]').setValue('employee');await page.get('input[name=password]').setValue('secret');await page.get('form').trigger('submit');await flushPromises();expect(page.text()).toContain('held');expect(page.text()).toContain('Australia/Adelaide');expect(page.find('[data-control]').exists()).toBe(false);page.unmount()})
+it('displays an authentication failure without a fabricated dashboard',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:false,json:async()=>({detail:'Invalid username or password'})}));const page=mount(App);await page.get('form').trigger('submit');await flushPromises();expect(page.get('[role=alert]').text()).toBe('Invalid username or password');expect(page.find('[data-status]').exists()).toBe(false);page.unmount()})

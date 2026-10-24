@@ -1,0 +1,58 @@
+name: storage-foundation-smoke
+x-common: &common
+  image: storage-foundation:smoke
+  build: .
+  environment: &environment
+    SIMULATOR: storage
+    DATABASE_URL: postgresql://storage:storage-smoke@storage-db:5432/storage
+    AMQP_URL: amqp://storage:storage-smoke@storage-rabbit:5672/%2f
+    APP_PASSWORD: storage-smoke
+    APP_IDENTITIES: '[{"username":"employee","password":"employee-smoke","role":"employee"},{"username":"service","password":"service-smoke","role":"service","scopes":["status:read"]}]'
+    DOTNET_PROCESSOR_COUNT: 2
+    DOTNET_GCHeapHardLimit: 0x18000000
+    AUTONOMOUS_SAMPLE: 'false'
+  depends_on:
+    storage-db: {condition: service_healthy}
+    storage-rabbit: {condition: service_healthy}
+services:
+  storage-db:
+    image: postgres:16.15-alpine
+    environment: {POSTGRES_DB: storage, POSTGRES_USER: storage, POSTGRES_PASSWORD: storage-smoke}
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -U storage'], interval: 2s, timeout: 3s, retries: 30}
+    volumes: [storage-data:/var/lib/postgresql/data]
+  storage-rabbit:
+    image: rabbitmq:4.3.6-alpine
+    user: rabbitmq
+    environment: {RABBITMQ_DEFAULT_USER: storage, RABBITMQ_DEFAULT_PASS: storage-smoke, RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "+S 2:2 +A 4"}
+    healthcheck: {test: [CMD, nc, -z, -w, '2', 127.0.0.1, '5672'], interval: 3s, timeout: 3s, retries: 30, start_period: 45s}
+  storage-api:
+    <<: *common
+    environment: {<<: *environment, ROLE: api}
+  storage-worker:
+    <<: *common
+    environment: {<<: *environment, ROLE: worker}
+  storage-controller:
+    <<: *common
+    environment: {<<: *environment, ROLE: controller}
+  storage-web:
+    build: {context: frontend}
+    environment: {API_UPSTREAM: 'storage-api:8000'}
+    depends_on: [storage-api]
+  tests:
+    image: mcr.microsoft.com/dotnet/sdk:10.0.402
+    profiles: [test]
+    volumes: ['.:/work']
+    working_dir: /work
+    environment: {<<: *environment, STORAGE_INTEGRATION: 'true'}
+    command: [sh, -c, 'dotnet restore tests/Storage.Tests.csproj --locked-mode && dotnet run --project tests --no-restore']
+    depends_on:
+      storage-db: {condition: service_healthy}
+      storage-rabbit: {condition: service_healthy}
+  http-smoke:
+    image: python:3.12.12-alpine
+    profiles: [test]
+    environment: {STORAGE_URL: 'http://storage-web'}
+    volumes: ['./tests:/tests:ro']
+    command: [python, /tests/smoke.py]
+volumes:
+  storage-data:
