@@ -1,0 +1,2 @@
+ALTER TABLE runs ADD COLUMN IF NOT EXISTS scenario jsonb NOT NULL DEFAULT '{}';
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS boundary_input jsonb;

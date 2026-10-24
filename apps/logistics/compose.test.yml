@@ -1,0 +1,75 @@
+x-runtime: &runtime
+  image: logistics-foundation-test:local
+  build: ./backend
+  environment: &runtime-env
+    SIMULATOR: logistics
+    APP_USERNAME: operator
+    APP_PASSWORD: logistics-test-password
+    APP_IDENTITIES: '[{"username":"employee","password":"employee-test-password","role":"employee"},{"username":"service","password":"service-test-password","role":"service","scopes":["status:read","jobs:write"]}]'
+    DATABASE_URL: postgres://logistics:logistics-test-only@db:5432/logistics?sslmode=disable
+    AMQP_URL: amqp://guest:guest@broker:5672/
+    BOUNDARY_PROVIDERS: '{"transport":"synthetic","destinations":"synthetic"}'
+    AUTONOMOUS_SAMPLE: 'false'
+    GOMAXPROCS: '2'
+services:
+  api:
+    <<: *runtime
+    environment:
+      <<: *runtime-env
+      ROLE: api
+  worker:
+    <<: *runtime
+    environment:
+      <<: *runtime-env
+      ROLE: worker
+  controller:
+    <<: *runtime
+    environment:
+      <<: *runtime-env
+      ROLE: controller
+  web:
+    build: ./frontend
+    environment:
+      API_UPSTREAM: api:8000
+  db:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_USER: logistics
+      POSTGRES_PASSWORD: logistics-test-only
+      POSTGRES_DB: logistics
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logistics"]
+      interval: 1s
+      retries: 30
+  broker:
+    image: rabbitmq:4.3.6-alpine
+    user: "100:101"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: logistics-test-isolated-cookie
+    volumes:
+      - broker-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "nc", "-z", "-w", "2", "127.0.0.1", "5672"]
+      start_period: 45s
+      interval: 2s
+      retries: 30
+  ui-tests:
+    build: ./tests
+    volumes:
+      - ./tests/artifacts:/artifacts
+  test:
+    image: golang:1.26.1-alpine
+    working_dir: /src
+    volumes:
+      - ./backend:/src
+      - go-cache:/go
+      - go-build-cache:/root/.cache/go-build
+    environment:
+      GOMAXPROCS: '2'
+      TEST_DATABASE_URL: postgres://logistics:logistics-test-only@db:5432/logistics?sslmode=disable
+      TEST_AMQP_URL: amqp://guest:guest@broker:5672/
+    command: go test -tags nomsgpack -v ./...
+volumes:
+  broker-data:
+  go-cache:
+  go-build-cache:
