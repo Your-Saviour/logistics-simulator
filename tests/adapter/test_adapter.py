@@ -158,3 +158,65 @@ def test_checkpoint_is_not_native_recovery_and_second_owner_rejected(setup):
     assert state['recoverable'] is False and state['granted']==0
     with pytest.raises(RuntimeError,match='owner'):
         Adapter(**options)
+
+
+def test_finalize_waits_for_initialization_and_then_disconnects_once(setup):
+    engine,native,_,command,post,_=setup
+    assert post(command('initialize')).status_code==200
+    assert post(command('finalize')).status_code==409
+    assert not native.closed
+    native.ready=True
+    assert post(command('poll')).json['result']['state']=='executing'
+    final=command('finalize')
+    assert post(final).json['result']['state']=='finalized'
+    assert native.closed and post(final).status_code==200
+
+
+def test_typed_publication_rejects_boolean_and_string_numbers(setup):
+    execute(setup)
+    _,native,_,command,post,_=setup
+    for value in (True,'2'):
+        assert post(command('publish_value',{'value':value,'unit':'item'})).status_code==422
+    for field,value in (('effective_time',True),('effective_time','1'),('aggregate_version',True),('aggregate_version','1'),('wall_time',0),('wall_time','2026-10-24T08:00:00')):
+        body=envelope(setup)
+        body[field]=value
+        assert post(command('publish',{'endpoint':'shipping/events','envelope':body})).status_code==422
+    assert native.sent==[]
+
+
+def test_read_only_journal_returns_json_unavailable_without_native_send(setup):
+    import sqlite3
+    execute(setup)
+    engine,native,_,command,post,options=setup
+    engine.db.close()
+    engine.db=sqlite3.connect('file:'+str(options['journal'])+'?mode=ro',uri=True,check_same_thread=False,isolation_level=None)
+    response=post(command('publish',{'endpoint':'shipping/events','envelope':envelope(setup)}))
+    assert response.status_code==503
+    assert isinstance(response.json['detail'],str)
+    assert native.sent==[]
+
+
+def test_journal_failure_after_native_send_fences_retry(setup):
+    execute(setup)
+    engine,native,_,command,post,_=setup
+    engine.db.execute("CREATE TRIGGER fail_checkpoint BEFORE UPDATE ON metadata BEGIN SELECT RAISE(FAIL,'journal unavailable'); END")
+    body=command('publish',{'endpoint':'shipping/events','envelope':envelope(setup)})
+    response=post(body)
+    assert response.status_code==503 and response.is_json
+    assert engine.health()['state']=='stalled' and len(native.sent)==1
+    assert post(body).status_code==409 and len(native.sent)==1
+
+
+def test_checkpoint_reports_recovery_metadata_after_native_loss(setup):
+    execute(setup)
+    engine,_,_,command,_,options=setup
+    engine.close()
+    replacement=Adapter(**options)
+    try:
+        client=create_app(replacement,'private-token').test_client()
+        response=client.post('/v1/commands',json=command('checkpoint'),headers={'Authorization':'Bearer private-token'})
+        assert response.status_code==200
+        assert response.json['result']['state']=='stalled'
+        assert response.json['result']['recoverable'] is False
+        assert response.json['result']['granted']==0
+    finally: replacement.close()

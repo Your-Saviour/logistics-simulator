@@ -39,7 +39,7 @@ class Publication(Strict):
 
 
 class ValuePublication(Strict):
-    value: float = Field(allow_inf_nan=False)
+    value: float = Field(allow_inf_nan=False, strict=True)
     unit: Literal['item']
 
 

@@ -90,7 +90,7 @@ class Adapter:
                 raise ProtocolConflict('Stale adapter run or epoch')
             if self.session_id and self.session_id != str(command.session_id):
                 raise ProtocolConflict('Another controller session owns this native epoch')
-            if self.state=='stalled':
+            if self.state=='stalled' and command.operation!='checkpoint':
                 raise ProtocolConflict('Native session lost or uncertain; coordinated new federation epoch required')
             old = self.db.execute('SELECT hash,response FROM operations WHERE request_id=?',(key,)).fetchone()
             if old:
@@ -120,6 +120,8 @@ class Adapter:
         if self.state=='new': raise ProtocolConflict('Initialize the adapter first')
         if operation in ('poll','checkpoint'): return
         if operation=='finalize':
+            if self.state not in ('executing','finalized'):
+                raise ProtocolConflict('Complete native initialization before finalization')
             if self.pending or self.messages: raise ProtocolConflict('Settle native requests and persist received inputs before finalization')
             return
         if self.state!='executing': raise ProtocolConflict('Adapter is not executing')
@@ -234,6 +236,10 @@ def create_app(adapter, token):
     @app.errorhandler(400)
     @app.errorhandler(415)
     def malformed(_): return jsonify(detail='JSON command required'),422
+
+    @app.errorhandler(sqlite3.Error)
+    def journal_unavailable(_):
+        return jsonify(detail='Adapter journal unavailable; coordinated recovery may be required'),503
     return app
 
 
