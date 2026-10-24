@@ -16,11 +16,13 @@ final class HandlingHandoffs
         if(!is_array($contents)||!array_is_list($contents)||count($contents)!==1||!is_array($contents[0]))throw new Validation('Shipping requires one complete SKU per handling unit');
         Rules::fields($contents[0],['sku','quantity']);ShippingRules::code($contents[0]['sku']??null);Rules::integer($contents[0]['quantity']??null,1,10000);
         if(($unit['barcode']??null)!=='HU-'.strtoupper(str_replace('-','',$unit['id']))||($unit['run_id']??null)!==$h['run_id']||($unit['epoch']??null)!==$h['epoch']||($unit['owner']??null)!==$h['source']||($unit['category']??null)!=='finished')throw new Conflict('Custody identity, scope or contents mismatch');
-        foreach(['version'=>1,'custody_generation'=>0,'last_sequence'=>0] as $field=>$min)Rules::integer($unit[$field]??null,$min,PHP_INT_MAX);
+        foreach(['version'=>1,'custody_generation'=>0,'last_sequence'=>0] as $field=>$min)Rules::integer($unit[$field]??null,$min,2147483647);
         HandlingUnits::endpoint($h['origin']??'', $h['source'],'finished');HandlingUnits::endpoint($h['destination']??'',$h['destination_owner'],'finished');
         if(in_array($h['state'],['offered','accepted'],true)){
+            if($unit['version']>2147483645||$unit['last_sequence']>2147483645||$unit['custody_generation']>2147483646)throw new Conflict('Custody counters lack SQL departure/receipt headroom');
             if($unit['state']!=='reserved'||$unit['position']!==$h['origin']||($unit['origin']??null)!==null||($unit['destination']??null)!==null||($unit['handoff_id']??null)!==null||($h['departure_token']??null)!==null||($h['receipt_id']??null)!==null)throw new Conflict('Offer must retain reserved source placement');
         }else{
+            if($unit['version']>2147483646||$unit['last_sequence']>2147483646)throw new Conflict('Departure counters lack receipt headroom');
             $token=$h['departure_token']??null;if(!is_array($token))throw new Validation('Durable source departure token required');
             Rules::fields($token,['id','handoff_id','unit_id','run_id','epoch','custody_generation','last_sequence','unit_version']);Rules::uuid($token['id']??null);
             $expected=['handoff_id'=>$h['id'],'unit_id'=>$unit['id'],'run_id'=>$h['run_id'],'epoch'=>$h['epoch'],'custody_generation'=>$unit['custody_generation'],'last_sequence'=>$unit['last_sequence'],'unit_version'=>$unit['version']];
@@ -75,7 +77,7 @@ final class HandlingHandoffs
         if(!$row['departure']||[...$h,'state'=>'departed','receipt_id'=>null]!=$row['departure'])throw new Conflict('Receipt does not prove this exact source departure');
         $ack=[...$h,'state'=>'acknowledged'];if($row['acknowledgement']){if($row['acknowledgement']!=$ack)throw new Conflict('Receipt identity changed after acknowledgement');return $row['acknowledgement'];}
         $unit=$u->one('SELECT * FROM shipping_handling_units WHERE id=?',[$h['unit']['id']]);if($unit['state']!=='in_transit'||$unit['handoff_id']!==$h['id']||$unit['custody_generation']!==$h['departure_token']['custody_generation'])throw new Conflict('Late receipt cannot retire newer source custody');
-        $u->execute("UPDATE shipping_handling_units SET state='dispatched',version=version+1 WHERE id=?",[$unit['id']]);$u->execute("UPDATE shipping_handling_departures SET state='acknowledged',acknowledgement=? WHERE id=?",[$ack,$h['id']]);self::publish($u,$r,$s,$ack,$correlation);return $ack;
+        HandlingUnits::counterRoom($unit);$u->execute("UPDATE shipping_handling_units SET state='dispatched',version=version+1 WHERE id=?",[$unit['id']]);$u->execute("UPDATE shipping_handling_departures SET state='acknowledged',acknowledgement=? WHERE id=?",[$ack,$h['id']]);self::publish($u,$r,$s,$ack,$correlation);return $ack;
     }
     /** Republish only unresolved protocol stages, with bounded wall-clock retry. */
     public static function recover(Unit $u,array $r):int {

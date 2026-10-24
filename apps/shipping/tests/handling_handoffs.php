@@ -9,6 +9,7 @@ $offer=['id'=>$handoff,'run_id'=>$r['id'],'epoch'=>$r['epoch'],'source'=>'storag
 $intake=shippingSubmit(['action'=>'intake','sku'=>'FIXTURE','quantity'=>1,'units'=>[['id'=>Rules::uuid4(),'quantity'=>1]]]);$intakeCommand=$intake['id'];
 $apply=function($body)use($db,$s,$correlation,$intakeCommand){return $db->transaction(fn($u)=>HandlingHandoffs::receive($u,$u->run(),$s,$body,$correlation,$intakeCommand));};
 $missing=$offer;unset($missing['reason']);shippingReject(fn()=>$apply($missing),'handoff requires the complete published nullable-field shape');
+foreach([['custody_generation',PHP_INT_MAX],['custody_generation',2147483647],['last_sequence',2147483646],['version',2147483646]] as [$field,$value]){$invalid=$offer;$invalid['unit'][$field]=$value;shippingReject(fn()=>$apply($invalid),'custody counters must retain SQL departure/receipt headroom: '.$field);}
 $accepted=$apply($offer);shippingCheck($accepted['state']==='accepted','receiver durably accepts an exact free endpoint');
 shippingCheck($shipping->snapshot()['handling']['units']===[],'offer and acceptance never create confirmed destination stock');
 shippingCheck($apply($offer)==$accepted,'same offer replay preserves durable acceptance');
@@ -24,6 +25,9 @@ shippingCheck($shipping->snapshot()['handling']['units']===[],'invalid departure
 $received=$apply($departed);$units=$shipping->snapshot()['handling']['units'];shippingCheck($received['state']==='received'&&count($units)===1&&$units[0]['id']===$id&&$units[0]['position']===$offer['destination'],'valid source departure permits one confirmed destination receipt');
 shippingCheck($units[0]['last_sequence']===5&&$units[0]['custody_generation']===1,'receipt continues the source movement sequence and custody generation');
 shippingCheck($apply($departed)==$received&&count($shipping->snapshot()['handling']['movements'])===1,'departure redelivery after restart reuses receipt without a second movement');
+$db->transaction(fn($u)=>$u->execute('UPDATE shipping_handling_units SET version=2147483647 WHERE id=?',[$id]));
+shippingReject(fn()=>$db->transaction(fn($u)=>Shipping\HandlingUnits::reserveLocal($u,$u->run(),['id'=>Rules::uuid4(),'sku'=>'PRODUCT','quantity'=>3])),'exhausted imported counter rejects allocation before SQL overflow');
+$db->transaction(fn($u)=>$u->execute('UPDATE shipping_handling_units SET version=6 WHERE id=?',[$id]));
 $ack=[...$received,'state'=>'acknowledged'];shippingReject(fn()=>$apply([...$ack,'receipt_id'=>Rules::uuid4()]),'acknowledgement cannot replace the confirmed receipt identity');$apply($ack);$record=array_values(array_filter($shipping->snapshot()['handling']['handoffs'],fn($row)=>$row['id']===$handoff))[0];shippingCheck($record['state']==='acknowledged','projection exposes the durable acknowledged custody state');shippingCheck(count($shipping->snapshot()['handling']['units'])===1,'source acknowledgement cannot duplicate or remove destination stock');
 shippingReject(fn()=>$apply([...$offer,'id'=>Rules::uuid4(),'epoch'=>Rules::uuid4()]),'old scope cannot import a whole unit');
 echo "Shipping durable destination handoff checks passed\n";

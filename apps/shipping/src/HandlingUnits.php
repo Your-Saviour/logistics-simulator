@@ -33,8 +33,11 @@ final class HandlingUnits
         $locations=self::catalog();ksort($locations);foreach($locations as $id=>$location)if($location['owner']==='shipping'&&in_array('finished',$location['compatible'],true)&&!in_array($id,$occupied,true))return $id;
         throw new Conflict('No Shipping staging slot capacity; free a position and retry the receipt');
     }
+    public static function counterRoom(array $unit,bool $movement=false,bool $generation=false):void {
+        if($unit['version']>=2147483647||($movement&&$unit['last_sequence']>=2147483647)||($generation&&$unit['custody_generation']>=2147483647))throw new Conflict('Handling-unit counter capacity exhausted; reconcile before further movement');
+    }
     private static function movement(Unit $u,array $r,string $command,array $unit,string $action,?string $origin,string $destination,string $correlation,?string $shipment=null):void {
-        $updated=$u->one('UPDATE shipping_handling_units SET last_sequence=last_sequence+1,version=version+1 WHERE id=? RETURNING *',[$unit['id']]);
+        self::counterRoom($unit,true);$updated=$u->one('UPDATE shipping_handling_units SET last_sequence=last_sequence+1,version=version+1 WHERE id=? RETURNING *',[$unit['id']]);
         $u->execute('INSERT INTO shipping_unit_movements(id,unit_id,barcode,run_id,epoch,command_id,sequence,custody_generation,action,origin,destination,simulation_time,"references",correlation_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',[Rules::uuid4(),$unit['id'],$unit['barcode'],$r['id'],$r['epoch'],$command,$updated['last_sequence'],$updated['custody_generation'],$action,$origin,$destination,$r['granted'],['transfer_id'=>null,'batch_id'=>null,'shipment_id'=>$shipment],$correlation]);
     }
     public static function intake(Unit $u,array $r,string $command,string $sku,array $manifest,?array $line=null,?string $correlation=null):array {
@@ -47,7 +50,7 @@ final class HandlingUnits
     public static function reserveLocal(Unit $u,array $r,array $line):?array {
         $paths=[0=>[]];foreach($u->query("SELECT * FROM shipping_handling_units WHERE run_id=? AND epoch=? AND sku=? AND state='available' ORDER BY id",[$r['id'],$r['epoch'],$line['sku']]) as $unit){foreach($paths as $total=>$ids){$next=$total+$unit['quantity'];if($next<=$line['quantity']&&!isset($paths[$next]))$paths[$next]=[...$ids,$unit['id']];}if(isset($paths[$line['quantity']]))break;}
         $ids=$paths[$line['quantity']]??null;if($ids===null)return null;
-        foreach($ids as $id){$u->execute("UPDATE shipping_handling_units SET state='reserved',line_id=?,version=version+1 WHERE id=?",[$line['id'],$id]);$u->execute('INSERT INTO shipping_unit_allocations(line_id,unit_id) VALUES (?,?)',[$line['id'],$id]);}
+        foreach($ids as $id){self::counterRoom($u->one('SELECT * FROM shipping_handling_units WHERE id=?',[$id]));$u->execute("UPDATE shipping_handling_units SET state='reserved',line_id=?,version=version+1 WHERE id=?",[$line['id'],$id]);$u->execute('INSERT INTO shipping_unit_allocations(line_id,unit_id) VALUES (?,?)',[$line['id'],$id]);}
         $u->execute('UPDATE shipping_lines SET reserved=quantity,received=quantity,unit_ids=? WHERE id=?',[$ids,$line['id']]);return $ids;
     }
     public static function planSynthetic(Unit $u,array $r,array $line):array {
@@ -72,7 +75,7 @@ final class HandlingUnits
     }
     public static function releaseLocal(Unit $u,array $r,array $line):bool {
         self::requireNoPendingDeparture($u,$line);
-        $units=$u->query("SELECT id FROM shipping_handling_units WHERE run_id=? AND line_id=? AND state='reserved'",[$r['id'],$line['id']]);if(!$units)return false;
+        $units=$u->query("SELECT * FROM shipping_handling_units WHERE run_id=? AND line_id=? AND state='reserved'",[$r['id'],$line['id']]);if(!$units)return false;foreach($units as $unit)self::counterRoom($unit);
         $u->execute("UPDATE shipping_handling_units SET state='available',line_id=NULL,version=version+1 WHERE run_id=? AND line_id=? AND state='reserved'",[$r['id'],$line['id']]);$u->execute('UPDATE shipping_unit_allocations SET active=false WHERE line_id=?',[$line['id']]);$u->execute('UPDATE shipping_lines SET reserved=0 WHERE id=?',[$line['id']]);return true;
     }
     public static function releasePlan(Unit $u,array $line):void {$u->execute("UPDATE shipping_unit_plans SET state='released' WHERE line_id=? AND state='expected'",[$line['id']]);}
@@ -83,7 +86,7 @@ final class HandlingUnits
         }throw new Conflict('Synthetic carrier physical slots or load capacity unavailable; goods remain at Shipping');
     }
     public static function depart(Unit $u,array $r,string $command,array $h,string $correlation):array {
-        $unit=$h['unit'];$shipment=$u->query('SELECT s.id FROM shipping_shipments s JOIN shipping_lines l ON l.order_id=s.order_id JOIN shipping_handling_units h ON h.line_id=l.id WHERE h.id=?',[$unit['id']])[0]['id']??null;
+        $unit=$h['unit'];self::counterRoom($unit,true,true);$shipment=$u->query('SELECT s.id FROM shipping_shipments s JOIN shipping_lines l ON l.order_id=s.order_id JOIN shipping_handling_units h ON h.line_id=l.id WHERE h.id=?',[$unit['id']])[0]['id']??null;
         $u->execute("UPDATE shipping_handling_units SET state='in_transit',origin=position,position=NULL,destination=?,handoff_id=?,custody_generation=custody_generation+1,shipment_id=? WHERE id=?",[$h['destination'],$h['id'],$shipment,$unit['id']]);self::movement($u,$r,$command,$unit,'load',$h['origin'],$h['destination'],$correlation,$shipment);
         return self::contract($u->one('SELECT * FROM shipping_handling_units WHERE id=?',[$unit['id']]));
     }
@@ -93,11 +96,11 @@ final class HandlingUnits
     }
     public static function departSynthetic(Unit $u,array $r,string $command,array $line,string $shipment,string $correlation):void {
         self::requireNoPendingDeparture($u,$line);
-        foreach(self::requireLine($u,$r,$line) as $unit){$destination=self::carrierPosition($u,$r,$unit['quantity']);$u->execute("UPDATE shipping_handling_units SET state='in_transit',origin=position,position=NULL,destination=?,handoff_id=?,shipment_id=?,custody_generation=custody_generation+1 WHERE id=?",[$destination,Rules::uuid5($shipment,$unit['id']),$shipment,$unit['id']]);self::movement($u,$r,$command,$unit,'load',$unit['position'],$destination,$correlation,$shipment);}
+        foreach(self::requireLine($u,$r,$line) as $unit){self::counterRoom($unit,true,true);$destination=self::carrierPosition($u,$r,$unit['quantity']);$u->execute("UPDATE shipping_handling_units SET state='in_transit',origin=position,position=NULL,destination=?,handoff_id=?,shipment_id=?,custody_generation=custody_generation+1 WHERE id=?",[$destination,Rules::uuid5($shipment,$unit['id']),$shipment,$unit['id']]);self::movement($u,$r,$command,$unit,'load',$unit['position'],$destination,$correlation,$shipment);}
     }
     public static function delivered(Unit $u,array $r,array $line,string $shipment):void {
         $units=$u->query("SELECT * FROM shipping_handling_units WHERE run_id=? AND epoch=? AND line_id=? AND shipment_id=? AND state IN ('in_transit','dispatched')",[$r['id'],$r['epoch'],$line['id'],$shipment]);
-        if(array_sum(array_column($units,'quantity'))!==$line['quantity'])throw new Conflict('Carrier receipt must reference the allocated whole units');$u->execute("UPDATE shipping_handling_units SET state='dispatched',position=NULL,version=version+1 WHERE run_id=? AND line_id=? AND shipment_id=?",[$r['id'],$line['id'],$shipment]);$u->execute('UPDATE shipping_unit_allocations SET active=false WHERE line_id=?',[$line['id']]);
+        if(array_sum(array_column($units,'quantity'))!==$line['quantity'])throw new Conflict('Carrier receipt must reference the allocated whole units');foreach($units as $unit)self::counterRoom($unit);$u->execute("UPDATE shipping_handling_units SET state='dispatched',position=NULL,version=version+1 WHERE run_id=? AND line_id=? AND shipment_id=?",[$r['id'],$line['id'],$shipment]);$u->execute('UPDATE shipping_unit_allocations SET active=false WHERE line_id=?',[$line['id']]);
     }
     public static function contract(array $unit):array {
         $result=['owner'=>'shipping','contents'=>[['sku'=>$unit['sku'],'quantity'=>$unit['quantity']]]];foreach(['id','barcode','run_id','epoch','version','last_sequence','custody_generation','category','state','position','origin','destination','handoff_id'] as $field)$result[$field]=$unit[$field];return $result;
