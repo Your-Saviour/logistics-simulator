@@ -88,3 +88,28 @@ All local disposable verification deployments were stopped. Persistent user
 volumes and live deployments were preserved. There are no deferred important
 review findings; the reset archival policy and power model above are explicit
 V1 decisions.
+
+## Integration with updated main
+
+Merged Shipping V1 main revision `e7cc6bd` with Manufacturing V1. Shared adapter
+wiring uses the Shipping transport union, which already contains the identical
+Manufacturing demand contract and the common Storage/sample contracts. Both
+department schemas, CI steps, Make targets and unit/acceptance checks are retained.
+The Docker guard accepts both `--wait` and timed environment-based waiting.
+
+Fresh checks on the combined tree passed:
+
+- `make stack-unit APP=manufacturing`: 40 backend tests, dependency-lock match,
+  four frontend tests and Angular production build.
+- `make stack-unit APP=shipping`: complete application-owned PHP assertion suite.
+- Published schema/runtime parity and all 28 adapter tests, including four new
+  shared-adapter ingress/publication composition cases.
+- The packaged adapter image independently passes all 28 tests; public fixtures
+  are included with its packaged test suite.
+- `make manufacturing-connected-check`: actual native material/demand/power,
+  duplicate delivery, duration and correlated output acceptance.
+- `make shipping-connected-check`: native multiline fulfilment, future-grant and
+  actual-endpoint fencing, physical receipt/delivery and adapter restart fencing.
+
+Independent read-only review found no merge-resolution defects. Logs for these
+integration checks are local under `.superpowers/sdd/simu-3-merge/`.

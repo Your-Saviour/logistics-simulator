@@ -78,3 +78,11 @@ run-scoped manufacturing snapshots. The transport-only
 adds typed demand while retaining storage's issued reservation facts and
 request/receipt inputs. The adapter command schema includes this union;
 published sample and storage-boundary schemas remain unchanged.
+
+## Shipping V1
+
+Shipping commands and provider ownership are documented in [Shipping V1](shipping-v1.md).
+The additive [shipping wire schema](../contracts/v1/shipping-boundary.schema.json)
+and [order fixture](../contracts/v1/fixtures/shipping-boundary.json) cover shipping
+orders, owned confirmations, explicit storage operations and the production/carrier
+wire contracts. The existing storage/sample schemas remain unchanged.

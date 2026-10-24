@@ -8,10 +8,11 @@ from simulator.contracts import Envelope
 from simulator.providers import SeededInput
 from simulator.storage_contracts import transport_envelope
 from simulator.manufacturing_contracts import transport_envelope as manufacturing_envelope
+from simulator.shipping_contracts import transport_envelope as shipping_envelope
 from simulator.adapter_protocol import Command, PAYLOADS
 
 ROOT=Path(__file__).resolve().parents[1]
-MODELS={'sample.completed':Envelope,'seeded-input':SeededInput,'storage-boundary':transport_envelope,'manufacturing-boundary':manufacturing_envelope}
+MODELS={'sample.completed':Envelope,'seeded-input':SeededInput,'storage-boundary':transport_envelope,'manufacturing-boundary':manufacturing_envelope,'shipping-boundary':shipping_envelope}
 
 def adapter_schema():
     schema=Command.model_json_schema()

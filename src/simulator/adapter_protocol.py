@@ -2,7 +2,7 @@
 from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
-from .manufacturing_contracts import TransportEnvelope
+from .shipping_contracts import TransportEnvelope
 
 
 class Strict(BaseModel):

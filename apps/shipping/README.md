@@ -1,10 +1,13 @@
-# Shipping foundation (SIMU-51)
+# Shipping V1 (SIMU-5)
 
 Shipping owns its Laravel 13 API, Blade/Livewire 4 website, PostgreSQL transaction
 ledger, RabbitMQ worker and simulation-time controller. PHP owns all business
-execution and durable scheduling. It implements sample quantities and seeded
-boundary inputs; departmental V1 order/dispatch workflows are outside this change.
-The optional connected clock is the separately deployed department-local HTTP
+execution and durable scheduling. It implements complete customer orders, stock/production fulfilment, physical
+receipts, packing, dispatch and confirmed delivery. See
+[Shipping V1 operations](../../docs/shipping-v1.md) for domain commands, standalone
+packaging and connected provider contracts. The sample quantity API remains for
+foundation compatibility.
+The connected clock is the separately deployed department-local HTTP
 HELICS adapter described in `docs/adapter-protocol.md`.
 
 The website uses the existing Industrial direction: warm black `#0B0C0A`, amber
@@ -205,3 +208,13 @@ actual evidence and the untested hosted/physical-host limits.
 Production build contexts exclude generated Laravel sessions, views, logs and
 bootstrap caches. The image creates fresh writable runtime directories; no local
 test session or compiled configuration is copied into a clean deployment.
+
+## V1 state migrations
+
+Numbered migrations 005–008 add shipping orders/lines/shipments, durable domain
+commands and provider intents/history, exact incoming-event bodies, external
+customer aggregate identity, persistent cancellation intent and prepared browser
+operations. Existing applied SQL and migration checksums remain unchanged. New
+roles apply these additive migrations under the existing schema/run gates. Keep
+owned volumes and application keys; this source update does not perform live
+cutover, data reset or credential replacement.

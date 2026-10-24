@@ -23,6 +23,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--minimum-gib',type=float,default=20)
     parser.add_argument('--label',default='container-workload')
+    parser.add_argument('--wait',action='store_true',help='Wait for the shared Docker workload lock')
     parser.add_argument('command',nargs=argparse.REMAINDER)
     args=parser.parse_args()
     command=args.command[1:] if args.command[:1]==['--'] else args.command
@@ -35,7 +36,7 @@ def main():
     state=common.parent/'.superpowers';state.mkdir(exist_ok=True)
     with (state/'container-workload.lock').open('a+') as lock:
         try:
-            fcntl.flock(lock.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+            fcntl.flock(lock.fileno(),fcntl.LOCK_EX|(0 if args.wait else fcntl.LOCK_NB))
         except BlockingIOError:
             wait_seconds=max(0,float(os.environ.get('DOCKER_GUARD_WAIT_SECONDS','0')))
             if not wait_seconds:
