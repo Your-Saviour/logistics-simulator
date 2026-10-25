@@ -6,6 +6,26 @@ test.skip(!url,'No Twin scene target configured');
 test.use({video:{mode:'on',size:{width:1440,height:900}}});
 const catalog=JSON.parse(readFileSync(new URL('./facility.json',import.meta.url),'utf8'));
 
+test('fixed manufacturing machines retain their parent cell transforms in the GPU batch',async({page})=>{
+  await page.addInitScript(()=>{
+    (window as any).__staticMatrices=[];
+    const original=WebGL2RenderingContext.prototype.bufferData;
+    WebGL2RenderingContext.prototype.bufferData=function(target:any,data:any,...rest:any[]){
+      if(target===this.ARRAY_BUFFER&&data instanceof Float32Array&&data.length===1024*16)(window as any).__staticMatrices.push(Array.from(data));
+      return (original as any).call(this,target,data,...rest);
+    } as any;
+  });
+  const run={id:'geometry-fixture',epoch:'geometry-epoch',state:'held',granted:0,requested:0,committed:0};
+  await page.route('**/api/status',route=>route.fulfill({json:{identity:{username:'reader',scopes:['status:read']},heartbeats:[]}}));
+  await page.route('**/api/twin',route=>route.fulfill({json:{revision:1,mode:'live',sources:[{name:'storage',connected:true,stale:false,status:{run},snapshot:{config:{locations:[]}},cursor:'1',error:null}],events:[],aligned:null,controls:[],handling:{version:1,units:[],unsupported_sources:[]}}}));
+  await page.goto(url);await page.getByLabel('Username',{exact:true}).fill('reader');await page.getByLabel('Password',{exact:true}).fill('geometry');await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  const expected=catalog.locations.filter((p:any)=>p.kind==='cell_input'&&p.id.endsWith('input01')).map((p:any)=>[p.position[0]+.6,.15,p.position[2]+1.6]);
+  await expect.poll(()=>page.evaluate(expected=>{
+    const matrices=(window as any).__staticMatrices.flatMap((buffer:number[])=>Array.from({length:1024},(_,i)=>buffer.slice(i*16,i*16+16)));
+    return expected.filter((position:number[])=>matrices.some((m:number[])=>Math.abs(m[0]-2.2)<.0001&&Math.abs(m[5]-.3)<.0001&&Math.abs(m[10]-1.7)<.0001&&position.every((value,index)=>Math.abs(m[12+index]-value)<.0001))).length;
+  },expected)).toBe(expected.length);
+});
+
 test('500 recorded units replay on at most 64 robots without duplicate placements', async ({page}) => {
   const run={id:'11111111-1111-4111-8111-111111111111',epoch:'22222222-2222-4222-8222-222222222222',state:'running',granted:100,requested:101,committed:100,speed:1};
   const locations=catalog.locations.filter((row:any)=>row.kind==='shelf').slice(0,500);
