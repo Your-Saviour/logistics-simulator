@@ -72,10 +72,25 @@ public static class CustodyTests
             try {ledger.Ingest(first,"intruder/events");throw new Exception("Unconfigured custody peer accepted");}catch(Conflict){check(true,"custody source validates peer authority");}
             Receive(first);check(Handling()["units"]!.AsArray().All(n=>n!["position"] is not null),"one acceptance cannot partially retire a whole reservation");
             var second=Ingest(Reply(offers[1]["envelope"]!.AsObject(),"accepted"));
+            settings.FleetMode="coordinated";settings.FleetRun=Guid.NewGuid().ToString();settings.FleetEpoch=Guid.NewGuid().ToString();
+            ledger.Heartbeat("controller");ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE runs SET granted=@p0,requested=@p0 WHERE current",time);return true;});
+            check(ledger.Execute(second)=="waiting"&&Stock()["on_hand"]!.GetValue<int>()==4,"all custody acceptances still wait for fleet pickup before retiring stock");
+            var requests=ledger.Db.Transaction(u=>u.Query("SELECT request FROM warehouse_fleet_jobs WHERE run_id=@p0",ledger.Scope()));
+            check(requests.Count==2,"whole reservation persists each stable fleet request before waiting");
+            requests=requests.OrderBy(r=>r["request"]!["unit_id"]!.ToString()).ToList();
+            void Pickup(JsonObject row){var request=row["request"]!.AsObject();var body=(JsonObject)request.DeepClone();body.Remove("id");body["job_id"]=request["id"]!.DeepClone();body["kind"]="pickup_ready";body["route_version"]=1;body["robot_id"]="robot-01";
+                ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE warehouse_fleet_jobs SET observation=@p0 WHERE id=@p1",new JsonObject {["request"]=request.DeepClone(),["events"]=new JsonArray(new JsonObject {["body"]=body})},Ledger.Id(request));return true;});}
+            Pickup(requests[0]);
+            time++;
             ledger.Db.Transaction(u=>{u.Run();u.Exec("CREATE FUNCTION reject_storage_departure() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN IF NEW.envelope->>'type'='handling.departed.v1' THEN RAISE EXCEPTION 'forced custody publication failure'; END IF; RETURN NEW; END$$; CREATE TRIGGER reject_storage_departure BEFORE INSERT ON boundary_outbox FOR EACH ROW EXECUTE FUNCTION reject_storage_departure()");return true;});
             try {Execute(second);throw new Exception("Broken custody publication committed");}catch(Npgsql.PostgresException){check(Handling()["units"]!.AsArray().All(n=>n!["position"] is not null)&&Stock()["on_hand"]!.GetValue<int>()==4,"publication failure rolls back all source placements and stock retirement");}
             finally {ledger.Db.Transaction(u=>{u.Run();u.Exec("DROP TRIGGER reject_storage_departure ON boundary_outbox; DROP FUNCTION reject_storage_departure()");return true;});}
-            Execute(second);
+            ledger.Heartbeat("controller");ledger.Db.Transaction(u=>{u.Run();u.Exec("UPDATE runs SET granted=@p0,requested=@p0 WHERE current",time);return true;});
+            check(ledger.Execute(second)=="waiting"&&Stock()["on_hand"]!.GetValue<int>()==2&&Stock()["reserved"]!.GetValue<int>()==2,"first source pickup commits only its unit and stock while shared-route sibling waits");
+            check(ledger.Db.Transaction(u=>u.Query("SELECT 1 FROM warehouse_fleet_outbox WHERE kind='departure' AND job_id=@p0",Ledger.Id(requests[0]["request"]!.AsObject())).Count)==1,"first source departure proof releases its physical job without waiting for sibling pickup");
+            Pickup(requests[1]);time++;Execute(second);
+            check(ledger.Db.Transaction(u=>u.Query("SELECT 1 FROM warehouse_fleet_outbox WHERE kind='departure' AND job_id IN (SELECT id FROM warehouse_fleet_jobs WHERE run_id=@p0)",ledger.Scope()).Count)==2,"native source departure commits one durable fleet proof per transported unit");
+            settings.FleetMode="disabled";
             check(Handling()["units"]!.AsArray().All(n=>n!["position"] is null&&n["state"]!.ToString()=="in_transit"),"all capacity acceptances clear source positions before publishing departure tokens");
             check(Stock()["on_hand"]!.GetValue<int>()==0&&Stock()["reserved"]!.GetValue<int>()==0,"confirmed departure retires owned stock and allocation atomically");
             var departures=ledger.Db.Transaction(u=>u.Query("SELECT envelope FROM boundary_outbox WHERE run_id=@p0 AND envelope->>'type'='handling.departed.v1' ORDER BY id",Ledger.Id(first,"run_id")));
@@ -98,7 +113,7 @@ public static class CustodyTests
             var intent=Submit("issue",Map(a,"manufacturing.cell03.input01"));check(Command(intent)["status"]!.ToString()=="completed","receiver may assign any configured production cell");
             var collision=Submit("issue",Map(b,"manufacturing.cell03.input01"));check(Command(collision)["status"]!.ToString()=="rejected","independent reservations cannot promise the same receiving input");
             var distinct=Submit("issue",Map(b,"manufacturing.cell03.input02"));check(Command(distinct)["status"]!.ToString()=="completed","independent reservations preserve distinct receiver-assigned endpoints");
-        } finally {settings.Providers=providers;settings.Peers=peers;settings.Outputs=outputs;settings.Federation=federation;ledger.Db.Transaction(u=>{var r=u.Run();u.Exec("UPDATE runs SET mode='standalone' WHERE id=@p0",Ledger.Id(r));return true;});}
+        } finally {settings.FleetMode="disabled";settings.Providers=providers;settings.Peers=peers;settings.Outputs=outputs;settings.Federation=federation;ledger.Db.Transaction(u=>{var r=u.Run();u.Exec("UPDATE runs SET mode='standalone' WHERE id=@p0",Ledger.Id(r));return true;});}
         Reset();
     }
 }

@@ -5,7 +5,7 @@ import {JourneyQueue,LIMITS,poseAt,type Movement,type MotionSource} from './jour
 import {visibleUnits,type RecordedUnit,type Vec3} from './facility';
 export type ReplayStats={active:number;queued:number;trails:number;skipped:number;unmapped:number;frozen:boolean};
 export type ReplayProps={queue:JourneyQueue;movements:Movement[];sources:MotionSource[];reduced:boolean;units:RecordedUnit[];
-  root:RefObject<HTMLDivElement|null>;onStats:(stats:ReplayStats)=>void;selected:string};
+  root:RefObject<HTMLDivElement|null>;onStats:(stats:ReplayStats)=>void;selected:string;operationalLoads?:Set<string>};
 export const replayUnitKey=(unit:{run_id:string;epoch:string;id:string})=>`${unit.run_id}/${unit.epoch}/${unit.id}`;
 export function ReplayDriver(props:ReplayProps) {
   const {invalidate}=useThree();
@@ -15,7 +15,7 @@ export function ReplayDriver(props:ReplayProps) {
     const queue=props.queue;queue.tick(performance.now());
     const running=(source:string)=>props.sources.some(state=>state.name===source&&state.running&&state.connected);
     const frozen=queue.active.length>0&&!queue.active.some(journey=>running(journey.move.source));
-    const activeKeys=new Set(queue.active.map(journey=>`${journey.move.run_id}/${journey.move.epoch}/${journey.move.unit_id}`));
+    const activeKeys=new Set([...queue.active.map(journey=>`${journey.move.run_id}/${journey.move.epoch}/${journey.move.unit_id}`),...(props.operationalLoads??[])]);
     const placed=visibleUnits(props.units);
     const staticCount=placed.filter(unit=>!activeKeys.has(replayUnitKey(unit))).length;
     const stats={active:queue.active.length,queued:queue.queued.length,trails:queue.trails.length,skipped:queue.skipped,unmapped:queue.unmapped,frozen};

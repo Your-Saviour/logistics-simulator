@@ -11,6 +11,7 @@ final class Ledger
 
     public function auditEvents():array {return $this->db->transaction(fn($u)=>$u->query('SELECT * FROM command_audit ORDER BY recorded_at DESC,id DESC LIMIT 100'));}
     public function rejected(array $a,int $status):void {$this->db->transaction(function($u)use($a,$status){self::audit($u,$a['run_id']??$u->run()['id'],$a,'rejected',$status);});}
+    public function relayFleet():void {Fleet::relay($this->db);}
     public function heartbeat(string $role,string $detail=''):void {$this->db->transaction(fn($u)=>$u->execute('INSERT INTO heartbeats(role,detail) VALUES (?,?) ON CONFLICT(role) DO UPDATE SET seen_at=clock_timestamp(),detail=EXCLUDED.detail',[$role,$detail]));}
     public function schedule(string $key,float $due,int $quantity,?array $audit=null,?array $input=null):array {
         if(!$key||strlen($key)>128||!is_finite($due)||$due<0||$quantity<1||$quantity>10000)throw new Validation('Valid idempotency key, finite due time and quantity required');

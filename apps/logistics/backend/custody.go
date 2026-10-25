@@ -289,6 +289,13 @@ func (s *Store) executeCustody(ctx context.Context, tx pgx.Tx, r, j row) error {
 		return err
 	}
 	err = s.applyCustody(ctx, save, r, j, env)
+	var wait fleetWait
+	if errors.As(err, &wait) {
+		if failure := save.Commit(ctx); failure != nil {
+			return failure
+		}
+		return fleetDefer(ctx, tx, r, j, s.C.Quantum)
+	}
 	var conflict Conflict
 	var capacity custodyCapacity
 	if errors.As(err, &conflict) || errors.As(err, &capacity) {
@@ -309,7 +316,7 @@ func (s *Store) executeCustody(ctx context.Context, tx pgx.Tx, r, j row) error {
 		if err = save.Commit(ctx); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, "UPDATE transport_commands SET status='completed',completed_at=$1 WHERE id=$2", r["granted"], j["id"])
+		_, err = tx.Exec(ctx, "UPDATE transport_commands SET status='completed',reason=NULL,completed_at=$1 WHERE id=$2", r["granted"], j["id"])
 	}
 	if err != nil {
 		return err
@@ -405,6 +412,10 @@ func (s *Store) applyCustody(ctx context.Context, tx pgx.Tx, r, j row, env Trans
 	if h["state"] != "departed" {
 		return Conflict("Acknowledgement preceded receipt")
 	}
+	fleet := fleetRequest(row{"id": h["run_id"], "epoch": h["epoch"], "granted": r["granted"]}, unit["id"].(string), h["id"].(string), h["origin"].(string), h["destination"].(string), h["source"].(string), int(num(unit, "custody_generation")))
+	if err = fleetGate(ctx, tx, r, fleet, "arrival", true); err != nil {
+		return err
+	}
 	item := unit["contents"].([]any)[0].(map[string]any)
 	location := "WAREHOUSE"
 	if h["source"] == "shipping" {
@@ -439,6 +450,9 @@ func (s *Store) applyCustody(ctx context.Context, tx pgx.Tx, r, j row, env Trans
 	receipt := copyCustody(h)
 	receipt["state"] = "received"
 	receipt["receipt_id"] = uuid.NewSHA1(uuid.MustParse(h["id"].(string)), []byte("logistics-receipt")).String()
+	if err = fleetProof(ctx, tx, r, fleet, "receipt"); err != nil {
+		return err
+	}
 	receiptRaw, _ := json.Marshal(receipt)
 	if _, err = tx.Exec(ctx, "UPDATE transport_custody SET state='received',receipt=$1 WHERE id=$2", receiptRaw, h["id"]); err != nil {
 		return err

@@ -232,3 +232,37 @@ operations. Existing applied SQL and migration checksums remain unchanged. New
 roles apply these additive migrations under the existing schema/run gates. Keep
 owned volumes and application keys; this source update does not perform live
 cutover, data reset or credential replacement.
+
+### Coordinated robot custody (SIMU-75)
+
+Default `FLEET_MODE=disabled` preserves existing behavior. For coordinated native
+custody configure API, worker and controller with `FLEET_MODE=coordinated`,
+`FLEET_URL`, private Shipping `FLEET_TOKEN`, `FLEET_RUN_ID`, `FLEET_EPOCH` and
+optional finite nonnegative `FLEET_TIME_OFFSET` (default `0`). Map the actual
+Shipping native run/epoch and offset in the fleet source configuration.
+
+Migration `017_fleet.sql` stores immutable fleet requests, physical observations
+and departmental proofs. Worker HTTP happens after native SQL commits. Pickup
+readiness gates source loading/departure; physical arrival is required in addition
+to the accepted manifest and source departure token before Shipping imports stock.
+Proofs preserve their original native effective time across lost replies. Future
+physical arrivals wait until an eligible native grant plus the configured offset.
+Durable waits defer the command beyond the current grant, allowing native HELICS
+time requests to continue. Unavailable fleet never enables a fallback receipt.
+
+`handling.fleet` exposes mode and fleet run/epoch without credentials. Deferred
+commands show their wait in job errors; detailed HTTP failures remain in
+`shipping_fleet_jobs.error`. Old native scopes remain archived and are excluded
+from delivery. Keep existing volumes and applied migration checksums. Run native
+regressions with `make stack-unit APP=shipping`.
+
+Coordinated carrier operation requires native Logistics destination custody. A
+synthetic carrier has no authorized receiver for Logistics truck endpoints, so
+coordinated mode defers that work with an actionable native-custody wait. It
+never fabricates completion. Disabled mode keeps synthetic standalone workflows.
+
+Canonical Storage customer picks require exactly two source version increments
+in coordinated mode (unplaced departure and confirmed arrival), and one in
+disabled mode. Both advance one movement sequence and retain the existing custody
+generation until custody departure. Shipping keeps immutable manifest checks and
+reserves enough counter headroom for pick stages, departure and receiver receipt.

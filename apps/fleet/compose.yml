@@ -1,0 +1,52 @@
+name: simu-fleet-v1
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fleet
+      POSTGRES_PASSWORD: '${FLEET_DATABASE_PASSWORD:?Set a URL-safe FLEET_DATABASE_PASSWORD}'
+      POSTGRES_DB: fleet
+    volumes: [fleet-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U fleet -d fleet]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  initialize:
+    image: '${FLEET_IMAGE:-logistics-simulator:fleet-v1}'
+    build:
+      context: ../..
+      dockerfile: apps/fleet/Dockerfile
+    environment: &environment
+      DATABASE_URL: 'postgresql://fleet:${FLEET_DATABASE_PASSWORD:?Set FLEET_DATABASE_PASSWORD}@db:5432/fleet'
+      FLEET_RUN_ID: '${FLEET_RUN_ID:?Set FLEET_RUN_ID}'
+      FLEET_EPOCH: '${FLEET_EPOCH:?Set FLEET_EPOCH}'
+      FLEET_SCOPE: '${FLEET_SCOPE:?Set explicit department run/epoch/offset mapping}'
+      FLEET_SIZE: '${FLEET_SIZE:-8}'
+      FLEET_TOKENS: '${FLEET_TOKENS:?Set distinct private department/observer tokens}'
+      FLEET_SOURCES: '${FLEET_SOURCES:?Set server-side departmental projection URLs and credentials}'
+      ROLE: initialize
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    image: '${FLEET_IMAGE:-logistics-simulator:fleet-v1}'
+    restart: unless-stopped
+    environment:
+      <<: *environment
+      ROLE: api
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+  worker:
+    image: '${FLEET_IMAGE:-logistics-simulator:fleet-v1}'
+    restart: unless-stopped
+    environment:
+      <<: *environment
+      ROLE: worker
+    depends_on:
+      initialize:
+        condition: service_completed_successfully
+volumes:
+  fleet-data:

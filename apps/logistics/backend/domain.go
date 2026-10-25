@@ -267,6 +267,9 @@ func env(k, def string) string {
 	return def
 }
 func loadConfig() (Config, error) {
+	if err := fleetConfig(); err != nil {
+		return Config{}, err
+	}
 	c := Config{Username: env("APP_USERNAME", "operator"), Password: os.Getenv("APP_PASSWORD"), DatabaseURL: os.Getenv("DATABASE_URL"), AMQPURL: os.Getenv("AMQP_URL"), Mode: env("CLOCK_MODE", "standalone"), Role: env("ROLE", "api"), RunID: os.Getenv("FEDERATION_RUN_ID"), Epoch: os.Getenv("FEDERATION_EPOCH"), FederationID: os.Getenv("FEDERATION_ID"), AdapterURL: os.Getenv("HELICS_ADAPTER_URL"), AdapterToken: os.Getenv("HELICS_ADAPTER_TOKEN"), Scenario: defaultScenario(), Autonomous: env("AUTONOMOUS_SAMPLE", "true") == "true"}
 	var e error
 	seconds, timeoutErr := strconv.ParseFloat(env("HELICS_TIMEOUT_SECONDS", "60"), 64)

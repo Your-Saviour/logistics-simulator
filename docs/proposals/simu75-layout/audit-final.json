@@ -1,0 +1,2301 @@
+{
+  "status": "approved_layout_pre_application_validation",
+  "endpoint_count": 800,
+  "outbound_truck_slot_changes": 32,
+  "endpoint_position_changes": 93,
+  "truck_position_changes": 64,
+  "manufacturing_position_changes": 28,
+  "machine_groups_changed": 4,
+  "invalid_service_endpoints": [],
+  "service_overrides": [
+    {
+      "endpoint": "logistics.inbound.truck01.slot01",
+      "pose": [
+        -41.2,
+        -22.0,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -22.0,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck01.slot02",
+      "pose": [
+        -41.2,
+        -20.9,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -20.9,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck01.slot03",
+      "pose": [
+        -41.2,
+        -19.8,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -19.8,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck01.slot04",
+      "pose": [
+        -41.2,
+        -18.7,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -18.7,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck01.slot05",
+      "pose": [
+        -41.2,
+        -17.6,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -17.6,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck01.slot06",
+      "pose": [
+        -41.2,
+        -16.5,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -16.5,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck01.slot07",
+      "pose": [
+        -41.2,
+        -15.399999999999999,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -15.399999999999999,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck01.slot08",
+      "pose": [
+        -41.2,
+        -14.299999999999999,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -14.299999999999999,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.outbound.truck01.slot01",
+      "pose": [
+        23.8,
+        -22.0,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        -20.5,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck01.slot02",
+      "pose": [
+        23.8,
+        -20.9,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        -19.4,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck01.slot03",
+      "pose": [
+        23.8,
+        -19.8,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        -18.3,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck01.slot04",
+      "pose": [
+        23.8,
+        -18.7,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        -17.2,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck01.slot05",
+      "pose": [
+        23.8,
+        -17.6,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -17.6,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck01.slot06",
+      "pose": [
+        23.8,
+        -16.5,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -16.5,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck01.slot07",
+      "pose": [
+        23.8,
+        -15.399999999999999,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -15.399999999999999,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck01.slot08",
+      "pose": [
+        23.8,
+        -14.299999999999999,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -14.299999999999999,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.inbound.truck02.slot01",
+      "pose": [
+        -41.2,
+        -10.0,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -10.0,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck02.slot02",
+      "pose": [
+        -41.2,
+        -8.9,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -8.9,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck02.slot03",
+      "pose": [
+        -41.2,
+        -7.8,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -7.8,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck02.slot04",
+      "pose": [
+        -41.2,
+        -6.699999999999999,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -6.699999999999999,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck02.slot05",
+      "pose": [
+        -41.2,
+        -5.6,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -5.6,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck02.slot06",
+      "pose": [
+        -41.2,
+        -4.5,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -4.5,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck02.slot07",
+      "pose": [
+        -41.2,
+        -3.3999999999999995,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -3.3999999999999995,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck02.slot08",
+      "pose": [
+        -41.2,
+        -2.299999999999999,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        -2.299999999999999,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.outbound.truck02.slot01",
+      "pose": [
+        23.8,
+        -10.0,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        -8.5,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck02.slot02",
+      "pose": [
+        23.8,
+        -8.9,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -8.9,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck02.slot03",
+      "pose": [
+        23.8,
+        -7.8,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -7.8,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck02.slot04",
+      "pose": [
+        23.8,
+        -6.699999999999999,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -6.699999999999999,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck02.slot05",
+      "pose": [
+        23.8,
+        -5.6,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -5.6,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck02.slot06",
+      "pose": [
+        23.8,
+        -4.5,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -4.5,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck02.slot07",
+      "pose": [
+        23.8,
+        -3.3999999999999995,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        -3.3999999999999995,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck02.slot08",
+      "pose": [
+        23.8,
+        -2.299999999999999,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        -3.799999999999999,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.inbound.truck03.slot01",
+      "pose": [
+        -41.2,
+        2.0,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        2.0,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck03.slot02",
+      "pose": [
+        -41.2,
+        3.1,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        3.1,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck03.slot03",
+      "pose": [
+        -41.2,
+        4.2,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        4.2,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck03.slot04",
+      "pose": [
+        -41.2,
+        5.300000000000001,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        5.300000000000001,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck03.slot05",
+      "pose": [
+        -41.2,
+        6.4,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        6.4,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck03.slot06",
+      "pose": [
+        -41.2,
+        7.5,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        7.5,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck03.slot07",
+      "pose": [
+        -41.2,
+        8.600000000000001,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        8.600000000000001,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck03.slot08",
+      "pose": [
+        -41.2,
+        9.700000000000001,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        9.700000000000001,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.outbound.truck03.slot01",
+      "pose": [
+        23.8,
+        2.0,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        2.0,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck03.slot02",
+      "pose": [
+        23.8,
+        3.1,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        3.1,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck03.slot03",
+      "pose": [
+        23.8,
+        4.2,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        4.2,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck03.slot04",
+      "pose": [
+        23.8,
+        5.300000000000001,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        5.300000000000001,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck03.slot05",
+      "pose": [
+        23.8,
+        6.4,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        4.9,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck03.slot06",
+      "pose": [
+        23.8,
+        7.5,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        6.0,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck03.slot07",
+      "pose": [
+        23.8,
+        8.600000000000001,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        7.100000000000001,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck03.slot08",
+      "pose": [
+        23.8,
+        9.700000000000001,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        8.200000000000001,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.inbound.truck04.slot01",
+      "pose": [
+        -41.2,
+        14.0,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        14.0,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck04.slot02",
+      "pose": [
+        -41.2,
+        15.1,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        15.1,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck04.slot03",
+      "pose": [
+        -41.2,
+        16.2,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        16.2,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck04.slot04",
+      "pose": [
+        -41.2,
+        17.3,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        17.3,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck04.slot05",
+      "pose": [
+        -41.2,
+        18.4,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        18.4,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck04.slot06",
+      "pose": [
+        -41.2,
+        19.5,
+        0
+      ],
+      "original_candidate_pose": [
+        -41.5,
+        19.5,
+        0
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck04.slot07",
+      "pose": [
+        -41.2,
+        20.6,
+        0
+      ],
+      "original_candidate_pose": [
+        -43,
+        19.1,
+        1
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.inbound.truck04.slot08",
+      "pose": [
+        -41.2,
+        21.700000000000003,
+        0
+      ],
+      "original_candidate_pose": [
+        -43,
+        20.200000000000003,
+        1
+      ],
+      "fork_reach": 1.7999999999999972
+    },
+    {
+      "endpoint": "logistics.outbound.truck04.slot01",
+      "pose": [
+        23.8,
+        14.0,
+        0
+      ],
+      "original_candidate_pose": [
+        20.5,
+        14.0,
+        0
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck04.slot02",
+      "pose": [
+        23.8,
+        15.1,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        13.6,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck04.slot03",
+      "pose": [
+        23.8,
+        16.2,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        14.7,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck04.slot04",
+      "pose": [
+        23.8,
+        17.3,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        15.8,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck04.slot05",
+      "pose": [
+        23.8,
+        18.4,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        16.9,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck04.slot06",
+      "pose": [
+        23.8,
+        19.5,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        18.0,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck04.slot07",
+      "pose": [
+        23.8,
+        20.6,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        19.1,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "logistics.outbound.truck04.slot08",
+      "pose": [
+        23.8,
+        21.700000000000003,
+        0
+      ],
+      "original_candidate_pose": [
+        22,
+        20.200000000000003,
+        1
+      ],
+      "fork_reach": 1.8000000000000007
+    },
+    {
+      "endpoint": "storage.finished_receipt.dock01",
+      "pose": [
+        -28.0,
+        4.5,
+        1
+      ],
+      "original_candidate_pose": [
+        -28,
+        7.5,
+        1
+      ],
+      "fork_reach": 1.5
+    },
+    {
+      "endpoint": "storage.finished_receipt.dock02",
+      "pose": [
+        -25.0,
+        4.5,
+        1
+      ],
+      "original_candidate_pose": [
+        -25,
+        7.5,
+        1
+      ],
+      "fork_reach": 1.5
+    },
+    {
+      "endpoint": "storage.finished_receipt.dock03",
+      "pose": [
+        -22.0,
+        4.5,
+        1
+      ],
+      "original_candidate_pose": [
+        -22,
+        7.5,
+        1
+      ],
+      "fork_reach": 1.5
+    },
+    {
+      "endpoint": "storage.finished_receipt.dock04",
+      "pose": [
+        -19.0,
+        4.5,
+        1
+      ],
+      "original_candidate_pose": [
+        -19,
+        7.5,
+        1
+      ],
+      "fork_reach": 1.5
+    },
+    {
+      "endpoint": "storage.finished_receipt.dock05",
+      "pose": [
+        -16.0,
+        4.5,
+        1
+      ],
+      "original_candidate_pose": [
+        -16,
+        7.5,
+        1
+      ],
+      "fork_reach": 1.5
+    },
+    {
+      "endpoint": "storage.finished_receipt.dock06",
+      "pose": [
+        -13.0,
+        4.5,
+        1
+      ],
+      "original_candidate_pose": [
+        -13,
+        7.5,
+        1
+      ],
+      "fork_reach": 1.5
+    },
+    {
+      "endpoint": "storage.finished_receipt.dock07",
+      "pose": [
+        -10.0,
+        4.5,
+        1
+      ],
+      "original_candidate_pose": [
+        -10,
+        7.5,
+        1
+      ],
+      "fork_reach": 1.5
+    },
+    {
+      "endpoint": "storage.finished_receipt.dock08",
+      "pose": [
+        -7.0,
+        4.5,
+        1
+      ],
+      "original_candidate_pose": [
+        -7,
+        7.5,
+        1
+      ],
+      "fork_reach": 1.5
+    }
+  ],
+  "minimum_stationary_load_gap": 0.23999999999999666,
+  "minimum_load_pair": [
+    "logistics.inbound.truck01.slot07",
+    "logistics.inbound.truck01.slot08"
+  ],
+  "placement_conflict_count": 0,
+  "placement_conflicts": [],
+  "machine_load_conflicts": [],
+  "connectivity": [
+    {
+      "direction": "approach",
+      "states": 276309,
+      "elapsed_seconds": 6.977489795011934,
+      "complete": true,
+      "unreachable_endpoints": [],
+      "unreachable_parking": []
+    },
+    {
+      "direction": "return",
+      "states": 276459,
+      "elapsed_seconds": 6.924842128995806,
+      "complete": true,
+      "unreachable_endpoints": [],
+      "unreachable_parking": []
+    }
+  ],
+  "parking_safe": true,
+  "limitations": [
+    "Shelf beam/fork openings require vertical stage validation. No solid machine target exemptions are used.",
+    "Truck approaches use the open east side; loaded deck is supported, sidewall is not crossed.",
+    "Pairwise placement conflicts expand each load by half the minimum clearance, rejecting gaps below .15m."
+  ],
+  "proposed_endpoint_positions": [
+    {
+      "id": "logistics.inbound.truck01.slot01",
+      "position": [
+        -43,
+        0.9,
+        -22.0
+      ],
+      "access": [
+        -35,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck01.slot02",
+      "position": [
+        -43,
+        0.9,
+        -20.9
+      ],
+      "access": [
+        -35,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck01.slot03",
+      "position": [
+        -43,
+        0.9,
+        -19.8
+      ],
+      "access": [
+        -35,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck01.slot04",
+      "position": [
+        -43,
+        0.9,
+        -18.7
+      ],
+      "access": [
+        -35,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck01.slot05",
+      "position": [
+        -43,
+        0.9,
+        -17.6
+      ],
+      "access": [
+        -35,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck01.slot06",
+      "position": [
+        -43,
+        0.9,
+        -16.5
+      ],
+      "access": [
+        -35,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck01.slot07",
+      "position": [
+        -43,
+        0.9,
+        -15.399999999999999
+      ],
+      "access": [
+        -35,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck01.slot08",
+      "position": [
+        -43,
+        0.9,
+        -14.299999999999999
+      ],
+      "access": [
+        -35,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "shipping.outbound.dock01",
+      "position": [
+        17.2,
+        0.3,
+        -15
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01.slot01",
+      "position": [
+        22,
+        0.9,
+        -22.0
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01.slot02",
+      "position": [
+        22,
+        0.9,
+        -20.9
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01.slot03",
+      "position": [
+        22,
+        0.9,
+        -19.8
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01.slot04",
+      "position": [
+        22,
+        0.9,
+        -18.7
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01.slot05",
+      "position": [
+        22,
+        0.9,
+        -17.6
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01.slot06",
+      "position": [
+        22,
+        0.9,
+        -16.5
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01.slot07",
+      "position": [
+        22,
+        0.9,
+        -15.399999999999999
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01.slot08",
+      "position": [
+        22,
+        0.9,
+        -14.299999999999999
+      ],
+      "access": [
+        19,
+        0,
+        -15
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02.slot01",
+      "position": [
+        -43,
+        0.9,
+        -10.0
+      ],
+      "access": [
+        -35,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02.slot02",
+      "position": [
+        -43,
+        0.9,
+        -8.9
+      ],
+      "access": [
+        -35,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02.slot03",
+      "position": [
+        -43,
+        0.9,
+        -7.8
+      ],
+      "access": [
+        -35,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02.slot04",
+      "position": [
+        -43,
+        0.9,
+        -6.699999999999999
+      ],
+      "access": [
+        -35,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02.slot05",
+      "position": [
+        -43,
+        0.9,
+        -5.6
+      ],
+      "access": [
+        -35,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02.slot06",
+      "position": [
+        -43,
+        0.9,
+        -4.5
+      ],
+      "access": [
+        -35,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02.slot07",
+      "position": [
+        -43,
+        0.9,
+        -3.3999999999999995
+      ],
+      "access": [
+        -35,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02.slot08",
+      "position": [
+        -43,
+        0.9,
+        -2.299999999999999
+      ],
+      "access": [
+        -35,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02.slot01",
+      "position": [
+        22,
+        0.9,
+        -10.0
+      ],
+      "access": [
+        19,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02.slot02",
+      "position": [
+        22,
+        0.9,
+        -8.9
+      ],
+      "access": [
+        19,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02.slot03",
+      "position": [
+        22,
+        0.9,
+        -7.8
+      ],
+      "access": [
+        19,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02.slot04",
+      "position": [
+        22,
+        0.9,
+        -6.699999999999999
+      ],
+      "access": [
+        19,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02.slot05",
+      "position": [
+        22,
+        0.9,
+        -5.6
+      ],
+      "access": [
+        19,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02.slot06",
+      "position": [
+        22,
+        0.9,
+        -4.5
+      ],
+      "access": [
+        19,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02.slot07",
+      "position": [
+        22,
+        0.9,
+        -3.3999999999999995
+      ],
+      "access": [
+        19,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02.slot08",
+      "position": [
+        22,
+        0.9,
+        -2.299999999999999
+      ],
+      "access": [
+        19,
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03.slot01",
+      "position": [
+        -43,
+        0.9,
+        2.0
+      ],
+      "access": [
+        -35,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03.slot02",
+      "position": [
+        -43,
+        0.9,
+        3.1
+      ],
+      "access": [
+        -35,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03.slot03",
+      "position": [
+        -43,
+        0.9,
+        4.2
+      ],
+      "access": [
+        -35,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03.slot04",
+      "position": [
+        -43,
+        0.9,
+        5.300000000000001
+      ],
+      "access": [
+        -35,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03.slot05",
+      "position": [
+        -43,
+        0.9,
+        6.4
+      ],
+      "access": [
+        -35,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03.slot06",
+      "position": [
+        -43,
+        0.9,
+        7.5
+      ],
+      "access": [
+        -35,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03.slot07",
+      "position": [
+        -43,
+        0.9,
+        8.600000000000001
+      ],
+      "access": [
+        -35,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03.slot08",
+      "position": [
+        -43,
+        0.9,
+        9.700000000000001
+      ],
+      "access": [
+        -35,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03.slot01",
+      "position": [
+        22,
+        0.9,
+        2.0
+      ],
+      "access": [
+        19,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03.slot02",
+      "position": [
+        22,
+        0.9,
+        3.1
+      ],
+      "access": [
+        19,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03.slot03",
+      "position": [
+        22,
+        0.9,
+        4.2
+      ],
+      "access": [
+        19,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03.slot04",
+      "position": [
+        22,
+        0.9,
+        5.300000000000001
+      ],
+      "access": [
+        19,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03.slot05",
+      "position": [
+        22,
+        0.9,
+        6.4
+      ],
+      "access": [
+        19,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03.slot06",
+      "position": [
+        22,
+        0.9,
+        7.5
+      ],
+      "access": [
+        19,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03.slot07",
+      "position": [
+        22,
+        0.9,
+        8.600000000000001
+      ],
+      "access": [
+        19,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03.slot08",
+      "position": [
+        22,
+        0.9,
+        9.700000000000001
+      ],
+      "access": [
+        19,
+        0,
+        3
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04.slot01",
+      "position": [
+        -43,
+        0.9,
+        14.0
+      ],
+      "access": [
+        -35,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04.slot02",
+      "position": [
+        -43,
+        0.9,
+        15.1
+      ],
+      "access": [
+        -35,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04.slot03",
+      "position": [
+        -43,
+        0.9,
+        16.2
+      ],
+      "access": [
+        -35,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04.slot04",
+      "position": [
+        -43,
+        0.9,
+        17.3
+      ],
+      "access": [
+        -35,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04.slot05",
+      "position": [
+        -43,
+        0.9,
+        18.4
+      ],
+      "access": [
+        -35,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04.slot06",
+      "position": [
+        -43,
+        0.9,
+        19.5
+      ],
+      "access": [
+        -35,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04.slot07",
+      "position": [
+        -43,
+        0.9,
+        20.6
+      ],
+      "access": [
+        -35,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04.slot08",
+      "position": [
+        -43,
+        0.9,
+        21.700000000000003
+      ],
+      "access": [
+        -35,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04.slot01",
+      "position": [
+        22,
+        0.9,
+        14.0
+      ],
+      "access": [
+        19,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04.slot02",
+      "position": [
+        22,
+        0.9,
+        15.1
+      ],
+      "access": [
+        19,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04.slot03",
+      "position": [
+        22,
+        0.9,
+        16.2
+      ],
+      "access": [
+        19,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04.slot04",
+      "position": [
+        22,
+        0.9,
+        17.3
+      ],
+      "access": [
+        19,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04.slot05",
+      "position": [
+        22,
+        0.9,
+        18.4
+      ],
+      "access": [
+        19,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04.slot06",
+      "position": [
+        22,
+        0.9,
+        19.5
+      ],
+      "access": [
+        19,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04.slot07",
+      "position": [
+        22,
+        0.9,
+        20.6
+      ],
+      "access": [
+        19,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04.slot08",
+      "position": [
+        22,
+        0.9,
+        21.700000000000003
+      ],
+      "access": [
+        19,
+        0,
+        12
+      ]
+    },
+    {
+      "id": "manufacturing.cell01.input02",
+      "position": [
+        2,
+        0.65,
+        -4.9
+      ],
+      "access": [
+        0,
+        0,
+        -5.2
+      ]
+    },
+    {
+      "id": "manufacturing.cell01.input03",
+      "position": [
+        2,
+        0.65,
+        -3.8
+      ],
+      "access": [
+        0,
+        0,
+        -4.4
+      ]
+    },
+    {
+      "id": "manufacturing.cell01.input04",
+      "position": [
+        2,
+        0.65,
+        -2.6999999999999997
+      ],
+      "access": [
+        0,
+        0,
+        -3.5999999999999996
+      ]
+    },
+    {
+      "id": "manufacturing.cell01.output01",
+      "position": [
+        2,
+        0.65,
+        2.0
+      ],
+      "access": [
+        0,
+        0,
+        0.0
+      ]
+    },
+    {
+      "id": "manufacturing.cell01.output02",
+      "position": [
+        2,
+        0.65,
+        3.1
+      ],
+      "access": [
+        0,
+        0,
+        0.8
+      ]
+    },
+    {
+      "id": "manufacturing.cell01.output03",
+      "position": [
+        2,
+        0.65,
+        4.2
+      ],
+      "access": [
+        0,
+        0,
+        1.6
+      ]
+    },
+    {
+      "id": "manufacturing.cell01.output04",
+      "position": [
+        2,
+        0.65,
+        5.300000000000001
+      ],
+      "access": [
+        0,
+        0,
+        2.4000000000000004
+      ]
+    },
+    {
+      "id": "manufacturing.cell02.input02",
+      "position": [
+        5,
+        0.65,
+        -4.9
+      ],
+      "access": [
+        0,
+        0,
+        -5.2
+      ]
+    },
+    {
+      "id": "manufacturing.cell02.input03",
+      "position": [
+        5,
+        0.65,
+        -3.8
+      ],
+      "access": [
+        0,
+        0,
+        -4.4
+      ]
+    },
+    {
+      "id": "manufacturing.cell02.input04",
+      "position": [
+        5,
+        0.65,
+        -2.6999999999999997
+      ],
+      "access": [
+        0,
+        0,
+        -3.5999999999999996
+      ]
+    },
+    {
+      "id": "manufacturing.cell02.output01",
+      "position": [
+        5,
+        0.65,
+        2.0
+      ],
+      "access": [
+        0,
+        0,
+        0.0
+      ]
+    },
+    {
+      "id": "manufacturing.cell02.output02",
+      "position": [
+        5,
+        0.65,
+        3.1
+      ],
+      "access": [
+        0,
+        0,
+        0.8
+      ]
+    },
+    {
+      "id": "manufacturing.cell02.output03",
+      "position": [
+        5,
+        0.65,
+        4.2
+      ],
+      "access": [
+        0,
+        0,
+        1.6
+      ]
+    },
+    {
+      "id": "manufacturing.cell02.output04",
+      "position": [
+        5,
+        0.65,
+        5.300000000000001
+      ],
+      "access": [
+        0,
+        0,
+        2.4000000000000004
+      ]
+    },
+    {
+      "id": "manufacturing.cell03.input02",
+      "position": [
+        8,
+        0.65,
+        -4.9
+      ],
+      "access": [
+        0,
+        0,
+        -5.2
+      ]
+    },
+    {
+      "id": "manufacturing.cell03.input03",
+      "position": [
+        8,
+        0.65,
+        -3.8
+      ],
+      "access": [
+        0,
+        0,
+        -4.4
+      ]
+    },
+    {
+      "id": "manufacturing.cell03.input04",
+      "position": [
+        8,
+        0.65,
+        -2.6999999999999997
+      ],
+      "access": [
+        0,
+        0,
+        -3.5999999999999996
+      ]
+    },
+    {
+      "id": "manufacturing.cell03.output01",
+      "position": [
+        8,
+        0.65,
+        2.0
+      ],
+      "access": [
+        0,
+        0,
+        0.0
+      ]
+    },
+    {
+      "id": "manufacturing.cell03.output02",
+      "position": [
+        8,
+        0.65,
+        3.1
+      ],
+      "access": [
+        0,
+        0,
+        0.8
+      ]
+    },
+    {
+      "id": "manufacturing.cell03.output03",
+      "position": [
+        8,
+        0.65,
+        4.2
+      ],
+      "access": [
+        0,
+        0,
+        1.6
+      ]
+    },
+    {
+      "id": "manufacturing.cell03.output04",
+      "position": [
+        8,
+        0.65,
+        5.300000000000001
+      ],
+      "access": [
+        0,
+        0,
+        2.4000000000000004
+      ]
+    },
+    {
+      "id": "manufacturing.cell04.input02",
+      "position": [
+        11,
+        0.65,
+        -4.9
+      ],
+      "access": [
+        0,
+        0,
+        -5.2
+      ]
+    },
+    {
+      "id": "manufacturing.cell04.input03",
+      "position": [
+        11,
+        0.65,
+        -3.8
+      ],
+      "access": [
+        0,
+        0,
+        -4.4
+      ]
+    },
+    {
+      "id": "manufacturing.cell04.input04",
+      "position": [
+        11,
+        0.65,
+        -2.6999999999999997
+      ],
+      "access": [
+        0,
+        0,
+        -3.5999999999999996
+      ]
+    },
+    {
+      "id": "manufacturing.cell04.output01",
+      "position": [
+        11,
+        0.65,
+        2.0
+      ],
+      "access": [
+        0,
+        0,
+        0.0
+      ]
+    },
+    {
+      "id": "manufacturing.cell04.output02",
+      "position": [
+        11,
+        0.65,
+        3.1
+      ],
+      "access": [
+        0,
+        0,
+        0.8
+      ]
+    },
+    {
+      "id": "manufacturing.cell04.output03",
+      "position": [
+        11,
+        0.65,
+        4.2
+      ],
+      "access": [
+        0,
+        0,
+        1.6
+      ]
+    },
+    {
+      "id": "manufacturing.cell04.output04",
+      "position": [
+        11,
+        0.65,
+        5.300000000000001
+      ],
+      "access": [
+        0,
+        0,
+        2.4000000000000004
+      ]
+    }
+  ],
+  "proposed_machine_bounds": [
+    {
+      "id": "manufacturing.cell01",
+      "bounds": [
+        1.5,
+        -1.5,
+        3.7,
+        0.75
+      ]
+    },
+    {
+      "id": "manufacturing.cell02",
+      "bounds": [
+        4.5,
+        -1.5,
+        6.7,
+        0.75
+      ]
+    },
+    {
+      "id": "manufacturing.cell03",
+      "bounds": [
+        7.5,
+        -1.5,
+        9.7,
+        0.75
+      ]
+    },
+    {
+      "id": "manufacturing.cell04",
+      "bounds": [
+        10.5,
+        -1.5,
+        12.7,
+        0.75
+      ]
+    }
+  ]
+}

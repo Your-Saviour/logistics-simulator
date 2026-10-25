@@ -140,6 +140,13 @@ func (s *Store) executeTransport(ctx context.Context, tx pgx.Tx, r, j row) error
 		return e
 	}
 	e = s.applyTransport(ctx, save, r, j, c)
+	var wait fleetWait
+	if errors.As(e, &wait) {
+		if failure := save.Commit(ctx); failure != nil {
+			return failure
+		}
+		return fleetDefer(ctx, tx, r, j, s.C.Quantum)
+	}
 	var conflict Conflict
 	if errors.As(e, &conflict) {
 		if err := save.Rollback(ctx); err != nil {
@@ -153,7 +160,7 @@ func (s *Store) executeTransport(ctx context.Context, tx pgx.Tx, r, j row) error
 		if e = save.Commit(ctx); e != nil {
 			return e
 		}
-		_, e = tx.Exec(ctx, "UPDATE transport_commands SET status='completed',completed_at=$1 WHERE id=$2", r["granted"], j["id"])
+		_, e = tx.Exec(ctx, "UPDATE transport_commands SET status='completed',reason=NULL,completed_at=$1 WHERE id=$2", r["granted"], j["id"])
 	}
 	if e != nil {
 		return e

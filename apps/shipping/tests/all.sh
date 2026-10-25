@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 php /app/tests/run.php
+php /app/tests/fleet.php
 php /app/tests/security.php
 php /app/tests/ledger.php
 php /app/tests/adapter.php

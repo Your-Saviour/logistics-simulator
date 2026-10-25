@@ -17,6 +17,7 @@ from psycopg.types.json import Jsonb
 from simulator.config import Settings
 from simulator.store import Store
 from .handling_projection import validate_handling, retain_handling, register_manifests, validate_handling_events, ManifestConflict, reconcile_handling
+from .fleet_projection import FleetProjection
 
 NAMES = {'manufacturing', 'storage', 'logistics', 'shipping'}
 RUN_FIELDS = {'id', 'epoch', 'mode', 'state', 'granted', 'requested', 'committed',
@@ -221,7 +222,7 @@ class ProjectionStore:
             if identity(runs[0]) is not None and all(identity(r) == identity(runs[0]) for r in runs):
                 aligned = {'run_id': runs[0]['id'], 'epoch': runs[0]['epoch'],
                            'committed': min(r['committed'] for r in runs)}
-        return {'revision': revision, 'sources': sources, 'events': events, 'handling': reconcile_handling(sources),
+        return {'revision': revision, 'sources': sources, 'events': events, 'handling': reconcile_handling(sources), 'fleet': FleetProjection(self.store).view(),
                 'aligned': aligned, 'mode': 'live', 'controls': [], 'heartbeats': heartbeats}
 
 
@@ -229,6 +230,8 @@ class Consumer:
     def __init__(self, projection, sources, client):
         self.projection, self.client = projection, client
         self.sources = projection.configure(sources)
+        self.fleet = FleetProjection(projection.store)
+        self.fleet_config = self.fleet.configure(json.loads(os.getenv('TWIN_FLEET_SOURCE', 'null')))
 
     def tick(self):
         for source in self.sources:
@@ -268,6 +271,19 @@ class Consumer:
             except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
                 # No upstream bodies, credentials or URLs in persisted errors/logs.
                 self.projection.failure(source['name'], generation, conflict=error.conflict if isinstance(error, ManifestConflict) else None)
+        if self.fleet_config:
+            try:
+                with self.client.stream('GET', self.fleet_config['url'] + '/v1/snapshot',
+                                        headers={'Authorization': 'Bearer ' + self.fleet_config['token']}) as response:
+                    response.raise_for_status()
+                    data = bytearray()
+                    for chunk in response.iter_bytes():
+                        data.extend(chunk)
+                        if len(data) > 32 * 1024 * 1024:
+                            raise ValueError('Fleet snapshot size exceeded')
+                    self.fleet.accept(json.loads(data))
+            except (httpx.HTTPError, ValueError, KeyError, TypeError):
+                self.fleet.failure()
         self.projection.store.heartbeat('projection')
 
 

@@ -13,6 +13,7 @@ final class Settings
     public static function env(string $key,string $default=''):string {$value=getenv($key);return $value===false?$default:$value;}
     private static function json(string $key,string $default):array {try{$value=json_decode(self::env($key,$default),true,512,JSON_THROW_ON_ERROR);}catch(\JsonException){throw new Validation("Invalid JSON configuration: $key");}if(!is_array($value))throw new Validation("JSON object/array required: $key");return $value;}
     public function __construct(){
+        Fleet::configure();
         $this->role=self::env('ROLE','api');$this->mode=self::env('CLOCK_MODE','standalone');if(self::env('SIMULATOR','shipping')!=='shipping'||!in_array($this->role,['api','worker','controller'],true)||!in_array($this->mode,['standalone','helics'],true))throw new Validation('Invalid application, role or clock mode');
         $quantum=self::env('HANDOFF_QUANTUM','1');if(!is_numeric($quantum)||!is_finite((float)$quantum)||(float)$quantum<1)throw new Validation('Finite handoff quantum of at least one second required');$this->quantum=(float)$quantum;
         $timeout=self::env('HELICS_TIMEOUT_SECONDS','60');if(!is_numeric($timeout)||!is_finite((float)$timeout)||(float)$timeout<=0)throw new Validation('Positive adapter timeout required');$this->timeout=(float)$timeout;

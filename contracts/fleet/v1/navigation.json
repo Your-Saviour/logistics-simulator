@@ -1,0 +1,4463 @@
+{
+  "version": 1,
+  "catalog_version": 1,
+  "cell_size": 0.25,
+  "bounds": [
+    -45.9,
+    -29.4,
+    44.5,
+    31.5
+  ],
+  "obstacles": [
+    {
+      "id": "west-wall",
+      "bounds": [
+        -46.09,
+        -29.5,
+        -45.91,
+        31.5
+      ]
+    },
+    {
+      "id": "north-wall",
+      "bounds": [
+        -46.5,
+        -29.59,
+        44.5,
+        -29.41
+      ]
+    },
+    {
+      "id": "storage.raw.r01",
+      "bounds": [
+        -28.625,
+        -18.7,
+        -27.375,
+        -6.8
+      ]
+    },
+    {
+      "id": "storage.raw.r02",
+      "bounds": [
+        -25.625,
+        -18.7,
+        -24.375,
+        -6.8
+      ]
+    },
+    {
+      "id": "storage.raw.r03",
+      "bounds": [
+        -22.625,
+        -18.7,
+        -21.375,
+        -6.8
+      ]
+    },
+    {
+      "id": "storage.raw.r04",
+      "bounds": [
+        -19.625,
+        -18.7,
+        -18.375,
+        -6.8
+      ]
+    },
+    {
+      "id": "storage.raw.r05",
+      "bounds": [
+        -16.625,
+        -18.7,
+        -15.375,
+        -6.8
+      ]
+    },
+    {
+      "id": "storage.raw.r06",
+      "bounds": [
+        -13.625,
+        -18.7,
+        -12.375,
+        -6.8
+      ]
+    },
+    {
+      "id": "storage.raw.r07",
+      "bounds": [
+        -10.625,
+        -18.7,
+        -9.375,
+        -6.8
+      ]
+    },
+    {
+      "id": "storage.raw.r08",
+      "bounds": [
+        -7.625,
+        -18.7,
+        -6.375,
+        -6.8
+      ]
+    },
+    {
+      "id": "storage.finished.r01",
+      "bounds": [
+        -28.625,
+        7.3,
+        -27.375,
+        19.2
+      ]
+    },
+    {
+      "id": "storage.finished.r02",
+      "bounds": [
+        -25.625,
+        7.3,
+        -24.375,
+        19.2
+      ]
+    },
+    {
+      "id": "storage.finished.r03",
+      "bounds": [
+        -22.625,
+        7.3,
+        -21.375,
+        19.2
+      ]
+    },
+    {
+      "id": "storage.finished.r04",
+      "bounds": [
+        -19.625,
+        7.3,
+        -18.375,
+        19.2
+      ]
+    },
+    {
+      "id": "storage.finished.r05",
+      "bounds": [
+        -16.625,
+        7.3,
+        -15.375,
+        19.2
+      ]
+    },
+    {
+      "id": "storage.finished.r06",
+      "bounds": [
+        -13.625,
+        7.3,
+        -12.375,
+        19.2
+      ]
+    },
+    {
+      "id": "storage.finished.r07",
+      "bounds": [
+        -10.625,
+        7.3,
+        -9.375,
+        19.2
+      ]
+    },
+    {
+      "id": "storage.finished.r08",
+      "bounds": [
+        -7.625,
+        7.3,
+        -6.375,
+        19.2
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck01",
+      "bounds": [
+        -43.89,
+        -24.15,
+        -42.11,
+        -13.749999999999998
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck01",
+      "bounds": [
+        21.11,
+        -24.15,
+        22.89,
+        -13.749999999999998
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck02",
+      "bounds": [
+        -43.89,
+        -12.15,
+        -42.11,
+        -1.749999999999999
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck02",
+      "bounds": [
+        21.11,
+        -12.15,
+        22.89,
+        -1.749999999999999
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck03",
+      "bounds": [
+        -43.89,
+        -0.1499999999999999,
+        -42.11,
+        10.250000000000002
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck03",
+      "bounds": [
+        21.11,
+        -0.1499999999999999,
+        22.89,
+        10.250000000000002
+      ]
+    },
+    {
+      "id": "logistics.inbound.truck04",
+      "bounds": [
+        -43.89,
+        11.85,
+        -42.11,
+        22.250000000000004
+      ]
+    },
+    {
+      "id": "logistics.outbound.truck04",
+      "bounds": [
+        21.11,
+        11.85,
+        22.89,
+        22.250000000000004
+      ]
+    },
+    {
+      "id": "manufacturing.cell01",
+      "bounds": [
+        1.5,
+        -1.5,
+        3.7,
+        0.75
+      ]
+    },
+    {
+      "id": "manufacturing.cell02",
+      "bounds": [
+        4.5,
+        -1.5,
+        6.7,
+        0.75
+      ]
+    },
+    {
+      "id": "manufacturing.cell03",
+      "bounds": [
+        7.5,
+        -1.5,
+        9.7,
+        0.75
+      ]
+    },
+    {
+      "id": "manufacturing.cell04",
+      "bounds": [
+        10.5,
+        -1.5,
+        12.7,
+        0.75
+      ]
+    }
+  ],
+  "lanes": [
+    {
+      "id": "north-eastbound",
+      "bounds": [
+        -35,
+        -25.25,
+        19,
+        -24.25
+      ],
+      "direction": 1,
+      "crossing": true
+    },
+    {
+      "id": "north-westbound",
+      "bounds": [
+        -35,
+        -27.25,
+        19,
+        -26.25
+      ],
+      "direction": 3,
+      "crossing": true
+    },
+    {
+      "id": "south-eastbound",
+      "bounds": [
+        -35,
+        25.25,
+        19,
+        26.25
+      ],
+      "direction": 1,
+      "crossing": true
+    },
+    {
+      "id": "south-westbound",
+      "bounds": [
+        -35,
+        28,
+        19,
+        29
+      ],
+      "direction": 3,
+      "crossing": true
+    }
+  ],
+  "parking": [
+    {
+      "id": "robot-01",
+      "pose": [
+        -41.0,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-02",
+      "pose": [
+        -38.5,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-03",
+      "pose": [
+        -36.0,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-04",
+      "pose": [
+        -33.5,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-05",
+      "pose": [
+        -31.0,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-06",
+      "pose": [
+        -28.5,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-07",
+      "pose": [
+        -26.0,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-08",
+      "pose": [
+        -23.5,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-09",
+      "pose": [
+        -21.0,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-10",
+      "pose": [
+        -18.5,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-11",
+      "pose": [
+        -16.0,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-12",
+      "pose": [
+        -13.5,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-13",
+      "pose": [
+        -11.0,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-14",
+      "pose": [
+        -8.5,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-15",
+      "pose": [
+        -6.0,
+        30.5,
+        0
+      ]
+    },
+    {
+      "id": "robot-16",
+      "pose": [
+        -3.5,
+        30.5,
+        0
+      ]
+    }
+  ],
+  "service_poses": {
+    "storage.raw.r01.b01.l01": [
+      -26.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r01.b01.l02": [
+      -26.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r01.b01.l03": [
+      -26.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r01.b01.l04": [
+      -26.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r01.b02.l01": [
+      -26.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r01.b02.l02": [
+      -26.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r01.b02.l03": [
+      -26.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r01.b02.l04": [
+      -26.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r01.b03.l01": [
+      -26.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r01.b03.l02": [
+      -26.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r01.b03.l03": [
+      -26.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r01.b03.l04": [
+      -26.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r01.b04.l01": [
+      -26.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r01.b04.l02": [
+      -26.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r01.b04.l03": [
+      -26.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r01.b04.l04": [
+      -26.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r01.b05.l01": [
+      -26.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r01.b05.l02": [
+      -26.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r01.b05.l03": [
+      -26.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r01.b05.l04": [
+      -26.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r01.b06.l01": [
+      -26.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r01.b06.l02": [
+      -26.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r01.b06.l03": [
+      -26.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r01.b06.l04": [
+      -26.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r01.b07.l01": [
+      -26.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r01.b07.l02": [
+      -26.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r01.b07.l03": [
+      -26.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r01.b07.l04": [
+      -26.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r01.b08.l01": [
+      -26.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r01.b08.l02": [
+      -26.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r01.b08.l03": [
+      -26.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r01.b08.l04": [
+      -26.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r02.b01.l01": [
+      -23.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r02.b01.l02": [
+      -23.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r02.b01.l03": [
+      -23.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r02.b01.l04": [
+      -23.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r02.b02.l01": [
+      -23.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r02.b02.l02": [
+      -23.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r02.b02.l03": [
+      -23.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r02.b02.l04": [
+      -23.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r02.b03.l01": [
+      -23.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r02.b03.l02": [
+      -23.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r02.b03.l03": [
+      -23.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r02.b03.l04": [
+      -23.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r02.b04.l01": [
+      -23.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r02.b04.l02": [
+      -23.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r02.b04.l03": [
+      -23.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r02.b04.l04": [
+      -23.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r02.b05.l01": [
+      -23.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r02.b05.l02": [
+      -23.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r02.b05.l03": [
+      -23.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r02.b05.l04": [
+      -23.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r02.b06.l01": [
+      -23.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r02.b06.l02": [
+      -23.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r02.b06.l03": [
+      -23.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r02.b06.l04": [
+      -23.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r02.b07.l01": [
+      -23.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r02.b07.l02": [
+      -23.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r02.b07.l03": [
+      -23.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r02.b07.l04": [
+      -23.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r02.b08.l01": [
+      -23.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r02.b08.l02": [
+      -23.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r02.b08.l03": [
+      -23.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r02.b08.l04": [
+      -23.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r03.b01.l01": [
+      -20.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r03.b01.l02": [
+      -20.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r03.b01.l03": [
+      -20.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r03.b01.l04": [
+      -20.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r03.b02.l01": [
+      -20.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r03.b02.l02": [
+      -20.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r03.b02.l03": [
+      -20.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r03.b02.l04": [
+      -20.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r03.b03.l01": [
+      -20.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r03.b03.l02": [
+      -20.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r03.b03.l03": [
+      -20.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r03.b03.l04": [
+      -20.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r03.b04.l01": [
+      -20.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r03.b04.l02": [
+      -20.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r03.b04.l03": [
+      -20.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r03.b04.l04": [
+      -20.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r03.b05.l01": [
+      -20.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r03.b05.l02": [
+      -20.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r03.b05.l03": [
+      -20.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r03.b05.l04": [
+      -20.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r03.b06.l01": [
+      -20.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r03.b06.l02": [
+      -20.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r03.b06.l03": [
+      -20.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r03.b06.l04": [
+      -20.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r03.b07.l01": [
+      -20.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r03.b07.l02": [
+      -20.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r03.b07.l03": [
+      -20.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r03.b07.l04": [
+      -20.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r03.b08.l01": [
+      -20.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r03.b08.l02": [
+      -20.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r03.b08.l03": [
+      -20.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r03.b08.l04": [
+      -20.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r04.b01.l01": [
+      -17.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r04.b01.l02": [
+      -17.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r04.b01.l03": [
+      -17.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r04.b01.l04": [
+      -17.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r04.b02.l01": [
+      -17.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r04.b02.l02": [
+      -17.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r04.b02.l03": [
+      -17.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r04.b02.l04": [
+      -17.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r04.b03.l01": [
+      -17.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r04.b03.l02": [
+      -17.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r04.b03.l03": [
+      -17.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r04.b03.l04": [
+      -17.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r04.b04.l01": [
+      -17.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r04.b04.l02": [
+      -17.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r04.b04.l03": [
+      -17.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r04.b04.l04": [
+      -17.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r04.b05.l01": [
+      -17.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r04.b05.l02": [
+      -17.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r04.b05.l03": [
+      -17.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r04.b05.l04": [
+      -17.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r04.b06.l01": [
+      -17.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r04.b06.l02": [
+      -17.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r04.b06.l03": [
+      -17.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r04.b06.l04": [
+      -17.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r04.b07.l01": [
+      -17.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r04.b07.l02": [
+      -17.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r04.b07.l03": [
+      -17.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r04.b07.l04": [
+      -17.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r04.b08.l01": [
+      -17.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r04.b08.l02": [
+      -17.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r04.b08.l03": [
+      -17.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r04.b08.l04": [
+      -17.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r05.b01.l01": [
+      -14.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r05.b01.l02": [
+      -14.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r05.b01.l03": [
+      -14.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r05.b01.l04": [
+      -14.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r05.b02.l01": [
+      -14.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r05.b02.l02": [
+      -14.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r05.b02.l03": [
+      -14.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r05.b02.l04": [
+      -14.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r05.b03.l01": [
+      -14.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r05.b03.l02": [
+      -14.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r05.b03.l03": [
+      -14.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r05.b03.l04": [
+      -14.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r05.b04.l01": [
+      -14.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r05.b04.l02": [
+      -14.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r05.b04.l03": [
+      -14.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r05.b04.l04": [
+      -14.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r05.b05.l01": [
+      -14.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r05.b05.l02": [
+      -14.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r05.b05.l03": [
+      -14.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r05.b05.l04": [
+      -14.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r05.b06.l01": [
+      -14.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r05.b06.l02": [
+      -14.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r05.b06.l03": [
+      -14.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r05.b06.l04": [
+      -14.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r05.b07.l01": [
+      -14.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r05.b07.l02": [
+      -14.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r05.b07.l03": [
+      -14.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r05.b07.l04": [
+      -14.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r05.b08.l01": [
+      -14.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r05.b08.l02": [
+      -14.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r05.b08.l03": [
+      -14.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r05.b08.l04": [
+      -14.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r06.b01.l01": [
+      -11.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r06.b01.l02": [
+      -11.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r06.b01.l03": [
+      -11.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r06.b01.l04": [
+      -11.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r06.b02.l01": [
+      -11.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r06.b02.l02": [
+      -11.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r06.b02.l03": [
+      -11.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r06.b02.l04": [
+      -11.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r06.b03.l01": [
+      -11.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r06.b03.l02": [
+      -11.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r06.b03.l03": [
+      -11.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r06.b03.l04": [
+      -11.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r06.b04.l01": [
+      -11.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r06.b04.l02": [
+      -11.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r06.b04.l03": [
+      -11.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r06.b04.l04": [
+      -11.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r06.b05.l01": [
+      -11.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r06.b05.l02": [
+      -11.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r06.b05.l03": [
+      -11.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r06.b05.l04": [
+      -11.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r06.b06.l01": [
+      -11.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r06.b06.l02": [
+      -11.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r06.b06.l03": [
+      -11.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r06.b06.l04": [
+      -11.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r06.b07.l01": [
+      -11.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r06.b07.l02": [
+      -11.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r06.b07.l03": [
+      -11.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r06.b07.l04": [
+      -11.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r06.b08.l01": [
+      -11.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r06.b08.l02": [
+      -11.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r06.b08.l03": [
+      -11.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r06.b08.l04": [
+      -11.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r07.b01.l01": [
+      -8.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r07.b01.l02": [
+      -8.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r07.b01.l03": [
+      -8.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r07.b01.l04": [
+      -8.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r07.b02.l01": [
+      -8.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r07.b02.l02": [
+      -8.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r07.b02.l03": [
+      -8.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r07.b02.l04": [
+      -8.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r07.b03.l01": [
+      -8.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r07.b03.l02": [
+      -8.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r07.b03.l03": [
+      -8.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r07.b03.l04": [
+      -8.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r07.b04.l01": [
+      -8.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r07.b04.l02": [
+      -8.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r07.b04.l03": [
+      -8.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r07.b04.l04": [
+      -8.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r07.b05.l01": [
+      -8.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r07.b05.l02": [
+      -8.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r07.b05.l03": [
+      -8.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r07.b05.l04": [
+      -8.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r07.b06.l01": [
+      -8.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r07.b06.l02": [
+      -8.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r07.b06.l03": [
+      -8.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r07.b06.l04": [
+      -8.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r07.b07.l01": [
+      -8.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r07.b07.l02": [
+      -8.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r07.b07.l03": [
+      -8.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r07.b07.l04": [
+      -8.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r07.b08.l01": [
+      -8.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r07.b08.l02": [
+      -8.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r07.b08.l03": [
+      -8.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r07.b08.l04": [
+      -8.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r08.b01.l01": [
+      -5.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r08.b01.l02": [
+      -5.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r08.b01.l03": [
+      -5.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r08.b01.l04": [
+      -5.5,
+      -18.0,
+      0
+    ],
+    "storage.raw.r08.b02.l01": [
+      -5.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r08.b02.l02": [
+      -5.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r08.b02.l03": [
+      -5.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r08.b02.l04": [
+      -5.5,
+      -16.5,
+      0
+    ],
+    "storage.raw.r08.b03.l01": [
+      -5.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r08.b03.l02": [
+      -5.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r08.b03.l03": [
+      -5.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r08.b03.l04": [
+      -5.5,
+      -15.0,
+      0
+    ],
+    "storage.raw.r08.b04.l01": [
+      -5.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r08.b04.l02": [
+      -5.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r08.b04.l03": [
+      -5.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r08.b04.l04": [
+      -5.5,
+      -13.5,
+      0
+    ],
+    "storage.raw.r08.b05.l01": [
+      -5.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r08.b05.l02": [
+      -5.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r08.b05.l03": [
+      -5.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r08.b05.l04": [
+      -5.5,
+      -12.0,
+      0
+    ],
+    "storage.raw.r08.b06.l01": [
+      -5.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r08.b06.l02": [
+      -5.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r08.b06.l03": [
+      -5.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r08.b06.l04": [
+      -5.5,
+      -10.5,
+      0
+    ],
+    "storage.raw.r08.b07.l01": [
+      -5.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r08.b07.l02": [
+      -5.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r08.b07.l03": [
+      -5.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r08.b07.l04": [
+      -5.5,
+      -9.0,
+      0
+    ],
+    "storage.raw.r08.b08.l01": [
+      -5.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r08.b08.l02": [
+      -5.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r08.b08.l03": [
+      -5.5,
+      -7.5,
+      0
+    ],
+    "storage.raw.r08.b08.l04": [
+      -5.5,
+      -7.5,
+      0
+    ],
+    "storage.finished.r01.b01.l01": [
+      -26.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r01.b01.l02": [
+      -26.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r01.b01.l03": [
+      -26.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r01.b01.l04": [
+      -26.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r01.b02.l01": [
+      -26.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r01.b02.l02": [
+      -26.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r01.b02.l03": [
+      -26.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r01.b02.l04": [
+      -26.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r01.b03.l01": [
+      -26.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r01.b03.l02": [
+      -26.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r01.b03.l03": [
+      -26.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r01.b03.l04": [
+      -26.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r01.b04.l01": [
+      -26.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r01.b04.l02": [
+      -26.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r01.b04.l03": [
+      -26.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r01.b04.l04": [
+      -26.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r01.b05.l01": [
+      -26.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r01.b05.l02": [
+      -26.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r01.b05.l03": [
+      -26.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r01.b05.l04": [
+      -26.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r01.b06.l01": [
+      -26.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r01.b06.l02": [
+      -26.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r01.b06.l03": [
+      -26.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r01.b06.l04": [
+      -26.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r01.b07.l01": [
+      -26.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r01.b07.l02": [
+      -26.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r01.b07.l03": [
+      -26.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r01.b07.l04": [
+      -26.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r01.b08.l01": [
+      -26.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r01.b08.l02": [
+      -26.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r01.b08.l03": [
+      -26.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r01.b08.l04": [
+      -26.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r02.b01.l01": [
+      -23.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r02.b01.l02": [
+      -23.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r02.b01.l03": [
+      -23.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r02.b01.l04": [
+      -23.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r02.b02.l01": [
+      -23.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r02.b02.l02": [
+      -23.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r02.b02.l03": [
+      -23.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r02.b02.l04": [
+      -23.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r02.b03.l01": [
+      -23.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r02.b03.l02": [
+      -23.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r02.b03.l03": [
+      -23.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r02.b03.l04": [
+      -23.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r02.b04.l01": [
+      -23.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r02.b04.l02": [
+      -23.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r02.b04.l03": [
+      -23.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r02.b04.l04": [
+      -23.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r02.b05.l01": [
+      -23.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r02.b05.l02": [
+      -23.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r02.b05.l03": [
+      -23.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r02.b05.l04": [
+      -23.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r02.b06.l01": [
+      -23.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r02.b06.l02": [
+      -23.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r02.b06.l03": [
+      -23.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r02.b06.l04": [
+      -23.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r02.b07.l01": [
+      -23.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r02.b07.l02": [
+      -23.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r02.b07.l03": [
+      -23.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r02.b07.l04": [
+      -23.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r02.b08.l01": [
+      -23.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r02.b08.l02": [
+      -23.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r02.b08.l03": [
+      -23.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r02.b08.l04": [
+      -23.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r03.b01.l01": [
+      -20.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r03.b01.l02": [
+      -20.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r03.b01.l03": [
+      -20.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r03.b01.l04": [
+      -20.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r03.b02.l01": [
+      -20.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r03.b02.l02": [
+      -20.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r03.b02.l03": [
+      -20.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r03.b02.l04": [
+      -20.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r03.b03.l01": [
+      -20.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r03.b03.l02": [
+      -20.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r03.b03.l03": [
+      -20.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r03.b03.l04": [
+      -20.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r03.b04.l01": [
+      -20.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r03.b04.l02": [
+      -20.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r03.b04.l03": [
+      -20.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r03.b04.l04": [
+      -20.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r03.b05.l01": [
+      -20.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r03.b05.l02": [
+      -20.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r03.b05.l03": [
+      -20.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r03.b05.l04": [
+      -20.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r03.b06.l01": [
+      -20.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r03.b06.l02": [
+      -20.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r03.b06.l03": [
+      -20.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r03.b06.l04": [
+      -20.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r03.b07.l01": [
+      -20.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r03.b07.l02": [
+      -20.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r03.b07.l03": [
+      -20.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r03.b07.l04": [
+      -20.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r03.b08.l01": [
+      -20.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r03.b08.l02": [
+      -20.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r03.b08.l03": [
+      -20.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r03.b08.l04": [
+      -20.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r04.b01.l01": [
+      -17.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r04.b01.l02": [
+      -17.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r04.b01.l03": [
+      -17.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r04.b01.l04": [
+      -17.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r04.b02.l01": [
+      -17.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r04.b02.l02": [
+      -17.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r04.b02.l03": [
+      -17.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r04.b02.l04": [
+      -17.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r04.b03.l01": [
+      -17.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r04.b03.l02": [
+      -17.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r04.b03.l03": [
+      -17.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r04.b03.l04": [
+      -17.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r04.b04.l01": [
+      -17.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r04.b04.l02": [
+      -17.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r04.b04.l03": [
+      -17.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r04.b04.l04": [
+      -17.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r04.b05.l01": [
+      -17.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r04.b05.l02": [
+      -17.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r04.b05.l03": [
+      -17.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r04.b05.l04": [
+      -17.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r04.b06.l01": [
+      -17.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r04.b06.l02": [
+      -17.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r04.b06.l03": [
+      -17.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r04.b06.l04": [
+      -17.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r04.b07.l01": [
+      -17.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r04.b07.l02": [
+      -17.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r04.b07.l03": [
+      -17.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r04.b07.l04": [
+      -17.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r04.b08.l01": [
+      -17.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r04.b08.l02": [
+      -17.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r04.b08.l03": [
+      -17.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r04.b08.l04": [
+      -17.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r05.b01.l01": [
+      -14.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r05.b01.l02": [
+      -14.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r05.b01.l03": [
+      -14.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r05.b01.l04": [
+      -14.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r05.b02.l01": [
+      -14.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r05.b02.l02": [
+      -14.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r05.b02.l03": [
+      -14.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r05.b02.l04": [
+      -14.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r05.b03.l01": [
+      -14.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r05.b03.l02": [
+      -14.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r05.b03.l03": [
+      -14.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r05.b03.l04": [
+      -14.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r05.b04.l01": [
+      -14.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r05.b04.l02": [
+      -14.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r05.b04.l03": [
+      -14.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r05.b04.l04": [
+      -14.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r05.b05.l01": [
+      -14.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r05.b05.l02": [
+      -14.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r05.b05.l03": [
+      -14.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r05.b05.l04": [
+      -14.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r05.b06.l01": [
+      -14.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r05.b06.l02": [
+      -14.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r05.b06.l03": [
+      -14.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r05.b06.l04": [
+      -14.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r05.b07.l01": [
+      -14.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r05.b07.l02": [
+      -14.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r05.b07.l03": [
+      -14.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r05.b07.l04": [
+      -14.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r05.b08.l01": [
+      -14.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r05.b08.l02": [
+      -14.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r05.b08.l03": [
+      -14.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r05.b08.l04": [
+      -14.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r06.b01.l01": [
+      -11.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r06.b01.l02": [
+      -11.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r06.b01.l03": [
+      -11.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r06.b01.l04": [
+      -11.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r06.b02.l01": [
+      -11.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r06.b02.l02": [
+      -11.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r06.b02.l03": [
+      -11.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r06.b02.l04": [
+      -11.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r06.b03.l01": [
+      -11.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r06.b03.l02": [
+      -11.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r06.b03.l03": [
+      -11.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r06.b03.l04": [
+      -11.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r06.b04.l01": [
+      -11.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r06.b04.l02": [
+      -11.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r06.b04.l03": [
+      -11.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r06.b04.l04": [
+      -11.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r06.b05.l01": [
+      -11.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r06.b05.l02": [
+      -11.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r06.b05.l03": [
+      -11.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r06.b05.l04": [
+      -11.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r06.b06.l01": [
+      -11.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r06.b06.l02": [
+      -11.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r06.b06.l03": [
+      -11.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r06.b06.l04": [
+      -11.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r06.b07.l01": [
+      -11.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r06.b07.l02": [
+      -11.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r06.b07.l03": [
+      -11.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r06.b07.l04": [
+      -11.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r06.b08.l01": [
+      -11.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r06.b08.l02": [
+      -11.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r06.b08.l03": [
+      -11.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r06.b08.l04": [
+      -11.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r07.b01.l01": [
+      -8.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r07.b01.l02": [
+      -8.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r07.b01.l03": [
+      -8.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r07.b01.l04": [
+      -8.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r07.b02.l01": [
+      -8.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r07.b02.l02": [
+      -8.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r07.b02.l03": [
+      -8.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r07.b02.l04": [
+      -8.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r07.b03.l01": [
+      -8.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r07.b03.l02": [
+      -8.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r07.b03.l03": [
+      -8.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r07.b03.l04": [
+      -8.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r07.b04.l01": [
+      -8.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r07.b04.l02": [
+      -8.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r07.b04.l03": [
+      -8.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r07.b04.l04": [
+      -8.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r07.b05.l01": [
+      -8.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r07.b05.l02": [
+      -8.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r07.b05.l03": [
+      -8.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r07.b05.l04": [
+      -8.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r07.b06.l01": [
+      -8.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r07.b06.l02": [
+      -8.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r07.b06.l03": [
+      -8.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r07.b06.l04": [
+      -8.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r07.b07.l01": [
+      -8.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r07.b07.l02": [
+      -8.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r07.b07.l03": [
+      -8.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r07.b07.l04": [
+      -8.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r07.b08.l01": [
+      -8.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r07.b08.l02": [
+      -8.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r07.b08.l03": [
+      -8.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r07.b08.l04": [
+      -8.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r08.b01.l01": [
+      -5.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r08.b01.l02": [
+      -5.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r08.b01.l03": [
+      -5.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r08.b01.l04": [
+      -5.5,
+      8.0,
+      0
+    ],
+    "storage.finished.r08.b02.l01": [
+      -5.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r08.b02.l02": [
+      -5.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r08.b02.l03": [
+      -5.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r08.b02.l04": [
+      -5.5,
+      9.5,
+      0
+    ],
+    "storage.finished.r08.b03.l01": [
+      -5.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r08.b03.l02": [
+      -5.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r08.b03.l03": [
+      -5.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r08.b03.l04": [
+      -5.5,
+      11.0,
+      0
+    ],
+    "storage.finished.r08.b04.l01": [
+      -5.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r08.b04.l02": [
+      -5.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r08.b04.l03": [
+      -5.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r08.b04.l04": [
+      -5.5,
+      12.5,
+      0
+    ],
+    "storage.finished.r08.b05.l01": [
+      -5.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r08.b05.l02": [
+      -5.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r08.b05.l03": [
+      -5.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r08.b05.l04": [
+      -5.5,
+      14.0,
+      0
+    ],
+    "storage.finished.r08.b06.l01": [
+      -5.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r08.b06.l02": [
+      -5.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r08.b06.l03": [
+      -5.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r08.b06.l04": [
+      -5.5,
+      15.5,
+      0
+    ],
+    "storage.finished.r08.b07.l01": [
+      -5.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r08.b07.l02": [
+      -5.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r08.b07.l03": [
+      -5.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r08.b07.l04": [
+      -5.5,
+      17.0,
+      0
+    ],
+    "storage.finished.r08.b08.l01": [
+      -5.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r08.b08.l02": [
+      -5.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r08.b08.l03": [
+      -5.5,
+      18.5,
+      0
+    ],
+    "storage.finished.r08.b08.l04": [
+      -5.5,
+      18.5,
+      0
+    ],
+    "logistics.inbound.dock01": [
+      -36.5,
+      -15,
+      0
+    ],
+    "logistics.inbound.truck01.slot01": [
+      -41.2,
+      -22.0,
+      0
+    ],
+    "logistics.inbound.truck01.slot02": [
+      -41.2,
+      -20.9,
+      0
+    ],
+    "logistics.inbound.truck01.slot03": [
+      -41.2,
+      -19.8,
+      0
+    ],
+    "logistics.inbound.truck01.slot04": [
+      -41.2,
+      -18.7,
+      0
+    ],
+    "logistics.inbound.truck01.slot05": [
+      -41.2,
+      -17.6,
+      0
+    ],
+    "logistics.inbound.truck01.slot06": [
+      -41.2,
+      -16.5,
+      0
+    ],
+    "logistics.inbound.truck01.slot07": [
+      -41.2,
+      -15.399999999999999,
+      0
+    ],
+    "logistics.inbound.truck01.slot08": [
+      -41.2,
+      -14.299999999999999,
+      0
+    ],
+    "shipping.outbound.dock01": [
+      18.7,
+      -15,
+      0
+    ],
+    "logistics.outbound.truck01.slot01": [
+      23.8,
+      -22.0,
+      0
+    ],
+    "logistics.outbound.truck01.slot02": [
+      23.8,
+      -20.9,
+      0
+    ],
+    "logistics.outbound.truck01.slot03": [
+      23.8,
+      -19.8,
+      0
+    ],
+    "logistics.outbound.truck01.slot04": [
+      23.8,
+      -18.7,
+      0
+    ],
+    "logistics.outbound.truck01.slot05": [
+      23.8,
+      -17.6,
+      0
+    ],
+    "logistics.outbound.truck01.slot06": [
+      23.8,
+      -16.5,
+      0
+    ],
+    "logistics.outbound.truck01.slot07": [
+      23.8,
+      -15.399999999999999,
+      0
+    ],
+    "logistics.outbound.truck01.slot08": [
+      23.8,
+      -14.299999999999999,
+      0
+    ],
+    "logistics.inbound.dock02": [
+      -36.5,
+      -6,
+      0
+    ],
+    "logistics.inbound.truck02.slot01": [
+      -41.2,
+      -10.0,
+      0
+    ],
+    "logistics.inbound.truck02.slot02": [
+      -41.2,
+      -8.9,
+      0
+    ],
+    "logistics.inbound.truck02.slot03": [
+      -41.2,
+      -7.8,
+      0
+    ],
+    "logistics.inbound.truck02.slot04": [
+      -41.2,
+      -6.699999999999999,
+      0
+    ],
+    "logistics.inbound.truck02.slot05": [
+      -41.2,
+      -5.6,
+      0
+    ],
+    "logistics.inbound.truck02.slot06": [
+      -41.2,
+      -4.5,
+      0
+    ],
+    "logistics.inbound.truck02.slot07": [
+      -41.2,
+      -3.3999999999999995,
+      0
+    ],
+    "logistics.inbound.truck02.slot08": [
+      -41.2,
+      -2.299999999999999,
+      0
+    ],
+    "shipping.outbound.dock02": [
+      17.5,
+      -6,
+      0
+    ],
+    "logistics.outbound.truck02.slot01": [
+      23.8,
+      -10.0,
+      0
+    ],
+    "logistics.outbound.truck02.slot02": [
+      23.8,
+      -8.9,
+      0
+    ],
+    "logistics.outbound.truck02.slot03": [
+      23.8,
+      -7.8,
+      0
+    ],
+    "logistics.outbound.truck02.slot04": [
+      23.8,
+      -6.699999999999999,
+      0
+    ],
+    "logistics.outbound.truck02.slot05": [
+      23.8,
+      -5.6,
+      0
+    ],
+    "logistics.outbound.truck02.slot06": [
+      23.8,
+      -4.5,
+      0
+    ],
+    "logistics.outbound.truck02.slot07": [
+      23.8,
+      -3.3999999999999995,
+      0
+    ],
+    "logistics.outbound.truck02.slot08": [
+      23.8,
+      -2.299999999999999,
+      0
+    ],
+    "logistics.inbound.dock03": [
+      -36.5,
+      3,
+      0
+    ],
+    "logistics.inbound.truck03.slot01": [
+      -41.2,
+      2.0,
+      0
+    ],
+    "logistics.inbound.truck03.slot02": [
+      -41.2,
+      3.1,
+      0
+    ],
+    "logistics.inbound.truck03.slot03": [
+      -41.2,
+      4.2,
+      0
+    ],
+    "logistics.inbound.truck03.slot04": [
+      -41.2,
+      5.300000000000001,
+      0
+    ],
+    "logistics.inbound.truck03.slot05": [
+      -41.2,
+      6.4,
+      0
+    ],
+    "logistics.inbound.truck03.slot06": [
+      -41.2,
+      7.5,
+      0
+    ],
+    "logistics.inbound.truck03.slot07": [
+      -41.2,
+      8.600000000000001,
+      0
+    ],
+    "logistics.inbound.truck03.slot08": [
+      -41.2,
+      9.700000000000001,
+      0
+    ],
+    "shipping.outbound.dock03": [
+      17.5,
+      3,
+      0
+    ],
+    "logistics.outbound.truck03.slot01": [
+      23.8,
+      2.0,
+      0
+    ],
+    "logistics.outbound.truck03.slot02": [
+      23.8,
+      3.1,
+      0
+    ],
+    "logistics.outbound.truck03.slot03": [
+      23.8,
+      4.2,
+      0
+    ],
+    "logistics.outbound.truck03.slot04": [
+      23.8,
+      5.300000000000001,
+      0
+    ],
+    "logistics.outbound.truck03.slot05": [
+      23.8,
+      6.4,
+      0
+    ],
+    "logistics.outbound.truck03.slot06": [
+      23.8,
+      7.5,
+      0
+    ],
+    "logistics.outbound.truck03.slot07": [
+      23.8,
+      8.600000000000001,
+      0
+    ],
+    "logistics.outbound.truck03.slot08": [
+      23.8,
+      9.700000000000001,
+      0
+    ],
+    "logistics.inbound.dock04": [
+      -36.5,
+      12,
+      0
+    ],
+    "logistics.inbound.truck04.slot01": [
+      -41.2,
+      14.0,
+      0
+    ],
+    "logistics.inbound.truck04.slot02": [
+      -41.2,
+      15.1,
+      0
+    ],
+    "logistics.inbound.truck04.slot03": [
+      -41.2,
+      16.2,
+      0
+    ],
+    "logistics.inbound.truck04.slot04": [
+      -41.2,
+      17.3,
+      0
+    ],
+    "logistics.inbound.truck04.slot05": [
+      -41.2,
+      18.4,
+      0
+    ],
+    "logistics.inbound.truck04.slot06": [
+      -41.2,
+      19.5,
+      0
+    ],
+    "logistics.inbound.truck04.slot07": [
+      -41.2,
+      20.6,
+      0
+    ],
+    "logistics.inbound.truck04.slot08": [
+      -41.2,
+      21.700000000000003,
+      0
+    ],
+    "shipping.outbound.dock04": [
+      17.5,
+      12,
+      0
+    ],
+    "logistics.outbound.truck04.slot01": [
+      23.8,
+      14.0,
+      0
+    ],
+    "logistics.outbound.truck04.slot02": [
+      23.8,
+      15.1,
+      0
+    ],
+    "logistics.outbound.truck04.slot03": [
+      23.8,
+      16.2,
+      0
+    ],
+    "logistics.outbound.truck04.slot04": [
+      23.8,
+      17.3,
+      0
+    ],
+    "logistics.outbound.truck04.slot05": [
+      23.8,
+      18.4,
+      0
+    ],
+    "logistics.outbound.truck04.slot06": [
+      23.8,
+      19.5,
+      0
+    ],
+    "logistics.outbound.truck04.slot07": [
+      23.8,
+      20.6,
+      0
+    ],
+    "logistics.outbound.truck04.slot08": [
+      23.8,
+      21.700000000000003,
+      0
+    ],
+    "manufacturing.cell01.input01": [
+      0.5,
+      -6.0,
+      0
+    ],
+    "manufacturing.cell01.input02": [
+      0.5,
+      -4.9,
+      0
+    ],
+    "manufacturing.cell01.input03": [
+      0.5,
+      -3.8,
+      0
+    ],
+    "manufacturing.cell01.input04": [
+      0.5,
+      -2.6999999999999997,
+      0
+    ],
+    "manufacturing.cell01.output01": [
+      0.5,
+      2.0,
+      0
+    ],
+    "manufacturing.cell01.output02": [
+      2,
+      1.6,
+      1
+    ],
+    "manufacturing.cell01.output03": [
+      2,
+      2.7,
+      1
+    ],
+    "manufacturing.cell01.output04": [
+      2,
+      3.8000000000000007,
+      1
+    ],
+    "manufacturing.cell02.input01": [
+      3.5,
+      -6.0,
+      0
+    ],
+    "manufacturing.cell02.input02": [
+      3.5,
+      -4.9,
+      0
+    ],
+    "manufacturing.cell02.input03": [
+      3.5,
+      -3.8,
+      0
+    ],
+    "manufacturing.cell02.input04": [
+      3.5,
+      -2.6999999999999997,
+      0
+    ],
+    "manufacturing.cell02.output01": [
+      3.5,
+      2.0,
+      0
+    ],
+    "manufacturing.cell02.output02": [
+      3.5,
+      3.1,
+      0
+    ],
+    "manufacturing.cell02.output03": [
+      3.5,
+      4.2,
+      0
+    ],
+    "manufacturing.cell02.output04": [
+      3.5,
+      5.300000000000001,
+      0
+    ],
+    "manufacturing.cell03.input01": [
+      6.5,
+      -6.0,
+      0
+    ],
+    "manufacturing.cell03.input02": [
+      6.5,
+      -4.9,
+      0
+    ],
+    "manufacturing.cell03.input03": [
+      6.5,
+      -3.8,
+      0
+    ],
+    "manufacturing.cell03.input04": [
+      6.5,
+      -2.6999999999999997,
+      0
+    ],
+    "manufacturing.cell03.output01": [
+      6.5,
+      2.0,
+      0
+    ],
+    "manufacturing.cell03.output02": [
+      6.5,
+      3.1,
+      0
+    ],
+    "manufacturing.cell03.output03": [
+      6.5,
+      4.2,
+      0
+    ],
+    "manufacturing.cell03.output04": [
+      6.5,
+      5.300000000000001,
+      0
+    ],
+    "manufacturing.cell04.input01": [
+      9.5,
+      -6.0,
+      0
+    ],
+    "manufacturing.cell04.input02": [
+      9.5,
+      -4.9,
+      0
+    ],
+    "manufacturing.cell04.input03": [
+      9.5,
+      -3.8,
+      0
+    ],
+    "manufacturing.cell04.input04": [
+      9.5,
+      -2.6999999999999997,
+      0
+    ],
+    "manufacturing.cell04.output01": [
+      9.5,
+      2.0,
+      0
+    ],
+    "manufacturing.cell04.output02": [
+      9.5,
+      3.1,
+      0
+    ],
+    "manufacturing.cell04.output03": [
+      9.5,
+      4.2,
+      0
+    ],
+    "manufacturing.cell04.output04": [
+      9.5,
+      5.300000000000001,
+      0
+    ],
+    "storage.inbound.dock01": [
+      -28,
+      -22.5,
+      1
+    ],
+    "storage.inbound.dock02": [
+      -25,
+      -22.5,
+      1
+    ],
+    "storage.inbound.dock03": [
+      -22,
+      -22.5,
+      1
+    ],
+    "storage.inbound.dock04": [
+      -19,
+      -22.5,
+      1
+    ],
+    "storage.inbound.dock05": [
+      -16,
+      -22.5,
+      1
+    ],
+    "storage.inbound.dock06": [
+      -13,
+      -22.5,
+      1
+    ],
+    "storage.inbound.dock07": [
+      -10,
+      -22.5,
+      1
+    ],
+    "storage.inbound.dock08": [
+      -7,
+      -22.5,
+      1
+    ],
+    "storage.raw_dispatch.dock01": [
+      -28,
+      -3.5,
+      1
+    ],
+    "storage.raw_dispatch.dock02": [
+      -25,
+      -3.5,
+      1
+    ],
+    "storage.raw_dispatch.dock03": [
+      -22,
+      -3.5,
+      1
+    ],
+    "storage.raw_dispatch.dock04": [
+      -19,
+      -3.5,
+      1
+    ],
+    "storage.raw_dispatch.dock05": [
+      -16,
+      -3.5,
+      1
+    ],
+    "storage.raw_dispatch.dock06": [
+      -13,
+      -3.5,
+      1
+    ],
+    "storage.raw_dispatch.dock07": [
+      -10,
+      -3.5,
+      1
+    ],
+    "storage.raw_dispatch.dock08": [
+      -7,
+      -3.5,
+      1
+    ],
+    "storage.finished_receipt.dock01": [
+      -28.0,
+      4.5,
+      1
+    ],
+    "storage.finished_receipt.dock02": [
+      -25.0,
+      4.5,
+      1
+    ],
+    "storage.finished_receipt.dock03": [
+      -22.0,
+      4.5,
+      1
+    ],
+    "storage.finished_receipt.dock04": [
+      -19.0,
+      4.5,
+      1
+    ],
+    "storage.finished_receipt.dock05": [
+      -16.0,
+      4.5,
+      1
+    ],
+    "storage.finished_receipt.dock06": [
+      -13.0,
+      4.5,
+      1
+    ],
+    "storage.finished_receipt.dock07": [
+      -10.0,
+      4.5,
+      1
+    ],
+    "storage.finished_receipt.dock08": [
+      -7.0,
+      4.5,
+      1
+    ],
+    "storage.outbound.dock01": [
+      -28,
+      25.5,
+      1
+    ],
+    "storage.outbound.dock02": [
+      -25,
+      25.5,
+      1
+    ],
+    "storage.outbound.dock03": [
+      -22,
+      25.5,
+      1
+    ],
+    "storage.outbound.dock04": [
+      -19,
+      25.5,
+      1
+    ],
+    "storage.outbound.dock05": [
+      -16,
+      25.5,
+      1
+    ],
+    "storage.outbound.dock06": [
+      -13,
+      25.5,
+      1
+    ],
+    "storage.outbound.dock07": [
+      -10,
+      25.5,
+      1
+    ],
+    "storage.outbound.dock08": [
+      -7,
+      25.5,
+      1
+    ],
+    "storage.dispatch.dock01": [
+      -18,
+      26.5,
+      1
+    ],
+    "storage.dispatch.dock02": [
+      -16,
+      26.5,
+      1
+    ],
+    "storage.dispatch.dock03": [
+      -14,
+      26.5,
+      1
+    ],
+    "storage.dispatch.dock04": [
+      -12,
+      26.5,
+      1
+    ],
+    "storage.dispatch.dock05": [
+      -10,
+      26.5,
+      1
+    ],
+    "storage.dispatch.dock06": [
+      -8,
+      26.5,
+      1
+    ],
+    "storage.dispatch.dock07": [
+      -6,
+      26.5,
+      1
+    ],
+    "storage.dispatch.dock08": [
+      -4,
+      26.5,
+      1
+    ],
+    "logistics.outbound.staging01": [
+      13.5,
+      -20,
+      0
+    ],
+    "logistics.outbound.staging02": [
+      14.9,
+      -20,
+      0
+    ],
+    "logistics.outbound.staging03": [
+      16.3,
+      -20,
+      0
+    ],
+    "logistics.outbound.staging04": [
+      17.7,
+      -20,
+      0
+    ],
+    "logistics.outbound.staging05": [
+      13.5,
+      -18,
+      0
+    ],
+    "logistics.outbound.staging06": [
+      14.9,
+      -18,
+      0
+    ],
+    "logistics.outbound.staging07": [
+      16.3,
+      -18,
+      0
+    ],
+    "logistics.outbound.staging08": [
+      17.7,
+      -18,
+      0
+    ],
+    "logistics.outbound.staging09": [
+      13.5,
+      -16,
+      0
+    ],
+    "logistics.outbound.staging10": [
+      14.9,
+      -16,
+      0
+    ],
+    "logistics.outbound.staging11": [
+      16.3,
+      -16,
+      0
+    ],
+    "logistics.outbound.staging12": [
+      17.7,
+      -16,
+      0
+    ],
+    "logistics.outbound.staging13": [
+      13.5,
+      -14,
+      0
+    ],
+    "logistics.outbound.staging14": [
+      14.9,
+      -14,
+      0
+    ],
+    "logistics.outbound.staging15": [
+      16.3,
+      -14,
+      0
+    ],
+    "logistics.outbound.staging16": [
+      17.7,
+      -14,
+      0
+    ],
+    "shipping.outbound.staging.r01.b01": [
+      26.5,
+      -25,
+      0
+    ],
+    "shipping.outbound.staging.r01.b02": [
+      26.0,
+      -25,
+      0
+    ],
+    "shipping.outbound.staging.r01.b03": [
+      31.5,
+      -25,
+      0
+    ],
+    "shipping.outbound.staging.r01.b04": [
+      31.0,
+      -25,
+      0
+    ],
+    "shipping.outbound.staging.r01.b05": [
+      36.5,
+      -25,
+      0
+    ],
+    "shipping.outbound.staging.r01.b06": [
+      36.0,
+      -25,
+      0
+    ],
+    "shipping.outbound.staging.r01.b07": [
+      41.5,
+      -25,
+      0
+    ],
+    "shipping.outbound.staging.r01.b08": [
+      41.0,
+      -25,
+      0
+    ],
+    "shipping.outbound.staging.r02.b01": [
+      26.5,
+      -22,
+      0
+    ],
+    "shipping.outbound.staging.r02.b02": [
+      26.0,
+      -22,
+      0
+    ],
+    "shipping.outbound.staging.r02.b03": [
+      31.5,
+      -22,
+      0
+    ],
+    "shipping.outbound.staging.r02.b04": [
+      31.0,
+      -22,
+      0
+    ],
+    "shipping.outbound.staging.r02.b05": [
+      36.5,
+      -22,
+      0
+    ],
+    "shipping.outbound.staging.r02.b06": [
+      36.0,
+      -22,
+      0
+    ],
+    "shipping.outbound.staging.r02.b07": [
+      41.5,
+      -22,
+      0
+    ],
+    "shipping.outbound.staging.r02.b08": [
+      41.0,
+      -22,
+      0
+    ],
+    "shipping.outbound.staging.r03.b01": [
+      26.5,
+      -19,
+      0
+    ],
+    "shipping.outbound.staging.r03.b02": [
+      26.0,
+      -19,
+      0
+    ],
+    "shipping.outbound.staging.r03.b03": [
+      31.5,
+      -19,
+      0
+    ],
+    "shipping.outbound.staging.r03.b04": [
+      31.0,
+      -19,
+      0
+    ],
+    "shipping.outbound.staging.r03.b05": [
+      36.5,
+      -19,
+      0
+    ],
+    "shipping.outbound.staging.r03.b06": [
+      36.0,
+      -19,
+      0
+    ],
+    "shipping.outbound.staging.r03.b07": [
+      41.5,
+      -19,
+      0
+    ],
+    "shipping.outbound.staging.r03.b08": [
+      41.0,
+      -19,
+      0
+    ],
+    "shipping.outbound.staging.r04.b01": [
+      26.5,
+      -16,
+      0
+    ],
+    "shipping.outbound.staging.r04.b02": [
+      26.0,
+      -16,
+      0
+    ],
+    "shipping.outbound.staging.r04.b03": [
+      31.5,
+      -16,
+      0
+    ],
+    "shipping.outbound.staging.r04.b04": [
+      31.0,
+      -16,
+      0
+    ],
+    "shipping.outbound.staging.r04.b05": [
+      36.5,
+      -16,
+      0
+    ],
+    "shipping.outbound.staging.r04.b06": [
+      36.0,
+      -16,
+      0
+    ],
+    "shipping.outbound.staging.r04.b07": [
+      41.5,
+      -16,
+      0
+    ],
+    "shipping.outbound.staging.r04.b08": [
+      41.0,
+      -16,
+      0
+    ],
+    "shipping.outbound.staging.r05.b01": [
+      26.5,
+      -13,
+      0
+    ],
+    "shipping.outbound.staging.r05.b02": [
+      26.0,
+      -13,
+      0
+    ],
+    "shipping.outbound.staging.r05.b03": [
+      31.5,
+      -13,
+      0
+    ],
+    "shipping.outbound.staging.r05.b04": [
+      31.0,
+      -13,
+      0
+    ],
+    "shipping.outbound.staging.r05.b05": [
+      36.5,
+      -13,
+      0
+    ],
+    "shipping.outbound.staging.r05.b06": [
+      36.0,
+      -13,
+      0
+    ],
+    "shipping.outbound.staging.r05.b07": [
+      41.5,
+      -13,
+      0
+    ],
+    "shipping.outbound.staging.r05.b08": [
+      41.0,
+      -13,
+      0
+    ],
+    "shipping.outbound.staging.r06.b01": [
+      26.5,
+      -7,
+      0
+    ],
+    "shipping.outbound.staging.r06.b02": [
+      26.0,
+      -7,
+      0
+    ],
+    "shipping.outbound.staging.r06.b03": [
+      31.5,
+      -7,
+      0
+    ],
+    "shipping.outbound.staging.r06.b04": [
+      31.0,
+      -7,
+      0
+    ],
+    "shipping.outbound.staging.r06.b05": [
+      36.5,
+      -7,
+      0
+    ],
+    "shipping.outbound.staging.r06.b06": [
+      36.0,
+      -7,
+      0
+    ],
+    "shipping.outbound.staging.r06.b07": [
+      41.5,
+      -7,
+      0
+    ],
+    "shipping.outbound.staging.r06.b08": [
+      41.0,
+      -7,
+      0
+    ],
+    "shipping.outbound.staging.r07.b01": [
+      26.5,
+      -4,
+      0
+    ],
+    "shipping.outbound.staging.r07.b02": [
+      26.0,
+      -4,
+      0
+    ],
+    "shipping.outbound.staging.r07.b03": [
+      31.5,
+      -4,
+      0
+    ],
+    "shipping.outbound.staging.r07.b04": [
+      31.0,
+      -4,
+      0
+    ],
+    "shipping.outbound.staging.r07.b05": [
+      36.5,
+      -4,
+      0
+    ],
+    "shipping.outbound.staging.r07.b06": [
+      36.0,
+      -4,
+      0
+    ],
+    "shipping.outbound.staging.r07.b07": [
+      41.5,
+      -4,
+      0
+    ],
+    "shipping.outbound.staging.r07.b08": [
+      41.0,
+      -4,
+      0
+    ],
+    "shipping.outbound.staging.r08.b01": [
+      26.5,
+      -1,
+      0
+    ],
+    "shipping.outbound.staging.r08.b02": [
+      26.0,
+      -1,
+      0
+    ],
+    "shipping.outbound.staging.r08.b03": [
+      31.5,
+      -1,
+      0
+    ],
+    "shipping.outbound.staging.r08.b04": [
+      31.0,
+      -1,
+      0
+    ],
+    "shipping.outbound.staging.r08.b05": [
+      36.5,
+      -1,
+      0
+    ],
+    "shipping.outbound.staging.r08.b06": [
+      36.0,
+      -1,
+      0
+    ],
+    "shipping.outbound.staging.r08.b07": [
+      41.5,
+      -1,
+      0
+    ],
+    "shipping.outbound.staging.r08.b08": [
+      41.0,
+      -1,
+      0
+    ],
+    "shipping.outbound.staging.r09.b01": [
+      26.5,
+      2,
+      0
+    ],
+    "shipping.outbound.staging.r09.b02": [
+      26.0,
+      2,
+      0
+    ],
+    "shipping.outbound.staging.r09.b03": [
+      31.5,
+      2,
+      0
+    ],
+    "shipping.outbound.staging.r09.b04": [
+      31.0,
+      2,
+      0
+    ],
+    "shipping.outbound.staging.r09.b05": [
+      36.5,
+      2,
+      0
+    ],
+    "shipping.outbound.staging.r09.b06": [
+      36.0,
+      2,
+      0
+    ],
+    "shipping.outbound.staging.r09.b07": [
+      41.5,
+      2,
+      0
+    ],
+    "shipping.outbound.staging.r09.b08": [
+      41.0,
+      2,
+      0
+    ],
+    "shipping.outbound.staging.r10.b01": [
+      26.5,
+      5,
+      0
+    ],
+    "shipping.outbound.staging.r10.b02": [
+      26.0,
+      5,
+      0
+    ],
+    "shipping.outbound.staging.r10.b03": [
+      31.5,
+      5,
+      0
+    ],
+    "shipping.outbound.staging.r10.b04": [
+      31.0,
+      5,
+      0
+    ],
+    "shipping.outbound.staging.r10.b05": [
+      36.5,
+      5,
+      0
+    ],
+    "shipping.outbound.staging.r10.b06": [
+      36.0,
+      5,
+      0
+    ],
+    "shipping.outbound.staging.r10.b07": [
+      41.5,
+      5,
+      0
+    ],
+    "shipping.outbound.staging.r10.b08": [
+      41.0,
+      5,
+      0
+    ],
+    "shipping.outbound.staging.r11.b01": [
+      26.5,
+      8,
+      0
+    ],
+    "shipping.outbound.staging.r11.b02": [
+      26.0,
+      8,
+      0
+    ],
+    "shipping.outbound.staging.r11.b03": [
+      31.5,
+      8,
+      0
+    ],
+    "shipping.outbound.staging.r11.b04": [
+      31.0,
+      8,
+      0
+    ],
+    "shipping.outbound.staging.r11.b05": [
+      36.5,
+      8,
+      0
+    ],
+    "shipping.outbound.staging.r11.b06": [
+      36.0,
+      8,
+      0
+    ],
+    "shipping.outbound.staging.r11.b07": [
+      41.5,
+      8,
+      0
+    ],
+    "shipping.outbound.staging.r11.b08": [
+      41.0,
+      8,
+      0
+    ],
+    "shipping.outbound.staging.r12.b01": [
+      26.5,
+      13,
+      0
+    ],
+    "shipping.outbound.staging.r12.b02": [
+      26.0,
+      13,
+      0
+    ],
+    "shipping.outbound.staging.r12.b03": [
+      31.5,
+      13,
+      0
+    ],
+    "shipping.outbound.staging.r12.b04": [
+      31.0,
+      13,
+      0
+    ],
+    "shipping.outbound.staging.r12.b05": [
+      36.5,
+      13,
+      0
+    ],
+    "shipping.outbound.staging.r12.b06": [
+      36.0,
+      13,
+      0
+    ],
+    "shipping.outbound.staging.r12.b07": [
+      41.5,
+      13,
+      0
+    ],
+    "shipping.outbound.staging.r12.b08": [
+      41.0,
+      13,
+      0
+    ],
+    "shipping.outbound.staging.r13.b01": [
+      26.5,
+      16,
+      0
+    ],
+    "shipping.outbound.staging.r13.b02": [
+      26.0,
+      16,
+      0
+    ],
+    "shipping.outbound.staging.r13.b03": [
+      31.5,
+      16,
+      0
+    ],
+    "shipping.outbound.staging.r13.b04": [
+      31.0,
+      16,
+      0
+    ],
+    "shipping.outbound.staging.r13.b05": [
+      36.5,
+      16,
+      0
+    ],
+    "shipping.outbound.staging.r13.b06": [
+      36.0,
+      16,
+      0
+    ],
+    "shipping.outbound.staging.r13.b07": [
+      41.5,
+      16,
+      0
+    ],
+    "shipping.outbound.staging.r13.b08": [
+      41.0,
+      16,
+      0
+    ],
+    "shipping.outbound.staging.r14.b01": [
+      26.5,
+      19,
+      0
+    ],
+    "shipping.outbound.staging.r14.b02": [
+      26.0,
+      19,
+      0
+    ],
+    "shipping.outbound.staging.r14.b03": [
+      31.5,
+      19,
+      0
+    ],
+    "shipping.outbound.staging.r14.b04": [
+      31.0,
+      19,
+      0
+    ],
+    "shipping.outbound.staging.r14.b05": [
+      36.5,
+      19,
+      0
+    ],
+    "shipping.outbound.staging.r14.b06": [
+      36.0,
+      19,
+      0
+    ],
+    "shipping.outbound.staging.r14.b07": [
+      41.5,
+      19,
+      0
+    ],
+    "shipping.outbound.staging.r14.b08": [
+      41.0,
+      19,
+      0
+    ],
+    "shipping.outbound.staging.r15.b01": [
+      26.5,
+      22,
+      0
+    ],
+    "shipping.outbound.staging.r15.b02": [
+      26.0,
+      22,
+      0
+    ],
+    "shipping.outbound.staging.r15.b03": [
+      31.5,
+      22,
+      0
+    ],
+    "shipping.outbound.staging.r15.b04": [
+      31.0,
+      22,
+      0
+    ],
+    "shipping.outbound.staging.r15.b05": [
+      36.5,
+      22,
+      0
+    ],
+    "shipping.outbound.staging.r15.b06": [
+      36.0,
+      22,
+      0
+    ],
+    "shipping.outbound.staging.r15.b07": [
+      41.5,
+      22,
+      0
+    ],
+    "shipping.outbound.staging.r15.b08": [
+      41.0,
+      22,
+      0
+    ],
+    "shipping.outbound.staging.r16.b01": [
+      26.5,
+      25,
+      0
+    ],
+    "shipping.outbound.staging.r16.b02": [
+      26.0,
+      25,
+      0
+    ],
+    "shipping.outbound.staging.r16.b03": [
+      31.5,
+      25,
+      0
+    ],
+    "shipping.outbound.staging.r16.b04": [
+      31.0,
+      25,
+      0
+    ],
+    "shipping.outbound.staging.r16.b05": [
+      36.5,
+      25,
+      0
+    ],
+    "shipping.outbound.staging.r16.b06": [
+      36.0,
+      25,
+      0
+    ],
+    "shipping.outbound.staging.r16.b07": [
+      41.5,
+      25,
+      0
+    ],
+    "shipping.outbound.staging.r16.b08": [
+      41.0,
+      25,
+      0
+    ]
+  },
+  "machine_group_z_offset": 5.35,
+  "layout_revision": "simu75-layout-2026-10-25"
+}

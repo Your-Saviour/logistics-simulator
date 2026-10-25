@@ -190,3 +190,24 @@ The controller owns a dedicated non-pooled PostgreSQL session for its advisory
 lease. Closing that physical session releases ownership before a failure is
 recorded through an ordinary pooled transaction. The backend regression verifies
 a fresh physical session can acquire ownership after controller shutdown.
+
+### Coordinated robot transport (SIMU-75)
+
+Default `FLEET_MODE=disabled` retains departmental behavior. To participate, set
+`FLEET_MODE=coordinated`, `FLEET_URL`, private `FLEET_TOKEN`, and the fleet's
+`FLEET_RUN_ID`/`FLEET_EPOCH`. The fleet maps Storage's actual current run/epoch;
+these IDs need not match its own. `FLEET_TIME_OFFSET` (default 0) must match
+the department mapping in fleet configuration; physical events are eligible at
+`granted + offset`, while native proofs retain their unshifted committed time.
+All Storage roles must use the same settings.
+No credential is exposed in projections; `snapshot.handling.fleet` identifies
+mode and fleet scope.
+
+Storage persists immutable requests and departure/receipt proofs in its own
+transactional outbox. The worker sends HTTP after commit and retries identical
+bodies. Fleet loss leaves durable pending work with a visible reason. Pickup
+readiness gates departure; committed physical arrival gates receipt, including
+local shelving and retrieval. Transport waits defer beyond the current grant so
+controllers continue requesting simulation time. Existing custody acceptance and
+departure tokens remain required for imported stock. Migration 014 is additive;
+existing migrations and volumes remain intact.

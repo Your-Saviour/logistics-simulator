@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:fleet:job:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "run_id", "epoch", "producer", "source_run_id", "source_epoch", "unit_id", "origin", "destination", "custody_generation", "effective_time"],
+  "properties": {
+    "version": {"const": 1, "type": "integer"},
+    "id": {"type": "string", "format": "uuid"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "epoch": {"type": "string", "format": "uuid"},
+    "producer": {"enum": ["storage", "manufacturing", "logistics", "shipping"]},
+    "source_run_id": {"type": "string", "format": "uuid"},
+    "source_epoch": {"type": "string", "format": "uuid"},
+    "unit_id": {"type": "string", "format": "uuid"},
+    "origin": {"type": "string", "minLength": 1},
+    "destination": {"type": "string", "minLength": 1},
+    "custody_generation": {"type": "integer", "minimum": 0},
+    "effective_time": {"type": "number", "minimum": 0}
+  }
+}

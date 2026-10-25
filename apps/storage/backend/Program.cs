@@ -6,7 +6,7 @@ var settings=new Settings(); var database=new Database(settings); database.Migra
 var warehouse=new Warehouse(ledger,settings);
 var builder=WebApplication.CreateBuilder(args); builder.WebHost.UseUrls("http://0.0.0.0:8000");
 builder.Services.AddSingleton(settings); builder.Services.AddSingleton(database); builder.Services.AddSingleton(ledger);
-if(settings.Role=="worker") builder.Services.AddHostedService<Worker>();
+if(settings.Role=="worker") { builder.Services.AddHostedService<Worker>();if(settings.FleetMode=="coordinated")builder.Services.AddHostedService<FleetDelivery>(); }
 if(settings.Role=="controller") builder.Services.AddHostedService<Controller>();
 var app=builder.Build();
 app.Use(async (ctx,next)=> {

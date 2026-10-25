@@ -29,5 +29,5 @@ final class Messaging implements AutoCloseable {
  }
  static boolean ready(String url){try(var m=new Messaging(url)){return true;}catch(Exception e){return false;}}
  @Override public void close()throws Exception{try{if(channel.isOpen())channel.close();}finally{connection.close();}}
- static void worker(Store store,Settings settings){while(!Thread.currentThread().isInterrupted())try(var m=new Messaging(settings.amqp)){while(!Thread.currentThread().isInterrupted()){m.relay(store);boolean received=m.consume(store);store.heartbeat("worker","");if(!received)Thread.sleep(150);}}catch(Exception e){System.err.println("Manufacturing worker dependency unavailable; SQL work retained: "+e.getClass().getSimpleName());try{Thread.sleep(2000);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}}}
+ static void worker(Store store,Settings settings){while(!Thread.currentThread().isInterrupted())try(var m=new Messaging(settings.amqp)){while(!Thread.currentThread().isInterrupted()){Fleet.relay(store);m.relay(store);boolean received=m.consume(store);store.heartbeat("worker","");if(!received)Thread.sleep(150);}}catch(Exception e){System.err.println("Manufacturing worker dependency unavailable; SQL work retained: "+e.getClass().getSimpleName());try{Thread.sleep(2000);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}}}
 }

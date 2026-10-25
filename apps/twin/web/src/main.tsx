@@ -51,6 +51,7 @@ type Event = {
   payload: Row;
 };
 type Twin = {
+  fleet?:import('./fleetState').FleetObservation|null;
   handling?: {version: number; units: RecordedUnit[]; unsupported_sources: string[]};
   revision: number;
   mode: "live";
@@ -664,6 +665,7 @@ function App() {
                         <Facility3D
                           entities={all}
                           units={twin.handling?.units}
+                          fleet={twin.fleet}
                           movements={twin.events.filter(event=>event.id.startsWith(event.source+':unit-movement:')&&(twin.handling?.units??[]).some(unit=>unit.id===event.payload.unit_id&&unit.run_id===event.run_id&&unit.epoch===event.epoch&&unit.status==='confirmed')).map(event=>({...event.payload,source:event.source,id:event.id}) as unknown as import('./journeys').Movement)}
                           sources={twin.sources}
                           selected={selected}

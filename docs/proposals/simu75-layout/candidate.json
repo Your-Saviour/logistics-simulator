@@ -1,0 +1,72 @@
+{
+  "status": "approved_applied_to_repository_not_deployed",
+  "preserve_endpoint_ids": true,
+  "preserve_endpoint_y": true,
+  "outbound_truck_endpoint_delta": [
+    11,
+    0,
+    0
+  ],
+  "outbound_truck_access_unchanged": true,
+  "outbound_truck_obstacle_delta": [
+    11,
+    0
+  ],
+  "machine_geometry_delta": [
+    0,
+    0,
+    3.75
+  ],
+  "machine_groups": [
+    "manufacturing.cell01",
+    "manufacturing.cell02",
+    "manufacturing.cell03",
+    "manufacturing.cell04"
+  ],
+  "manufacturing_endpoint_positions_unchanged": false,
+  "service_search_distances": [
+    1.5,
+    1.65,
+    1.8
+  ],
+  "shelf_service_side": "documented_access_only",
+  "outbound_truck_service_side": "east_to_avoid_west_sidewall",
+  "finished_receipt_service_side": "north",
+  "body_width": 0.85,
+  "body_length": 1.05,
+  "clearance": 0.15,
+  "maximum_fork_reach": 1.8,
+  "placement_load_size": [
+    0.8,
+    0.72,
+    0.86
+  ],
+  "acceptance": "must_audit_before_any_application",
+  "truck_first_slot_z": [
+    -22,
+    -10,
+    2,
+    14
+  ],
+  "truck_slot_pitch": 1.1,
+  "truck_service_side": "east_to_avoid_west_sidewall",
+  "inbound_truck_x_unchanged": true,
+  "manufacturing_inputs_first_z": -6,
+  "manufacturing_outputs_first_z": 2,
+  "manufacturing_slot_pitch": 1.1,
+  "machine_visual_group_z_offset": 5.35,
+  "additional_endpoint_deltas": {
+    "shipping.outbound.dock01": [
+      1.2,
+      0,
+      0
+    ]
+  },
+  "shelf_fork_transfer": {
+    "raised_fork_height_above_endpoint": 0.26,
+    "maximum_load_height": 0.72,
+    "next_shelf_underdeck_above_endpoint": 1.37,
+    "minimum_frontbeam_gap": 0.15,
+    "implementation_note": "Implement explicit fork pocket/pallet and raised transfer stage after layout approval; own support contact allowed, solid frontbeam intersection forbidden."
+  }
+}

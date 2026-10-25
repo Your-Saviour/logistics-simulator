@@ -41,6 +41,8 @@ test('truck beds group only their own eight slots and never span departments', a
   for (const truck of trucks) {
     assert.equal(truck.slots.length, 8);
     assert.equal(new Set(truck.slots.map(slot => slot.position[0])).size, 1);
-    assert.ok(Math.max(...truck.slots.map(slot => slot.position[2])) - Math.min(...truck.slots.map(slot => slot.position[2])) < 4);
+    const positions=truck.slots.map(slot=>slot.position[2]).sort((a,b)=>a-b);
+    assert.ok(Math.abs(positions.at(-1)-positions[0]-7.7)<1e-8);
+    for(let index=1;index<positions.length;index++)assert.ok(Math.abs(positions[index]-positions[index-1]-1.1)<1e-8);
   }
 });

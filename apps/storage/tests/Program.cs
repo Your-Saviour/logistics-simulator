@@ -10,6 +10,7 @@ void Invalid(string json) { try { Rules.Job(JsonNode.Parse(json)!.AsObject()); t
 foreach (var raw in new[]{"{\"due_at\":1,\"quantity\":true}","{\"due_at\":1,\"quantity\":1.5}","{\"due_at\":1,\"quantity\":\"1\"}","{\"due_at\":-1,\"quantity\":1}","{\"due_at\":1,\"quantity\":1,\"extra\":1}","{\"due_at\":1,\"quantity\":10001}","{\"quantity\":1}"}) Invalid(raw);
 var valid=Rules.Job(JsonNode.Parse("{\"due_at\":1.5,\"quantity\":3}")!.AsObject());
 Check(valid.Due==1.5 && valid.Quantity==3,"valid fractional seconds and strict quantity");
+FleetTests.Configuration(Check);
 var scenario = new Scenario(new JsonObject());
 Check(scenario.Instant(0).ToString("yyyy-MM-ddTHH:mm:sszzz")=="2026-01-05T08:00:00+10:30","scenario offset");
 Check(scenario.NextDue(9*3600-1,1)==86400,"closing rolls to next opening");
@@ -120,6 +121,9 @@ if (Environment.GetEnvironmentVariable("STORAGE_INTEGRATION")=="true") {
         leaseProbe.Open();
         Check(new Unit(leaseProbe).One("SELECT pg_try_advisory_lock(8192102) AS held")["held"]!.GetValue<bool>(),"stopped controller releases lease to another physical session");
     }
+    FleetTests.Run(ledger,settings,Check);
+    FleetBatchTests.Run(ledger,settings,Check);
+    await FleetTests.Transport(ledger,settings,Check);
     await HandlingUnitTests.Run(ledger,settings,Check);
     CustodyTests.Run(ledger,settings,Check);
     FinishedCustodyTests.Run(ledger,settings,Check);

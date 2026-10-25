@@ -53,11 +53,13 @@ public sealed class Ledger(Database database,Settings settings)
         var state=j["status"]!.ToString(); if(state=="completed") return "duplicate"; if(state=="dead") return "dead";
         if(r["state"]!.ToString()!="running"||Num(j,"due_at")>Num(r,"granted")||u.Query("SELECT 1 FROM heartbeats WHERE role='controller' AND seen_at>clock_timestamp()-interval '15 seconds'").Count==0||!u.One("SELECT retry_after<=clock_timestamp() AS ready FROM jobs WHERE id=@p0",job)["ready"]!.GetValue<bool>()) return "waiting";
         u.Exec("INSERT INTO inbox(event_id,run_id,epoch) VALUES (@p0,@p1,@p2) ON CONFLICT DO NOTHING",job,Id(r),Id(r,"epoch"));
+        try {
         if(j["payload"]?["finished_custody"] is JsonObject) { FinishedCustody.Execute(u,r,settings,j);u.Exec("UPDATE jobs SET status='completed',error=NULL WHERE id=@p0",job);return "completed"; }
         if(j["payload"]?["custody"] is JsonObject) { StorageCustody.Execute(u,r,settings,j);u.Exec("UPDATE jobs SET status='completed',error=NULL WHERE id=@p0",job);return "completed"; }
         if(j["payload"]?["warehouse"] is JsonObject) { Warehouse.Execute(u,r,j,settings); u.Exec("UPDATE jobs SET status='completed',error=NULL WHERE id=@p0",job); return "completed"; }
         var quantity=j["payload"]!["quantity"]!.GetValue<int>(); u.Exec("INSERT INTO effects(job_id,run_id,quantity) VALUES (@p0,@p1,@p2)",job,Id(r),quantity); u.Exec("UPDATE jobs SET status='completed',error=NULL WHERE id=@p0",job);
         if(r["mode"]!.ToString()=="helics"&&!j["idempotency_key"]!.ToString().StartsWith("boundary:")) u.Exec("INSERT INTO boundary_outbox(id,run_id,envelope) VALUES (@p0,@p1,@p2)",Guid.NewGuid(),Id(r),new JsonObject {["job_id"]=job.ToString(),["quantity"]=quantity,["time"]=Num(r,"granted")}); return "completed";
+        } catch(FleetWait wait) { Fleet.Defer(u,r,j,settings,wait);return "waiting"; }
     });
     public string Fail(Guid job,Exception error)=>Db.Transaction(u=> { var r=u.Run(); var j=u.Query("SELECT * FROM jobs WHERE id=@p0 FOR UPDATE",job).FirstOrDefault(); if(j is null||Id(j,"run_id")!=Id(r)||j["status"]!.ToString() is "completed" or "dead") return j?["status"]?.ToString()=="dead"?"dead":"fenced";
         var attempts=j["attempts"]!.GetValue<int>()+1; u.Exec("UPDATE jobs SET attempts=@p0,status=@p1,error=@p2,retry_after=clock_timestamp()+interval '2 seconds' WHERE id=@p3",attempts,attempts>=3?"dead":"pending",error.Message[..Math.Min(1000,error.Message.Length)],job);

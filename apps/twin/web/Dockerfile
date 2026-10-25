@@ -4,6 +4,7 @@ COPY apps/twin/web/package*.json ./
 RUN npm ci
 COPY apps/twin/web/ ./
 COPY contracts/handling/v1/facility.json /contracts/handling/v1/facility.json
+COPY contracts/fleet/v1/navigation.json /contracts/fleet/v1/navigation.json
 RUN npm run build
 FROM nginxinc/nginx-unprivileged:1.28-alpine
 COPY --from=build /web/dist /usr/share/nginx/html

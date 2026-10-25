@@ -70,7 +70,7 @@ public static class StorageCustody
     }
     public static void Execute(Unit u,JsonObject run,Settings settings,JsonObject job) {
         u.Exec("SAVEPOINT custody_effect");
-        try { var result=Apply(u,run,settings,Ledger.Id(job),job["payload"]!["custody"]!.AsObject());u.Exec("UPDATE warehouse_commands SET status='completed',result=@p0,completed_at=@p1 WHERE id=@p2",result,Ledger.Num(run,"granted"),Ledger.Id(job)); }
+        try { var result=Apply(u,run,settings,Ledger.Id(job),job["payload"]!["custody"]!.AsObject());u.Exec("UPDATE warehouse_commands SET status='completed',error=NULL,result=@p0,completed_at=@p1 WHERE id=@p2",result,Ledger.Num(run,"granted"),Ledger.Id(job)); }
         catch(Exception error) when(error is Conflict or Validation) {u.Exec("ROLLBACK TO SAVEPOINT custody_effect");CustodyQuarantine.Record(u,run,job["payload"]!["custody"]!.AsObject(),job["payload"]?["custody_endpoint"]?.ToString()??"","apply",error.Message,Ledger.Id(job));u.Exec("UPDATE warehouse_commands SET status='rejected',error=@p0,completed_at=@p1 WHERE id=@p2",error.Message,Ledger.Num(run,"granted"),Ledger.Id(job));}
     }
     static JsonObject Apply(Unit u,JsonObject run,Settings settings,Guid command,JsonObject e) {
@@ -78,20 +78,34 @@ public static class StorageCustody
         if(Ledger.Id(e,"correlation_id")!=Ledger.Id(row,"correlation_id"))throw new Conflict("Handoff correlation changed");
         if(h["state"]!.ToString()=="accepted") {
             var expected=(JsonObject)row["offer"]!.DeepClone();expected["state"]="accepted";if(!JsonNode.DeepEquals(expected,h))throw new Conflict("Acceptance changed immutable source offer");
-            if(row["state"]!.ToString() is "departed" or "acknowledged")return h;
-            u.Exec("UPDATE warehouse_custody_sources SET state='accepted',acceptance=@p0 WHERE id=@p1",h,Ledger.Id(row));
-            var all=u.Query("SELECT * FROM warehouse_custody_sources WHERE reservation_id=@p0 ORDER BY unit_id",Ledger.Id(row,"reservation_id"));if(all.Any(r=>r["state"]!.ToString()!="accepted"))return h;
-            var reservation=u.One("SELECT * FROM warehouse_reservations WHERE id=@p0 AND run_id=@p1",Ledger.Id(row,"reservation_id"),Ledger.Id(run));if(reservation["status"]!.ToString()!=(row["transfer_id"] is null?"reserved":"picked")||reservation["version"]!.GetValue<int>()==int.MaxValue)throw new Conflict("Source reservation changed or counter exhausted");
+            if(settings.FleetMode!="coordinated"&&row["state"]!.ToString() is "departed" or "acknowledged")return h;
+            u.Exec("UPDATE warehouse_custody_sources SET state='accepted',acceptance=@p0 WHERE id=@p1 AND state IN ('offered','accepted')",h,Ledger.Id(row));
+            var all=u.Query("SELECT * FROM warehouse_custody_sources WHERE reservation_id=@p0 ORDER BY unit_id",Ledger.Id(row,"reservation_id"));if(all.Any(r=>r["state"]!.ToString()=="offered"))return h;
+            var reservation=u.One("SELECT * FROM warehouse_reservations WHERE id=@p0 AND run_id=@p1",Ledger.Id(row,"reservation_id"),Ledger.Id(run));if(settings.FleetMode=="coordinated"&&all.All(member=>member["state"]!.ToString() is "departed" or "acknowledged")&&reservation["status"]!.ToString() is "issued" or "transferred")return h;if(reservation["status"]!.ToString()!=(row["transfer_id"] is null?"reserved":"picked")||reservation["version"]!.GetValue<int>()==int.MaxValue)throw new Conflict("Source reservation changed or counter exhausted");
+            if(settings.FleetMode=="coordinated") {
+                var requests=all.Where(member=>member["state"]!.ToString()=="accepted").Select(member=>{var offer=member["offer"]!.AsObject();return Fleet.Request(u,run,settings,Ledger.Id(member,"unit_id"),Ledger.Id(member),offer["unit"]!["custody_generation"]!.GetValue<int>()+1,Rules.Text(offer["origin"]),Rules.Text(offer["destination"]));}).ToArray();
+
+            }
+            var fleetWaiting=false;
             foreach(var member in all) {
+                if(member["state"]!.ToString() is "departed" or "acknowledged")continue;
                 var unit=u.One("SELECT * FROM warehouse_handling_units WHERE id=@p0",Ledger.Id(member,"unit_id"));var offer=member["offer"]!.AsObject();
                 if(Ledger.Id(unit,"reservation_id")!=Ledger.Id(reservation)||!JsonNode.DeepEquals(HandlingUnits.Contract(unit),offer["unit"]))throw new Conflict("Reserved source placement or custody generation changed");
+                if(settings.FleetMode=="coordinated") {
+                    var request=Fleet.Request(u,run,settings,Ledger.Id(unit),Ledger.Id(member),offer["unit"]!["custody_generation"]!.GetValue<int>()+1,Rules.Text(offer["origin"]),Rules.Text(offer["destination"]));
+                    try {Fleet.Require(u,run,request,"pickup_ready",settings.FleetOffset);}catch(FleetWait){fleetWaiting=true;continue;}
+                    var portion=(JsonObject)reservation.DeepClone();portion["quantity"]=unit["quantity"]!.DeepClone();var count=unit["quantity"]!.GetValue<int>();
+                    Warehouse.Move(u,run,command,row["transfer_id"] is null?"issue":"transfer",portion,-count,-count,unit:Ledger.Id(unit));
+                }
                 u.Exec("UPDATE warehouse_handling_units SET state='in_transit',origin=position,position=NULL,destination=@p0,handoff_id=@p1,custody_generation=custody_generation+1 WHERE id=@p2",offer["destination"]!.ToString(),Ledger.Id(member),Ledger.Id(unit));
                 HandlingUnits.Movement(u,run,command,unit,"depart",unit["position"]!.ToString(),offer["destination"]!.ToString(),Ledger.Id(member,"correlation_id"));
                 var departed=(JsonObject)offer.DeepClone();departed["state"]="departed";var transit=HandlingUnits.Contract(u.One("SELECT * FROM warehouse_handling_units WHERE id=@p0",Ledger.Id(unit)));departed["unit"]=transit;
                 departed["departure_token"]=new JsonObject {["id"]=Rules.Uuid5(Ledger.Id(member),"departure-token").ToString(),["handoff_id"]=member["id"]!.DeepClone(),["unit_id"]=unit["id"]!.DeepClone(),["run_id"]=run["id"]!.DeepClone(),["epoch"]=run["epoch"]!.DeepClone(),["custody_generation"]=transit["custody_generation"]!.DeepClone(),["last_sequence"]=transit["last_sequence"]!.DeepClone(),["unit_version"]=transit["version"]!.DeepClone()};
+                if(settings.FleetMode=="coordinated")Fleet.Proof(u,run,Fleet.Request(u,run,settings,Ledger.Id(unit),Ledger.Id(member),transit["custody_generation"]!.GetValue<int>(),Rules.Text(offer["origin"]),Rules.Text(offer["destination"])),"departure");
                 u.Exec("UPDATE warehouse_custody_sources SET state='departed',departure=@p0 WHERE id=@p1",departed,Ledger.Id(member));Publish(u,run,settings,departed,Ledger.Id(member,"correlation_id"));
             }
-            var quantity=reservation["quantity"]!.GetValue<int>();Warehouse.Move(u,run,command,row["transfer_id"] is null?"issue":"transfer",reservation,-quantity,-quantity);u.Exec("UPDATE warehouse_reservations SET status=@p0,version=version+1 WHERE id=@p1",row["transfer_id"] is null?"issued":"transferred",Ledger.Id(reservation));
+            if(fleetWaiting)throw new FleetWait("fleet awaiting remaining source pickups");
+            var quantity=reservation["quantity"]!.GetValue<int>();if(settings.FleetMode!="coordinated")Warehouse.Move(u,run,command,row["transfer_id"] is null?"issue":"transfer",reservation,-quantity,-quantity);u.Exec("UPDATE warehouse_reservations SET status=@p0,version=version+1 WHERE id=@p1",row["transfer_id"] is null?"issued":"transferred",Ledger.Id(reservation));
             if(row["transfer_id"] is not null) {var transfer=u.One("UPDATE warehouse_transfers SET status='in_transit',version=version+1 WHERE id=@p0 AND status='awaiting_acceptance' RETURNING *",Ledger.Id(row,"transfer_id"));Warehouse.PublishOutcome(u,run,Ledger.Id(row,"command_id"),"transfer",transfer);}return h;
         }
         if(row["departure"] is not JsonObject departure)throw new Conflict("Receipt preceded committed source departure");

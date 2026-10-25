@@ -7,6 +7,8 @@ public sealed class Settings
 {
     public static string Env(string name,string fallback="")=>Environment.GetEnvironmentVariable(name)??fallback;
     public string Mode=Env("CLOCK_MODE","standalone"), Role=Env("ROLE","api"), Database=Env("DATABASE_URL"), Amqp=Env("AMQP_URL"), Federation=Env("FEDERATION_ID"), InitialRun=Env("FEDERATION_RUN_ID"), InitialEpoch=Env("FEDERATION_EPOCH"), AdapterUrl=Env("HELICS_ADAPTER_URL"), AdapterToken=Env("HELICS_ADAPTER_TOKEN");
+    public string FleetMode=Env("FLEET_MODE","disabled"), FleetUrl=Env("FLEET_URL"), FleetToken=Env("FLEET_TOKEN"), FleetRun=Env("FLEET_RUN_ID"), FleetEpoch=Env("FLEET_EPOCH");
+    public double FleetOffset=double.Parse(Env("FLEET_TIME_OFFSET","0"),System.Globalization.CultureInfo.InvariantCulture);
     public double Quantum=double.Parse(Env("HANDOFF_QUANTUM","1"),System.Globalization.CultureInfo.InvariantCulture);
     public JsonObject Providers=JsonNode.Parse(Env("BOUNDARY_PROVIDERS","{}"))!.AsObject(), Peers=JsonNode.Parse(Env("HELICS_PEERS","{}"))!.AsObject();
     public JsonArray Outputs=JsonNode.Parse(Env("HELICS_OUTPUTS","[]"))!.AsArray();
@@ -19,6 +21,8 @@ public sealed class Settings
     }
     public bool HasOutput(string owner,string boundary)=>Outputs.Any(o=>o?["destination"]?.ToString()==owner&&o["boundary"]?.ToString()==boundary);
     public Settings() {
+        if(!double.IsFinite(FleetOffset)||FleetOffset<0)throw new Validation("Fleet offset must be finite and nonnegative");
+        if(FleetMode is not ("disabled" or "coordinated")||FleetMode=="coordinated"&&(!Guid.TryParse(FleetRun,out _)||!Guid.TryParse(FleetEpoch,out _)||!Uri.TryCreate(FleetUrl,UriKind.Absolute,out var fleetUri)||fleetUri.Scheme is not ("http" or "https")||string.IsNullOrEmpty(FleetToken)))throw new Validation("Coordinated fleet requires URL, private token and run/epoch UUIDs");
         if(Env("SIMULATOR","storage")!="storage" || !new[]{"api","worker","controller"}.Contains(Role) || !new[]{"standalone","helics"}.Contains(Mode)) throw new Validation("Invalid simulator, role or clock mode");
         if(!double.IsFinite(Quantum)||Quantum<1) throw new Validation("Finite quantum of at least one second required");
         if(Providers.Count==0&&Mode=="standalone") Providers=new JsonObject {["supply"]="synthetic",["requests"]="synthetic"};

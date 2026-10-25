@@ -41,7 +41,7 @@ def main():
     def unit(app,identity):return row(app,f'SELECT * FROM {units[app]} WHERE id=%s',identity)
     def command(app,body):
         for _ in range(20):
-            r=get(app,'status')['run'];payload={**body,'run_id':run,'epoch':epoch,'due_at':max(r['granted'],r['requested'])+2}
+            r=get(app,'status')['run'];payload={**body,'run_id':run,'epoch':epoch,'due_at':max(r['granted'],r['requested'])+max(2,2*float(os.getenv('FACTORY_HANDOFF_QUANTUM','1')))}
             response=clients[app].post('/api/'+domains[app]+'/commands',json=payload,headers={'Idempotency-Key':uuid4().hex})
             if response.status_code==409 and 'Schedule' in response.text:continue
             response.raise_for_status();identity=response.json()['id'];table={'storage':'warehouse_commands','manufacturing':'production_commands','shipping':'shipping_commands','logistics':'transport_commands'}[app];field='outcome' if app=='shipping' else 'status'

@@ -115,6 +115,10 @@ func (s *Store) applySourceCustody(ctx context.Context, tx pgx.Tx, r, j, h row, 
 		if !sameSourceManifest(unit, old["offer"].(map[string]any)["unit"]) {
 			return Conflict("Offered raw custody changed before departure")
 		}
+		fleet := fleetRequest(r, unit["id"].(string), h["id"].(string), h["origin"].(string), h["destination"].(string), "logistics", int(num(unit, "custody_generation"))+1)
+		if err = fleetGate(ctx, tx, r, fleet, "pickup_ready", false); err != nil {
+			return err
+		}
 		if _, err = tx.Exec(ctx, "UPDATE transport_handling_units SET state='in_transit',origin=position,position=NULL,destination=$1,handoff_id=$2,custody_generation=custody_generation+1 WHERE id=$3", h["destination"], h["id"], unit["id"]); err != nil {
 			return err
 		}
@@ -130,6 +134,9 @@ func (s *Store) applySourceCustody(ctx context.Context, tx pgx.Tx, r, j, h row, 
 		expected["departure_token"] = row{"id": uuid.NewSHA1(uuid.MustParse(h["id"].(string)), []byte("logistics:departure-token")).String(), "handoff_id": h["id"], "unit_id": unit["id"], "run_id": r["id"], "epoch": r["epoch"], "unit_version": unit["version"], "last_sequence": unit["last_sequence"], "custody_generation": unit["custody_generation"]}
 		raw, _ := json.Marshal(expected)
 		if _, err = tx.Exec(ctx, "UPDATE transport_source_custody SET state='departed',departure=$1 WHERE id=$2", raw, h["id"]); err != nil {
+			return err
+		}
+		if err = fleetProof(ctx, tx, r, fleet, "departure"); err != nil {
 			return err
 		}
 		return s.publishSourceCustody(ctx, tx, r, expected, correlation)

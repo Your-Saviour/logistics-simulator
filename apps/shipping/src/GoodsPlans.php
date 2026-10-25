@@ -6,6 +6,9 @@ namespace Shipping;
 final class GoodsPlans
 {
     private static function observations(Unit $u,string $id):array {return $u->query("SELECT g.state,manifest.value AS unit FROM shipping_goods_reservations g CROSS JOIN LATERAL jsonb_array_elements(g.fact->'payload'->'unit_manifest') manifest(value) WHERE manifest.value->>'id'=?",[$id]);}
+    // Coordinated retrieval versions both its unplaced departure and its
+    // confirmed arrival. Both modes append exactly one pick movement sequence.
+    private static function pickVersionAdvance():int {return Fleet::enabled()?2:1;}
     public static function reserve(Unit $u,array $r,array $e,array $intent):void {
         $p=$e['payload'];$old=$u->query('SELECT * FROM shipping_goods_reservations WHERE id=?',[$p['id']])[0]??null;
         if($old){if($old['fact']!=$e)throw new Conflict('Reserved goods manifest changed');return;}
@@ -16,7 +19,7 @@ final class GoodsPlans
             if(!is_array($unit))throw new Validation('Canonical source unit required');$id=Rules::uuid($unit['id']??null);if(isset($seen[$id])||$u->query('SELECT 1 FROM shipping_unit_plans WHERE unit_id=? UNION ALL SELECT 1 FROM shipping_handling_units WHERE id=?',[$id,$id]))throw new Conflict('Reserved barcode already assigned or known');$seen[$id]=true;
             foreach(self::observations($u,$id) as $known){if($known['state']!=='released')throw new Conflict('Barcode already promised by another reserved manifest');foreach(['id','barcode','contents','category','run_id','epoch','owner'] as $field)if($known['unit'][$field]!=$unit[$field])throw new Conflict('Released reservation cannot change immutable unit identity or contents');if($unit['version']<=$known['unit']['version']||$unit['last_sequence']<$known['unit']['last_sequence']||$unit['custody_generation']!==$known['unit']['custody_generation'])throw new Conflict('Replacement reservation must continue the released source unit counters');}
             $h=['id'=>$p['id'],'run_id'=>$r['id'],'epoch'=>$r['epoch'],'source'=>'storage','destination_owner'=>'shipping','origin'=>$unit['position']??null,'destination'=>'shipping.outbound.dock01','state'=>'offered','unit'=>$unit,'departure_token'=>null,'receipt_id'=>null,'reason'=>null];HandlingHandoffs::validate($h);
-            if($unit['owner']!=='storage'||$unit['run_id']!==$r['id']||$unit['epoch']!==$r['epoch']||$unit['contents'][0]['sku']!==$line['sku']||$unit['version']>2147483644||$unit['last_sequence']>2147483644||$unit['custody_generation']>2147483646)throw new Conflict('Selected goods differ from the line or lack pick/departure/receipt headroom');$total+=$unit['contents'][0]['quantity'];
+            if($unit['owner']!=='storage'||$unit['run_id']!==$r['id']||$unit['epoch']!==$r['epoch']||$unit['contents'][0]['sku']!==$line['sku']||$unit['version']>2147483647-(self::pickVersionAdvance()+2)||$unit['last_sequence']>2147483644||$unit['custody_generation']>2147483646)throw new Conflict('Selected goods differ from the line or lack pick/departure/receipt headroom');$total+=$unit['contents'][0]['quantity'];
         }
         if($total!==$line['quantity']||$p['quantity']!==$line['quantity'])throw new Conflict('Reserved units must exactly equal the complete line');
         $u->execute('INSERT INTO shipping_goods_reservations(id,run_id,epoch,line_id,fact) VALUES (?,?,?,?,?)',[$p['id'],$r['id'],$r['epoch'],$line['id'],$e]);
@@ -45,7 +48,7 @@ final class GoodsPlans
     public static function checkOffer(Unit $u,array $r,array $h,string $correlation):void {
         $plan=$u->query("SELECT p.*,o.correlation_id FROM shipping_unit_plans p JOIN shipping_lines l ON l.id=p.line_id JOIN shipping_orders o ON o.id=l.order_id WHERE p.unit_id=? AND p.run_id=? AND p.provider='storage'",[$h['unit']['id'],$r['id']])[0]??null;
         if(!$plan){foreach(self::observations($u,$h['unit']['id']) as $known)if($known['state']!=='released')throw new Conflict('Reserved barcode must wait for whole-order endpoint admission');if($u->query("SELECT 1 FROM shipping_orders o JOIN shipping_intents i ON i.order_id=o.id WHERE o.run_id=? AND o.correlation_id=? AND i.owner='storage' AND i.state='pending'",[$r['id'],$correlation]))throw new Conflict('Unplanned barcode cannot fulfil this Shipping order');return;}
-        if($plan['state']!=='expected'||$plan['correlation_id']!==$correlation||$plan['destination']!==$h['destination'])throw new Conflict('Goods offer changed its reservation or receiving endpoint');$expected=$plan['source_manifest'];$expected['version']++;$expected['last_sequence']++;$expected['position']=$h['origin'];
+        if($plan['state']!=='expected'||$plan['correlation_id']!==$correlation||$plan['destination']!==$h['destination'])throw new Conflict('Goods offer changed its reservation or receiving endpoint');$expected=$plan['source_manifest'];$expected['version']+=self::pickVersionAdvance();$expected['last_sequence']++;$expected['position']=$h['origin'];
         if(!str_starts_with($h['origin'],'storage.outbound.dock')||$expected!=$h['unit'])throw new Conflict('Goods offer differs from the canonical picked reservation');
     }
 }

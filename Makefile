@@ -1,4 +1,9 @@
 APP ?= storage
+.PHONY: fleet-check fleet-factory-check
+fleet-check:
+	sh scripts/check_fleet.sh pytest -q -p no:cacheprovider tests
+fleet-factory-check:
+	sh scripts/check_fleet_factory.sh
 .DEFAULT_GOAL := configure
 COMPOSE = docker compose -f deploy/generated/$(APP).json
 TEST_COMPOSE = docker compose -f deploy/test.compose.yml

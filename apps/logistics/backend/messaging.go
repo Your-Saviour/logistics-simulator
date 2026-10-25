@@ -155,6 +155,11 @@ func worker(ctx context.Context, s *Store) error {
 					break
 				}
 			}
+			if !ok {
+				if e = s.relayFleet(ctx); e != nil {
+					break
+				}
+			}
 			if e = s.Heartbeat(ctx, "worker", ""); e != nil {
 				break
 			}

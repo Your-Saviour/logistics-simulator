@@ -20,7 +20,7 @@ final class Projection {
   var history=rows(c,"SELECT h.*,COALESCE(o.correlation_id::text,j.boundary_input->>'correlation_id') AS correlation_id FROM production_history h JOIN jobs j ON j.id=h.job_id LEFT JOIN production_orders o ON o.id=h.order_id WHERE h.run_id=? ORDER BY h.id",id);
   var movements=rows(c,"SELECT m.*,COALESCE(o.correlation_id::text,j.boundary_input->>'correlation_id') AS correlation_id FROM production_movements m JOIN jobs j ON j.id=m.job_id LEFT JOIN production_orders o ON o.id=m.order_id WHERE m.run_id=? ORDER BY m.id",id);
   var facts=rows(c,"SELECT * FROM production_events WHERE run_id=? ORDER BY id",id);
-  snapshot.put("handling",HandlingUnits.snapshot(c,run));snapshot.put("history",history);snapshot.put("movements",movements);snapshot.put("events",facts);
+  var handling=HandlingUnits.snapshot(c,run);if(Fleet.enabled(store.settings))handling.put("fleet",Map.of("mode","coordinated","run_id",store.settings.get("FLEET_RUN_ID",""),"epoch",store.settings.get("FLEET_EPOCH","")));snapshot.put("handling",handling);snapshot.put("history",history);snapshot.put("movements",movements);snapshot.put("events",facts);
   var events=new ArrayList<Map<String,Object>>();
   for(var h:history)events.add(event("history",h));
   for(var m:movements)events.add(event("movement",m));

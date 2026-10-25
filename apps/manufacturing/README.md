@@ -246,3 +246,20 @@ scenario on a fresh deployment. The canonical work-order states are queued,
 ready, held, running and completed. Completion facts publish good output and
 scrap together to the owned durable `production.events.v1` queue; see the
 production document for scope, correlation and redelivery semantics.
+
+Coordinated transport is opt in: set `FLEET_MODE=coordinated`, `FLEET_URL`,
+`FLEET_TOKEN`, `FLEET_RUN_ID`, and `FLEET_EPOCH` on native roles. Missing or invalid
+configuration fails startup. Disabled mode retains the existing custody behavior.
+The worker durably admits finished-output movements after Storage accepts capacity;
+output departure waits for physical pickup readiness. Incoming raw receipts wait
+for physical arrival at an eligible native grant before they become consumable.
+Fleet waits move jobs beyond the current grant, allowing native time requests to
+continue. Native departure and receipt proofs commit with business state and relay
+after commit; unavailable fleet HTTP retains requests and proofs in
+`production_fleet_jobs` without fallback. Projection `handling.fleet` identifies
+coordinated scopes without exposing credentials. Production creates outputs and
+lineage at the native cell and consumes only confirmed input placements.
+
+`FLEET_TIME_OFFSET` defaults to zero and must match this department's fleet
+source mapping (finite, nonnegative seconds). Eligibility compares native grant
+plus this offset against physical fleet time; outgoing effective times stay native.

@@ -1,0 +1,202 @@
+{
+  "date": "2026-10-25",
+  "evidence": "Local isolated Docker, not hosted CI or production",
+  "production_assumption": "Each system separately deployed with four dedicated CPU cores; not verified on that topology",
+  "native_factory": {
+    "without_twin": {
+      "status": "passed",
+      "command": "FLEET_FACTORY_QUANTUM=20 FLEET_FACTORY_TIMEOUT=1800 FLEET_FACTORY_REUSE_IMAGES=1 sh scripts/check_fleet_factory.sh",
+      "elapsed_wall_seconds": 813.2356718709925,
+      "physical_jobs": 23,
+      "all_jobs_completed": true,
+      "online_samples": 5391,
+      "categories": {
+        "inbound_unload": true,
+        "shelf_putaway_retrieval": true,
+        "manufacturing_transfer": true,
+        "outbound_load": true
+      },
+      "traffic_waits": 1,
+      "held_loaded_restart": true,
+      "exit_code": 0,
+      "oom_killed": false
+    },
+    "with_twin": {
+      "status": "passed",
+      "command": "FLEET_FACTORY_WITH_TWIN=1 FLEET_FACTORY_QUANTUM=20 FLEET_FACTORY_TIMEOUT=1800 sh scripts/check_fleet_factory.sh",
+      "elapsed_wall_seconds": 836.3128090470127,
+      "physical_jobs": 23,
+      "all_jobs_completed": true,
+      "online_samples": 5386,
+      "categories": {
+        "inbound_unload": true,
+        "shelf_putaway_retrieval": true,
+        "manufacturing_transfer": true,
+        "outbound_load": true
+      },
+      "traffic_waits": 1,
+      "held_loaded_restart": true,
+      "fresh_twin_snapshot": true,
+      "exit_code": 0,
+      "oom_killed": false
+    }
+  },
+  "scheduler": {
+    "fixture": "Synthetic departmental clients using the real authenticated API, SQL ledger, worker and navigation",
+    "requested_warmup_seconds": 120,
+    "requested_measurement_seconds": 600,
+    "offered_per_minute": 12,
+    "cases": [
+      {
+        "robots": 4,
+        "status": "complete",
+        "issue": null,
+        "wall_seconds": 238.89172015199438,
+        "simulation_seconds_reached": 720,
+        "measurement_seconds_actual": 600,
+        "completed_roundtrips": {
+          "inbound_unload": 3,
+          "outbound_loading": 2,
+          "shelf_putaway": 2
+        },
+        "received_loaded_legs": {
+          "inbound_unload": 2,
+          "outbound_loading": 2,
+          "shelf_putaway": 1
+        },
+        "completions_per_minute": 0.7,
+        "loaded_receipts_per_minute": 0.5,
+        "queue_wait_assigned_p95_seconds": 652.0,
+        "queue_wait_assigned_max_seconds": 652.0,
+        "oldest_unassigned_age_seconds": 710.0,
+        "mean_robot_utilization": 0.4463394342762063,
+        "queued": 58,
+        "free_robots": 2,
+        "waiting_reasons": {
+          "approaching": 2,
+          "traffic": 58
+        },
+        "route_failures": {
+          "no_path_with_dynamic_exclusions": 39
+        },
+        "worker_tick_ms": {
+          "count": 721,
+          "max": 5308.012295005028,
+          "p95": 1218.039957995643,
+          "p99": 2676.0190009954385
+        },
+        "target_12_per_minute_achieved": false
+      },
+      {
+        "robots": 8,
+        "status": "wall_limit",
+        "issue": "Per-case wall limit reached",
+        "wall_seconds": 300.2231933860021,
+        "simulation_seconds_reached": 671,
+        "measurement_seconds_actual": 551,
+        "completed_roundtrips": {
+          "inbound_unload": 3,
+          "outbound_loading": 3,
+          "shelf_putaway": 4
+        },
+        "received_loaded_legs": {
+          "inbound_unload": 2,
+          "outbound_loading": 5,
+          "shelf_putaway": 3
+        },
+        "completions_per_minute": 1.0889292196007259,
+        "loaded_receipts_per_minute": 1.0889292196007259,
+        "queue_wait_assigned_p95_seconds": 581.0,
+        "queue_wait_assigned_max_seconds": 581.0,
+        "oldest_unassigned_age_seconds": 661.0,
+        "mean_robot_utilization": 0.3999094202898551,
+        "queued": 55,
+        "free_robots": 5,
+        "waiting_reasons": {
+          "approaching": 1,
+          "planning": 22,
+          "returning": 2,
+          "traffic": 33
+        },
+        "route_failures": {
+          "no_path_with_dynamic_exclusions": 88
+        },
+        "worker_tick_ms": {
+          "count": 672,
+          "max": 6135.813543995027,
+          "p95": 1312.9656669916585,
+          "p99": 3101.776625990169
+        },
+        "target_12_per_minute_achieved": false
+      }
+    ],
+    "not_measured_robot_counts": [
+      16
+    ]
+  },
+  "rendering": {
+    "fixture": "Synthetic rendering benchmark only: 500 static units, 16 reported loaded operational robots, 1000 reserved grid cells; no native acceptance claim",
+    "durationMs": 30040.40000000596,
+    "renderedFrames": 839,
+    "preparationAndSubmissionMs": {
+      "p50": 0.8999999910593033,
+      "p95": 1.2999999970197678,
+      "max": 6.700000002980232
+    },
+    "renderedFrameIntervalMs": {
+      "p50": 35.70000000298023,
+      "p95": 39.20000000298023,
+      "max": 61.6000000089407
+    },
+    "renderer": "ANGLE (Mesa/X.org, llvmpipe (LLVM 15.0.6 128 bits), OpenGL ES 3.2)",
+    "maxDrawCalls": 12,
+    "softwareRenderer": {
+      "rasterThreads": "2",
+      "packages": [
+        "libegl-mesa0:arm64 22.3.6-1+deb12u2",
+        "libegl1:arm64 1.6.0-1",
+        "libgl1-mesa-dri:arm64 22.3.6-1+deb12u2",
+        "libgles2:arm64 1.6.0-1"
+      ]
+    },
+    "targets": {
+      "frameBudgetMs": 20
+    },
+    "frame_budget_met": false
+  },
+  "native_adapter_loss": {
+    "status": "passed",
+    "command": "FLEET_FACTORY_FAULT_ONLY=1 FLEET_FACTORY_QUANTUM=20 FLEET_FACTORY_TIMEOUT=600 sh scripts/check_fleet_factory.sh",
+    "elapsed_wall_seconds": 21.45883859299647,
+    "signal": "SIGKILL",
+    "native_states": {
+      "storage": "stalled",
+      "manufacturing": "running",
+      "shipping": "running",
+      "logistics": "running"
+    },
+    "loaded_robots_retained": 1,
+    "reservation_count_retained": 1307,
+    "fleet_state": "held",
+    "native_unit": {
+      "state": "in_transit",
+      "position": null
+    },
+    "exit_code": 0,
+    "oom_killed": false
+  },
+  "fleet_backend": {
+    "status": "passed",
+    "tests": 78,
+    "wall_seconds": 28.88,
+    "active_recovery_phases": [
+      "approaching",
+      "awaiting_departure",
+      "picking_up",
+      "carrying",
+      "placing",
+      "awaiting_receipt",
+      "returning"
+    ]
+  }
+}

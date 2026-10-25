@@ -209,3 +209,27 @@ recovery, native acknowledgement/finalization and adapter-loss fencing. Business
 runtimes also passed real broker/database recovery and terminal-run reset checks.
 See [the shared verification record](../../docs/verification.md) for commands,
 actual evidence and the untested hosted/physical-host limits.
+
+### Coordinated robot transport (SIMU-75)
+
+Default `FLEET_MODE=disabled` retains the native truck and custody workflow.
+Opt in on the API, worker and controller with `FLEET_MODE=coordinated`,
+`FLEET_URL`, private departmental `FLEET_TOKEN`, `FLEET_RUN_ID`, `FLEET_EPOCH`
+and optional finite nonnegative `FLEET_TIME_OFFSET` (default `0`). Configure the
+fleet's Logistics source mapping with the actual native run/epoch and matching
+offset. The adapter still owns native HELICS and the department owns its clocks.
+
+Migration `017_fleet.sql` adds a durable request/proof outbox and observed physical
+facts. The worker sends persisted bodies after native transactions commit. Lost
+responses retry the same identity and time. A missing fleet leaves visible deferred
+jobs; it never enables immediate movement. Pickup readiness gates source departure;
+physical arrival and the native custody token jointly gate receiver placement.
+Truck loading/unloading also reserve their destination slot, remove confirmed source
+placement at pickup and keep the whole unit nonallocatable until eligible arrival.
+Waits reschedule beyond the current grant so native time requests can continue.
+
+`handling.fleet` exposes only mode and fleet run/epoch for observers. Fleet HTTP
+errors remain in `transport_fleet_jobs.error`; deferred business work records its
+wait in `jobs.error`. Requests/proofs from previous native epochs remain archived
+and are excluded from delivery. Existing data volumes and migration checksums are
+preserved. Exercise native regressions with `make stack-unit APP=logistics`.

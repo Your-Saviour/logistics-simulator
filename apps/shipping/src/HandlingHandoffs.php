@@ -55,7 +55,8 @@ final class HandlingHandoffs
         if($h['state']!=='departed')throw new Conflict('Acknowledgement cannot precede receipt');
         // Only this receiver writes its confirmed position. Source placement was
         // already removed in the durable departure represented by this token.
-        HandlingUnits::import($u,$r,$command,$h,$correlation);
+        $fleet=Fleet::request($r,$h,false);Fleet::gate($u,$r,$fleet,'arrival',true);
+        HandlingUnits::import($u,$r,$command,$h,$correlation);Fleet::proof($u,$r,$fleet,'receipt');
         $received=[...$h,'state'=>'received','receipt_id'=>Rules::uuid5($h['id'],'shipping-receipt')];$u->execute("UPDATE shipping_handling_handoffs SET state='received',receipt=? WHERE id=?",[$received,$h['id']]);GoodsPlans::received($u,$r,$h['unit']['id']);self::publish($u,$r,$s,$received,$correlation);return $received;
     }
     public static function offerLine(Unit $u,array $r,Settings $s,array $line,string $shipment,string $correlation,array $destinations):void {
@@ -77,7 +78,8 @@ final class HandlingHandoffs
         if($h['state']==='accepted'){
             if([...$h,'state'=>'offered']!=$row['offer'])throw new Conflict('Acceptance changed the offered unit or endpoints');if($row['departure'])return $row['departure'];
             $unit=$u->one('SELECT * FROM shipping_handling_units WHERE id=?',[$h['unit']['id']]);if(HandlingUnits::contract($unit)!=$h['unit'])throw new Conflict('Source unit changed after offer; destination remains reserved for reconciliation');
-            $unit=HandlingUnits::depart($u,$r,$command,$h,$correlation);
+            $fleet=Fleet::request($r,$h,true);Fleet::gate($u,$r,$fleet,'pickup_ready');
+            $unit=HandlingUnits::depart($u,$r,$command,$h,$correlation);Fleet::proof($u,$r,$fleet,'departure');
             $token=['id'=>Rules::uuid5($h['id'],'shipping-departure'),'handoff_id'=>$h['id'],'unit_id'=>$unit['id'],'run_id'=>$r['id'],'epoch'=>$r['epoch'],'custody_generation'=>$unit['custody_generation'],'last_sequence'=>$unit['last_sequence'],'unit_version'=>$unit['version']];
             $departed=[...$h,'state'=>'departed','unit'=>$unit,'departure_token'=>$token];$u->execute("UPDATE shipping_handling_departures SET state='departed',departure=? WHERE id=?",[$departed,$h['id']]);self::publish($u,$r,$s,$departed,$correlation);return $departed;
         }

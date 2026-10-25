@@ -38,7 +38,7 @@ var physicalLocations = func() map[string]physicalLocation {
 }()
 
 func freeHandlingPosition(ctx context.Context, tx pgx.Tx, run row, prefix, category string) (string, error) {
-	occupied, err := objects(ctx, tx, "SELECT position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND position IS NOT NULL UNION SELECT destination AS position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND state='in_transit' UNION SELECT destination AS position FROM transport_custody WHERE run_id=$1 AND epoch=$2 AND state='accepted' UNION SELECT destination AS position FROM transport_expected_units WHERE run_id=$1 AND epoch=$2 AND active AND destination IS NOT NULL", run["id"], run["epoch"])
+	occupied, err := objects(ctx, tx, "SELECT position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND position IS NOT NULL UNION SELECT destination AS position FROM transport_handling_units WHERE run_id=$1 AND epoch=$2 AND destination IS NOT NULL UNION SELECT destination AS position FROM transport_custody WHERE run_id=$1 AND epoch=$2 AND state='accepted' UNION SELECT destination AS position FROM transport_expected_units WHERE run_id=$1 AND epoch=$2 AND active AND destination IS NOT NULL", run["id"], run["epoch"])
 	if err != nil {
 		return "", err
 	}
@@ -106,7 +106,7 @@ func handlingSnapshot(ctx context.Context, tx pgx.Tx, run row) (row, error) {
 	if err != nil {
 		return nil, err
 	}
-	return row{"version": 1, "catalog_version": 1, "quarantine": quarantine, "units": values, "unit_context": contexts, "movements": movements, "handoffs": records, "lineage": []row{}}, nil
+	return row{"version": 1, "catalog_version": 1, "fleet": fleetMetadata(), "quarantine": quarantine, "units": values, "unit_context": contexts, "movements": movements, "handoffs": records, "lineage": []row{}}, nil
 }
 
 const handlingMaxCounter = 2147483647
@@ -258,9 +258,21 @@ func loadHandling(ctx context.Context, tx pgx.Tx, run, job, transfer row) error 
 		if unit["category"] == "raw" {
 			prefix = "logistics.inbound"
 		}
-		position, err := freeHandlingPosition(ctx, tx, run, fmt.Sprintf("%s.truck%02d.slot", prefix, index), unit["category"].(string))
+		var position string
+		existing, findErr := object(ctx, tx, "SELECT request FROM transport_fleet_jobs WHERE id=$1 AND run_id=$2 AND epoch=$3", fleetID(unit["id"].(string), job["id"].(string), int(num(unit, "custody_generation"))), run["id"], run["epoch"])
+		if fleetEnabled() && findErr == nil {
+			position = existing["request"].(map[string]any)["destination"].(string)
+		} else {
+			position, err = freeHandlingPosition(ctx, tx, run, fmt.Sprintf("%s.truck%02d.slot", prefix, index), unit["category"].(string))
+		}
 		if err != nil {
 			return err
+		}
+		if fleetEnabled() {
+			if err = fleetLocalMove(ctx, tx, run, job, unit, position, "load", transfer["correlation_id"].(string), transfer["id"]); err != nil {
+				return err
+			}
+			continue
 		}
 		if _, err = tx.Exec(ctx, "UPDATE transport_handling_units SET position=$1 WHERE id=$2", position, unit["id"]); err != nil {
 			return err
@@ -308,6 +320,22 @@ func unloadHandling(ctx context.Context, tx pgx.Tx, run, job, transfer row) erro
 		return err
 	}
 	for _, unit := range units {
+		if fleetEnabled() {
+			destination, _ := unit["destination"].(string)
+			if destination == "" {
+				destination, _ = unit["position"].(string)
+			}
+			if strings.HasPrefix(destination, "external.") {
+				continue
+			}
+			if err = fleetLocalMove(ctx, tx, run, job, unit, destination, "unload", transfer["correlation_id"].(string), transfer["id"]); err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, "UPDATE transport_handling_units SET logical_location=$1 WHERE id=$2", transfer["destination"], unit["id"]); err != nil {
+				return err
+			}
+			continue
+		}
 		position := unit["destination"].(string)
 		if strings.HasPrefix(position, "external.") {
 			continue

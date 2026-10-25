@@ -107,6 +107,11 @@ final class Fulfilment
                 default:throw new Validation('Unknown shipping action');
             }$this->history($u,$r,$o['id'],$b['action'],['command_id'=>$id]);}
             $u->execute("UPDATE shipping_commands SET outcome='completed',completed_at=? WHERE id=?",[$r['granted'],$id]);
+        }catch(FleetWait $e){
+            // Retain fleet intent and any committed transit stage, defer beyond
+            // the current grant so HELICS remains free to request native time.
+            $u->execute("UPDATE jobs SET status='pending',due_at=?,error=? WHERE id=?",[$r['granted']+$this->settings->quantum,$e->getMessage(),$id]);
+            $u->execute('UPDATE outbox SET retry_after=clock_timestamp() WHERE job_id=?',[$id]);$u->execute('RELEASE SAVEPOINT shipping_effect');return false;
         }catch(Conflict|Validation|CustodyCapacity $e){$u->execute('ROLLBACK TO SAVEPOINT shipping_effect');
             $wire=$job['payload']['shipping']['envelope']??null;if(!($e instanceof CustodyCapacity)&&is_array($wire)&&str_starts_with($wire['type']??'','handling.'))CustodyQuarantine::record($u,$r,$wire,$job['payload']['shipping']['custody_endpoint']??'','apply',$e->getMessage(),$id);
             if($e instanceof CustodyCapacity&&$job['payload']['shipping']['action']==='goods_admit'){$u->execute("UPDATE jobs SET due_at=?,error=? WHERE id=?",[$r['granted']+$this->settings->quantum,$e->getMessage(),$id]);$u->execute('UPDATE outbox SET retry_after=clock_timestamp() WHERE job_id=?',[$id]);$u->execute('RELEASE SAVEPOINT shipping_effect');return false;}
@@ -125,6 +130,7 @@ $u->execute("UPDATE shipping_commands SET outcome='rejected',error=?,completed_a
         $allowed=match($i['kind']){'reserve'=>['reserved','shortage'],'produce'=>['produced'],'pick'=>['picked'],'transfer'=>['transferred'],'receive'=>['received'],'release'=>['released'],'dispatch'=>['departed'],'deliver'=>['delivered']};
         if($f['result']==='failed'){$u->execute("UPDATE shipping_intents SET state='failed',response=?,fact_id=? WHERE id=?",[$f,$event,$i['id']]);$this->state($u,$o['id'],'blocked');if($i['owner']==='logistics')$u->execute("UPDATE shipping_shipments SET status='blocked' WHERE order_id=?",[$o['id']]);$this->history($u,$r,$o['id'],'provider_rejected',['owner'=>$i['owner'],'intent_id'=>$i['id'],'reason'=>$f['reason']??'Provider declined the operation']);return;}
         if(!in_array($f['result'],$allowed,true))throw new Conflict('Outcome cannot confirm this intent');
+        if(Fleet::enabled()&&$this->settings->providers['carrier']==='synthetic'&&in_array($i['kind'],['dispatch','deliver'],true))throw new FleetWait('Coordinated carrier requires native destination custody and physical arrival');
         $u->execute("UPDATE shipping_intents SET state='completed',response=?,fact_id=? WHERE id=?",[$f,$event,$i['id']]);
         $this->history($u,$r,$o['id'],$f['result'],['intent_id'=>$i['id'],'owner'=>$i['owner'],'fact_id'=>$event]);
         switch($f['result']){

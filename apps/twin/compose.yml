@@ -47,6 +47,7 @@ services:
       APP_IDENTITIES: '${TWIN_IDENTITIES:-[]}'
       TWIN_SOURCES: '${TWIN_SOURCES:-[]}'
       TWIN_CONTROL_TARGETS: '${TWIN_CONTROL_TARGETS:-[]}'
+      TWIN_FLEET_SOURCE: '${TWIN_FLEET_SOURCE:-null}'
     depends_on:
       db:
         condition: service_healthy

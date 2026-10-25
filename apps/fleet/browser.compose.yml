@@ -1,0 +1,20 @@
+name: simu-fleet-browser
+services:
+  web:
+    image: logistics-simulator:twin-fleet-web
+    build:
+      context: ../..
+      dockerfile: apps/twin/web/Dockerfile
+    environment:
+      API_UPSTREAM: http://127.0.0.1:9
+  checks:
+    image: logistics-simulator:browser-check
+    environment:
+      TWIN_URL: http://web:8080
+      STACK_APPS: '[{"name":"twin","url":"http://web:8080"}]'
+    volumes:
+      - ../browser-check/fleet.spec.ts:/checks/fleet.spec.ts:ro
+      - ../browser-check/playwright.config.ts:/checks/playwright.config.ts:ro
+      - ../../.superpowers/sdd/2026-10-25-simu75-implementation/browser:/artifacts
+    command: [npx, playwright, test, fleet.spec.ts]
+    depends_on: [web]
