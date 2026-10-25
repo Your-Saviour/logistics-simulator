@@ -1,7 +1,7 @@
 # Handling units: local verification
 
-Status: **acceptance is incomplete**. This document distinguishes completed
-local checks from remaining gates; it is not evidence of a hosted deployment.
+Status: **local acceptance verified**. These checks establish local behavior;
+they are not evidence of a hosted deployment.
 
 ## Completed local evidence
 
@@ -14,7 +14,7 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
 - Twin's PostgreSQL-backed suite passed 52 tests for extension validation,
   immutable identity, event/snapshot agreement, retained history, scope fencing,
   conflicts and receipt-based custody reconciliation.
-- Frontend model checks passed 21 tests, including fourteen journey tests and five
+- Frontend model checks passed 22 tests, including fifteen journey tests and five
   catalog/placement tests. Two retained tests cover the previous legacy ETA
   helper and do not prove the replacement renderer.
 - Departure and receipt observations for the same custody generation replay as
@@ -28,11 +28,11 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
   hold, honored reduced motion, expired trails and made no business writes.
 - GPU-buffer inspection verifies manufacturing machine bases at their catalog
   cell positions. Static batches preserve inherited group transforms; the full
-  two-test scene suite passed after correcting this placement bug.
+  five-test scene suite passed after correcting this placement bug.
 - `sh scripts/check_handling_upgrade.sh` passed native API startup and restart
   against pre-handling-unit schemas for all four business departments. Old
   migration checksums, held run/epoch and seeded Storage/Manufacturing aggregate
-  quantities survived. No handling units were implicitly created. Native
+  quantities survived. Historical Shipping orders/lines and Logistics commands/receipts also retained their identities, states and quantities. No handling units were implicitly created. Native
   Storage and Manufacturing workers then rejected quantity-losing conversion
   manifests and accepted explicit 4+6 manifests for the ten legacy units of
   quantity. Identical command retries returned the original identity; changed
@@ -89,7 +89,7 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
   four concurrent unit journeys, optional inspection and no business writes or
   page errors. See `screenshots/twin-captured-native-replay.png` and
   `screenshots/twin-captured-native-inspection.png`. The local video is retained
-  under `.superpowers/sdd/2026-10-25-simu64-implementation/native-replay/results/`.
+  under `.superpowers/sdd/2026-10-25-simu64-implementation/mesa-validation/results/`.
 
 The busy 500-unit browser workload is explicitly synthetic. The captured
 native handling fixture in `apps/twin/tests/fixtures/handling-factory.json`
@@ -99,84 +99,85 @@ mocked read-model transport, not a live backend connection. Its connectivity
 labels and missing observation timestamps are fixture metadata, not evidence
 of live source availability or a hosted deployment.
 
-## Rendering budget: open gate
+## Rendering budget: passed locally
 
-The explicit benchmark is:
-
-```sh
-make handling-performance-check
-```
-
-It builds the production frontend and pinned browser image through
-`scripts/docker_guard.py`, starts a disposable web container, warms up for five
-seconds, then records 30 seconds of actual WebGL draw frames. It checks 500 live
-unit representations, exactly 64 concurrent journeys, a queue of at most 256,
-and p95 frame intervals no greater than 33.4 ms. It does not manufacture business
-receipts. Tracing and video are disabled for the measurement itself; functional
-recordings are captured separately.
-
-Latest completed local measurement:
+Run `make handling-performance-check`. The guarded build uses the production
+frontend and a pinned Chromium image with Mesa EGL software rendering. Set
+`HANDLING_PERFORMANCE_RENDERER=swiftshader` to reproduce the alternate backend.
+The benchmark warms up for five seconds, then measures actual WebGL draw frames
+for 30 seconds. Tracing and video are disabled during measurement.
 
 | Item | Result |
 | --- | --- |
 | Host | Apple M1 Pro, 10 logical CPUs, 16 GiB RAM |
 | Container | ARM64, 10 logical CPUs, approximately 8 GiB VM memory |
 | Browser | Chromium 156.0.8078.4 |
-| Renderer | ANGLE / Vulkan SwiftShader, LLVM 10.0.0; CPU software rendering |
+| Renderer | ANGLE / Mesa llvmpipe LLVM 15.0.6; CPU software rendering, two raster threads |
+| Mesa package | 22.3.6-1+deb12u2 |
 | Browser viewport | 1440 × 900 |
 | Drawing buffer | 831 × 538, DPR 1, single sample |
-| Measurement | 30.025 seconds, 468 actual draw frames |
-| Browser animation frames | 468 |
+| Measurement | 30.021 seconds, 1,797 actual draw frames |
 | Active journeys | Minimum 64, maximum 64 |
 | Units | Minimum 500, maximum 500 |
-| Maximum queue | 192 |
-| Maximum draw calls per frame | 9 |
-| p95 frame interval | **82.0 ms — fails the 33.4 ms target** |
+| Maximum queue | 256 |
+| Maximum draw calls per frame | 7 |
+| p95 frame interval | **19.1 ms — passes the 33.4 ms target** |
 
-Batching static geometry and robot-child load transforms reduced maximum draw
-calls from 434 to 9. Isolating
-software WebGL from Chromium's compositor and disabling multisampling improved
-the measured interval, but the target remains unmet. The latest diagnostic
-recorded a maximum 10.2 ms before submission and 0.5 ms across draw submission;
-these are main-thread measurements, not GPU timings. Browser animation frames
-and drawn frames matched, ruling out idle animation frames as the missing work.
-A separate fullscreen-triangle control at the same 831 × 538 drawing-buffer
-size reached 1,801 frames with p95 19.9 ms in the same SwiftShader runtime. That
-control is diagnostic evidence, not a substitute for the 500-unit scene gate.
-Replacing both shaders with minimal transforms and a constant color still
-measured p95 76.2 ms. With rasterization disabled, the same geometry processing
-reached 1,779 frames and p95 21.0 ms. These private-browser diagnostics suggest
-the remaining cost lies in rasterization rather than draw submission or shader
-complexity. Raster discard produces no visible scene and is not acceptance
-evidence or a production setting.
-Do not treat static screenshots or model tests as passing performance evidence.
+The synthetic workload uses mixed-height trips between distinct raw and finished
+rack bays. It is separate from native custody acceptance. Stationary floor pixels
+are checked before and after timing, preventing a missing facility from passing.
+The result is specific to this software renderer and machine; it does not prove
+hardware GPU or hosted performance. Raw measurements, including exact driver
+packages, are in [handling-performance-local.json](handling-performance-local.json).
 
-JSON results and intermediate baselines are retained locally under
-`.superpowers/sdd/2026-10-25-simu64-implementation/performance/`. The benchmark
-fails with a nonzero exit status when the target is missed. It is opt-in during
-ordinary browser suites to avoid repeating a 30-second measurement in every
-application check.
+Static facility pixels and depth are cached between changes. Camera, placement,
+selection, resize and context changes invalidate the cache; unsupported depth
+buffers use direct rendering. Robot parts share instanced geometry. A regression
+caught Chromium clearing cached geometry on the first animated draw. Explicitly
+clearing before restoring the cache fixed it; held and moving pixel checks pass.
+Earlier 20.5/21.1 ms measurements preceded that fix and are superseded. Earlier
+SwiftShader measurements missed the target; they are diagnostic history, not the
+passing result. No budget, unit count, journey count or measurement duration was
+relaxed.
 
 ## Review and follow-on work
 
 A fresh read-only whole-branch review found one Important defect: native
 Shipping `load` and Logistics `receive` observations could replay the same trip
-twice. The fix passed the full 21-test frontend model suite, covering recipient
+twice. The fix passed the full 22-test frontend model suite, covering recipient
 takeover, receipt-first delivery and late receipt after completed replay. No
 Critical defects were established.
-The final production frontend also passed the captured-native Chromium replay
-again after the batching and coalescing fixes (one test, 20.7 seconds).
+The final production frontend passed captured-native replay and comparison with
+the uncached facility reference after the animated cache fix (two tests, 24.0
+seconds). Both native screenshots were inspected: racks, trucks, floor and
+manufacturing cells remain visible during robot movement. All five permanent
+scene checks passed separately (29.8 seconds).
 
 Coordinated operational robot traffic is tracked separately in
 [SIMU-75](https://ctfittwo.atlassian.net/browse/SIMU-75), created at the user’s
 request. SIMU-64 generates visual estimates; it does not prevent robot-to-robot
 route overlap.
 
-## Remaining acceptance gates
+## Acceptance audit
 
-- Final renderer budget verification. The native truck/shelf recording is
-  functional evidence and does not establish the busy-scene frame budget.
+| Criterion | Local evidence |
+| --- | --- |
+| Complete unit lifecycle | Two native four-department factory cycles, including raw unload, raw/finished shelves and confirmed delivery |
+| Immutable identity and single custody | Native transactional ledgers, fifteen publication-loss gates, five contradictory-receipt cases |
+| Finite endpoint agreement | 800-endpoint catalog/model checks, four real projections validated by Twin, GPU machine placement regression |
+| Duplicate/concurrent/restart recovery | Five native framework suites, stack recovery, both raw-custody workers restarted at three protocol stages |
+| Recipe accounting and lineage | Native Manufacturing tests and two factory cycles with conserved contents and new output identities |
+| Exact whole-unit allocation | Native allocation/capacity regressions and explicit legacy 4+6 conversion checks |
+| Concurrent 3D handling | Five scene browser checks, shelf-clearance model regression and captured-native replay |
+| Fading trails | Scene/model checks for three-second expiry, reduced motion and no business writes |
+| Observational Twin | Factory with Twin absent, optional-source mixed checks, read-only inspector |
+| Source/epoch failure behavior | 52 Twin database tests, 22 frontend models, inspector and scene browser cases |
+| Rendering budget | 500 units/64 journeys, 30 seconds, 19.1 ms p95, visible-world pixel guards |
+| Accessible inspection and fallback | Keyboard inspector, WebGL fallback, reduced motion, desktop/mobile screenshots |
+| Resource and upgrade safety | Guarded Docker checks, 20 GiB reserve, four native old-schema upgrades/restarts, preserved checksums/history |
+
+Robot-to-robot collision avoidance is the separate SIMU-75 scope.
 
 
-The five websites remain separate. No push, PR, hosted deployment, Jira write or
-live data-volume cutover has been performed by these local checks.
+The five websites remain separate. No push, PR, hosted deployment or live data-volume cutover has been performed.
+SIMU-75 was created in Jira at the user’s explicit request.

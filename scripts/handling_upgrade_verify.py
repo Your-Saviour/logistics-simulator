@@ -98,6 +98,18 @@ def main():
                 elif app == 'manufacturing':
                     db.execute("INSERT INTO production_materials VALUES (%s,'UPGRADE-COMPONENT',10)", (run,))
                 record[app] = {'run_id': run, 'epoch': epoch, 'old_checksums': applied}
+                if app in ('shipping', 'logistics'):
+                    legacy, correlation = str(uuid4()), str(uuid4())
+                    db.execute("INSERT INTO jobs(id,run_id,epoch,idempotency_key,due_at,payload,status) VALUES (%s,%s,%s,'upgrade-history',0,'{}','completed')", (legacy, run, epoch))
+                    record[app].update(legacy_record_id=legacy, legacy_correlation_id=correlation)
+                    if app == 'shipping':
+                        line = str(uuid4())
+                        db.execute("INSERT INTO shipping_orders(id,run_id,customer,destination,correlation_id,status) VALUES (%s,%s,'UPGRADE-CUSTOMER','CUSTOMER-A',%s,'delivered')", (legacy, run, correlation))
+                        db.execute("INSERT INTO shipping_lines(id,order_id,sku,quantity,reserved,received) VALUES (%s,%s,'UPGRADE-PRODUCT',10,10,10)", (line, legacy))
+                        record[app]['legacy_line_id'] = line
+                    else:
+                        db.execute("INSERT INTO transport_commands(id,run_id,command,status) VALUES (%s,%s,'{}','completed')", (legacy, run))
+                        db.execute("INSERT INTO transport_transfers(id,run_id,epoch,correlation_id,route,origin,destination,journey_seconds,sku,quantity,status,custody) VALUES (%s,%s,%s,%s,'UPGRADE-ROUTE','WAREHOUSE','CUSTOMER',10,'UPGRADE-PRODUCT',10,'received','destination')", (legacy, run, epoch, correlation))
             else:
                 identity = identities[app]
                 deadline = time.monotonic() + 90
@@ -131,6 +143,12 @@ def main():
                     assert db.execute("SELECT on_hand,reserved FROM warehouse_stock WHERE run_id=%s AND sku='UPGRADE-COMPONENT'", (run,)).fetchone() == (10, 0)
                 elif app == 'manufacturing':
                     assert db.execute("SELECT quantity FROM production_materials WHERE run_id=%s AND sku='UPGRADE-COMPONENT'", (run,)).fetchone() == (10,)
+                elif app == 'shipping':
+                    legacy = record[app]['legacy_record_id']
+                    assert db.execute('SELECT correlation_id::text,status FROM shipping_orders WHERE id=%s', (legacy,)).fetchone() == (record[app]['legacy_correlation_id'], 'delivered')
+                    assert db.execute('SELECT id::text,quantity,reserved,received FROM shipping_lines WHERE order_id=%s', (legacy,)).fetchone() == (record[app]['legacy_line_id'], 10, 10, 10)
+                elif app == 'logistics':
+                    assert db.execute('SELECT correlation_id::text,quantity,status,custody,unit_ids FROM transport_transfers WHERE id=%s', (record[app]['legacy_record_id'],)).fetchone() == (record[app]['legacy_correlation_id'], 10, 'received', 'destination', [])
                 record[app][phase] = 'passed: checksums, scope, quantities and explicit unit identities preserved' if conversion else 'passed: native migration, old checksums/scope/legacy quantities preserved, no invented units'
                 print(app, phase, 'PASS', flush=True)
     evidence.write_text(json.dumps(record, indent=2))

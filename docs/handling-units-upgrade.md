@@ -304,8 +304,8 @@ holds/disconnection freeze visual replay; reduced motion uses recorded placement
 Generated robots, routes and timings do not write business state.
 
 Run `make handling-performance-check` for the explicit 500-unit/64-journey,
-30-second browser benchmark. Current local software rendering does **not** meet
-the 33.4 ms p95 target; see
+30-second browser benchmark. Local Mesa software rendering measured **19.1 ms p95**, passing
+the 33.4 ms target with visible-world pixel guards; see
 [verification results](handling-units-verification.md) and
 [raw local measurement](handling-performance-local.json). Do not substitute a
 static screenshot or model test for a passing rendering-budget result.

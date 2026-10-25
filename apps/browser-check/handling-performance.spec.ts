@@ -1,5 +1,6 @@
 import {test,expect} from '@playwright/test';
-import {readFileSync,writeFileSync} from 'node:fs';
+import {copyFileSync,existsSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {dirname} from 'node:path';
 import os from 'node:os';
 test.use({trace:'off',video:'off'});
 test.skip(process.env.HANDLING_BENCHMARK!=='1','Run the explicit handling-performance-check target');
@@ -36,6 +37,14 @@ test('500 units and 64 concurrent journeys meet the 30-second frame budget',asyn
  await page.route('**/api/twin',route=>{if(round>1||events.length===500)append(64);return route.fulfill({json:{revision:Date.now(),mode:'live',sources:[{name:'storage',connected:true,stale:false,status:{run},snapshot:{config:{locations:[]}},cursor:String(round),error:null}],events,aligned:null,controls:[],handling:{version:1,units,unsupported_sources:[]}}});});
  await page.goto(process.env.TWIN_URL!);await page.getByLabel('Username',{exact:true}).fill('reader');await page.getByLabel('Password',{exact:true}).fill('benchmark');await page.getByRole('button',{name:'Sign in',exact:true}).click();
  await expect(page.locator('[data-active-journeys="64"]')).toBeVisible();await page.waitForTimeout(5000);
+ const floorReference=test.info().snapshotPath('performance-floor.png');mkdirSync(dirname(floorReference),{recursive:true});
+ copyFileSync(new URL('./fixtures/facility-floor.png',import.meta.url),floorReference);
+ async function visibleFacility(){
+  const box=(await page.locator('canvas').boundingBox())!;
+  // Outside robot routes: the fixed outbound floor/markers must survive cache hits.
+  expect(await page.screenshot({clip:{x:box.x+600,y:box.y+320,width:90,height:60}})).toMatchSnapshot('performance-floor.png',{threshold:.08,maxDiffPixelRatio:.05});
+ }
+ await visibleFacility();
  const start=await page.evaluate(()=>{const state=(window as any).__handlingFrames;state.startFrame=state.frame;return performance.now();});await page.waitForTimeout(30000);
  const report=await page.evaluate(start=>{
   const frames=(window as any).__handlingFrames.frames.filter((frame:any)=>frame.time>=start);
@@ -43,7 +52,10 @@ test('500 units and 64 concurrent journeys meet the 30-second frame budget',asyn
   const gl=document.querySelector('canvas')!.getContext('webgl2')!,debug=gl.getExtension('WEBGL_debug_renderer_info');
   return {fixture:'synthetic rendering workload: 500 units, 64 mixed-height inter-rack journeys across raw and finished storage; no native acceptance claim',viewport:{width:innerWidth,height:innerHeight},drawingBuffer:{width:gl.drawingBufferWidth,height:gl.drawingBufferHeight},durationMs:performance.now()-start,frameCount:frames.length,rafFrameCount:(window as any).__handlingFrames.frame-(window as any).__handlingFrames.startFrame,maxDrawCalls:Math.max(...frames.map((frame:any)=>frame.drawCalls)),maxPreparationMs:Math.max(...frames.map((frame:any)=>frame.prepMs)),maxRenderSubmissionMs:Math.max(...frames.map((frame:any)=>frame.spanMs)),p95Ms:intervals[Math.ceil(intervals.length*.95)-1],maxIntervalMs:intervals.at(-1),minActive:Math.min(...frames.map((frame:any)=>frame.active)),maxActive:Math.max(...frames.map((frame:any)=>frame.active)),maxQueued:Math.max(...frames.map((frame:any)=>frame.queued)),minUnits:Math.min(...frames.map((frame:any)=>frame.units)),maxUnits:Math.max(...frames.map((frame:any)=>frame.units)),renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),browser:navigator.userAgent};
  },start);
- const result={...report,host:JSON.parse(process.env.HOST_HARDWARE_JSON??'{}'),container:{architecture:os.arch(),cpu:os.cpus()[0]?.model,logicalCpus:os.cpus().length,memoryBytes:os.totalmem()}};
+ const driverPackages='/etc/handling-renderer-packages.txt';
+ const result={...report,softwareRenderer:{requested:process.env.HANDLING_RENDERER??'swiftshader',configuredRasterThreads:process.env.LP_NUM_THREADS?Number(process.env.LP_NUM_THREADS):null,packages:existsSync(driverPackages)?readFileSync(driverPackages,'utf8').trim().split('\n'):[]},host:JSON.parse(process.env.HOST_HARDWARE_JSON??'{}'),container:{architecture:os.arch(),cpu:os.cpus()[0]?.model,logicalCpus:os.cpus().length,memoryBytes:os.totalmem()}};
  writeFileSync(test.info().outputPath('performance.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
+ await visibleFacility();
+ expect(report.renderer).toMatch(process.env.HANDLING_RENDERER==='mesa'?/llvmpipe/i:/SwiftShader/i);
  expect(report.frameCount).toBeGreaterThan(850);expect(report.minActive).toBe(64);expect(report.maxActive).toBe(64);expect(report.maxQueued).toBeLessThanOrEqual(256);expect(report.minUnits).toBe(500);expect(report.maxUnits).toBe(500);expect(report.p95Ms).toBeLessThanOrEqual(33.4);
 });

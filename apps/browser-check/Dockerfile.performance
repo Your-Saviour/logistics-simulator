@@ -1,0 +1,7 @@
+ARG CHECK_IMAGE=logistics-simulator:handling-ui-browser
+FROM ${CHECK_IMAGE}
+# A CPU renderer usable through native EGL in headless Linux containers.
+RUN apt-get update && apt-get install -y --no-install-recommends libegl1 libgles2 libegl-mesa0 libgl1-mesa-dri \
+    && dpkg-query -W -f='${binary:Package} ${Version}\n' libegl1 libgles2 libegl-mesa0 libgl1-mesa-dri > /etc/handling-renderer-packages.txt \
+    && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+ENV EGL_PLATFORM=surfaceless LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe LP_NUM_THREADS=2

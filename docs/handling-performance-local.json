@@ -1,5 +1,5 @@
 {
-  "fixture": "synthetic rendering workload; no native acceptance claim",
+  "fixture": "synthetic rendering workload: 500 units, 64 mixed-height inter-rack journeys across raw and finished storage; no native acceptance claim",
   "viewport": {
     "width": 1440,
     "height": 900
@@ -8,21 +8,31 @@
     "width": 831,
     "height": 538
   },
-  "durationMs": 30025.10000000894,
-  "frameCount": 468,
-  "rafFrameCount": 468,
-  "maxDrawCalls": 9,
-  "maxPreparationMs": 10.200000002980232,
-  "maxRenderSubmissionMs": 0.5,
-  "p95Ms": 82,
-  "maxIntervalMs": 187.5,
+  "durationMs": 30020.59999999404,
+  "frameCount": 1797,
+  "rafFrameCount": 1797,
+  "maxDrawCalls": 7,
+  "maxPreparationMs": 5.200000002980232,
+  "maxRenderSubmissionMs": 0.29999999701976776,
+  "p95Ms": 19.099999994039536,
+  "maxIntervalMs": 61.29999999701977,
   "minActive": 64,
   "maxActive": 64,
-  "maxQueued": 192,
+  "maxQueued": 256,
   "minUnits": 500,
   "maxUnits": 500,
-  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "renderer": "ANGLE (Mesa/X.org, llvmpipe (LLVM 15.0.6 128 bits), OpenGL ES 3.2)",
   "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+  "softwareRenderer": {
+    "requested": "mesa",
+    "configuredRasterThreads": 2,
+    "packages": [
+      "libegl-mesa0:arm64 22.3.6-1+deb12u2",
+      "libegl1:arm64 1.6.0-1",
+      "libgl1-mesa-dri:arm64 22.3.6-1+deb12u2",
+      "libgles2:arm64 1.6.0-1"
+    ]
+  },
   "host": {
     "platform": "macOS-15.6.1-arm64-arm-64bit-Mach-O",
     "machdep.cpu.brand_string": "Apple M1 Pro",
