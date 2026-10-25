@@ -8,6 +8,7 @@ import time
 import urllib.error
 import urllib.request
 import zipfile
+from program_artifact import record, verify
 
 BASE = os.environ.get('PLC_URL', 'https://openplc:8443')
 # Disposable private-network probe: runtime generates its own self-signed certificate.
@@ -44,6 +45,12 @@ def main():
         request('/api/create-user', {**credentials, 'role': 'admin'})
         token = request('/api/login', credentials)['access_token']
     state = request('/api/status', token=token).get('status', '').strip().split(':')[-1].upper()
+    build = os.environ.get('PLC_BUILD')
+    if build and verify('/generated', build):
+        if state != 'RUNNING':
+            raise RuntimeError('Known PLC program is stopped; supervised recovery required')
+        print('Verified persistent PLC program preserved')
+        return
     if state not in {'EMPTY', 'STOPPED', 'ERROR'}:
         raise RuntimeError('Cold runtime required for program upload; live replacement is disabled: ' + state)
     payload = io.BytesIO()
@@ -61,7 +68,12 @@ def main():
             raise RuntimeError(json.dumps(status))
         if status.get('status') == 'SUCCESS':
             print('Real runtime compiled uploaded IEC program')
-            print(request('/api/start-plc', token=token))
+            started = request('/api/start-plc', token=token)
+            if started.get('status', '').strip() != 'START:OK':
+                raise RuntimeError('PLC did not acknowledge execution: ' + str(started))
+            if build:
+                record('/generated', build)
+            print('PLC acknowledged execution')
             return
         time.sleep(1)
     raise TimeoutError('Real runtime compilation did not complete')

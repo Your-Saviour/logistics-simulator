@@ -1,0 +1,446 @@
+{
+  "version": "1.00",
+  "devices": {
+    "ot": {
+      "id": "ot",
+      "name": "Manufacturing OT",
+      "enabled": true,
+      "type": "WebAPI",
+      "polling": 500,
+      "property": {
+        "getTags": "http://ot-hmi-proxy:8011/tags",
+        "postTags": "http://ot-hmi-proxy:8011/tags"
+      },
+      "tags": {
+        "frame": {
+          "id": "frame",
+          "name": "frame",
+          "type": "string",
+          "address": "frame",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "command": {
+          "id": "command",
+          "name": "command",
+          "type": "string",
+          "address": "command",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "run_id": {
+          "id": "run_id",
+          "name": "run_id",
+          "type": "string",
+          "address": "run_id",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "epoch": {
+          "id": "epoch",
+          "name": "epoch",
+          "type": "string",
+          "address": "epoch",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "connected": {
+          "id": "connected",
+          "name": "connected",
+          "type": "number",
+          "address": "connected",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "heartbeat_ms": {
+          "id": "heartbeat_ms",
+          "name": "heartbeat_ms",
+          "type": "number",
+          "address": "heartbeat_ms",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "work_order": {
+          "id": "work_order",
+          "name": "work_order",
+          "type": "string",
+          "address": "work_order",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "simulation_time": {
+          "id": "simulation_time",
+          "name": "simulation_time",
+          "type": "number",
+          "address": "simulation_time",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "cell_state": {
+          "id": "cell_state",
+          "name": "cell_state",
+          "type": "string",
+          "address": "cell_state",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "progress_seconds": {
+          "id": "progress_seconds",
+          "name": "progress_seconds",
+          "type": "number",
+          "address": "progress_seconds",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "duration_seconds": {
+          "id": "duration_seconds",
+          "name": "duration_seconds",
+          "type": "number",
+          "address": "duration_seconds",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "good_quantity": {
+          "id": "good_quantity",
+          "name": "good_quantity",
+          "type": "number",
+          "address": "good_quantity",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "scrap_quantity": {
+          "id": "scrap_quantity",
+          "name": "scrap_quantity",
+          "type": "number",
+          "address": "scrap_quantity",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "guard_closed": {
+          "id": "guard_closed",
+          "name": "guard_closed",
+          "type": "number",
+          "address": "guard_closed",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "power_available": {
+          "id": "power_available",
+          "name": "power_available",
+          "type": "number",
+          "address": "power_available",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "part_present": {
+          "id": "part_present",
+          "name": "part_present",
+          "type": "number",
+          "address": "part_present",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "positioned": {
+          "id": "positioned",
+          "name": "positioned",
+          "type": "number",
+          "address": "positioned",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "clamped": {
+          "id": "clamped",
+          "name": "clamped",
+          "type": "number",
+          "address": "clamped",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "conveyor": {
+          "id": "conveyor",
+          "name": "conveyor",
+          "type": "number",
+          "address": "conveyor",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "cycle": {
+          "id": "cycle",
+          "name": "cycle",
+          "type": "number",
+          "address": "cycle",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "fault": {
+          "id": "fault",
+          "name": "fault",
+          "type": "number",
+          "address": "fault",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "fault_reason": {
+          "id": "fault_reason",
+          "name": "fault_reason",
+          "type": "string",
+          "address": "fault_reason",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "conveyor_jam": {
+          "id": "conveyor_jam",
+          "name": "conveyor_jam",
+          "type": "number",
+          "address": "conveyor_jam",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "sensor_failure": {
+          "id": "sensor_failure",
+          "name": "sensor_failure",
+          "type": "number",
+          "address": "sensor_failure",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "guard_open": {
+          "id": "guard_open",
+          "name": "guard_open",
+          "type": "number",
+          "address": "guard_open",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "power_loss": {
+          "id": "power_loss",
+          "name": "power_loss",
+          "type": "number",
+          "address": "power_loss",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "last_command_id": {
+          "id": "last_command_id",
+          "name": "last_command_id",
+          "type": "string",
+          "address": "last_command_id",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "last_command_status": {
+          "id": "last_command_status",
+          "name": "last_command_status",
+          "type": "string",
+          "address": "last_command_status",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        },
+        "last_command_reason": {
+          "id": "last_command_reason",
+          "name": "last_command_reason",
+          "type": "string",
+          "address": "last_command_reason",
+          "daq": {
+            "enabled": false,
+            "changed": false,
+            "interval": 60,
+            "restored": false
+          }
+        }
+      }
+    }
+  },
+  "server": {
+    "id": "0",
+    "name": "FUXA Server",
+    "type": "FuxaServer",
+    "property": {},
+    "tags": {}
+  },
+  "hmi": {
+    "layout": {
+      "start": "simu54-cell",
+      "autoresize": true,
+      "showdev": true,
+      "hidenavigation": true,
+      "theme": "dark-theme",
+      "navigation": {
+        "items": []
+      },
+      "header": {
+        "items": []
+      }
+    },
+    "views": [
+      {
+        "id": "simu54-cell",
+        "name": "Assembly cell",
+        "type": "svg",
+        "profile": {
+          "width": 1400,
+          "height": 1040,
+          "bkcolor": "#0b0c0a",
+          "margin": 0,
+          "align": "topCenter",
+          "gridType": "fixed",
+          "viewRenderDelay": 0
+        },
+        "items": {},
+        "variables": {},
+        "svgcontent": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1400\" height=\"1040\" viewBox=\"0 0 1400 1040\">\n <style>text{font-family:'IBM Plex Mono',monospace;fill:#e6e7e1;font-size:16px} .muted{fill:#96998c;font-size:13px}.title{font-size:32px;font-weight:600}.rule{stroke:#34372d;stroke-width:1} .number{font-size:42px;fill:#ffb800} button{font:15px monospace;background:#171914;color:#e6e7e1;border:1px solid #6b705e;padding:12px 18px;min-height:48px;width:100%;cursor:pointer;border-radius:0}button:focus-visible{outline:3px solid #ffb800;outline-offset:2px}button:disabled{opacity:.4;cursor:default}p{font:14px monospace;color:#e6e7e1;margin:0;overflow-wrap:anywhere}</style>\n <rect width=\"1400\" height=\"1040\" fill=\"#0b0c0a\"/>\n <text x=\"40\" y=\"58\" class=\"title\">Assembly cell</text><text x=\"40\" y=\"88\" class=\"muted\">Manufacturing / OT</text>\n <text id=\"ot-connection\" x=\"1000\" y=\"57\" fill=\"#ffb800\">Waiting for telemetry</text>\n <text id=\"ot-state\" x=\"1000\" y=\"88\" class=\"muted\">Disconnected</text><path d=\"M40 113H1360\" class=\"rule\"/>\n <text x=\"40\" y=\"149\" class=\"muted\">WORK ORDER</text><text id=\"ot-work_order\" x=\"40\" y=\"180\">--</text>\n <text x=\"1090\" y=\"149\" class=\"muted\">SIMULATION SECONDS</text><text id=\"ot-simulation_time\" x=\"1090\" y=\"181\">--</text>\n <rect x=\"40\" y=\"220\" width=\"920\" height=\"350\" fill=\"#11130f\" stroke=\"#34372d\"/>\n <text x=\"64\" y=\"252\">Carrier and assembly station</text><text x=\"64\" y=\"278\" class=\"muted\">Equipment feedback / one carrier per batch</text>\n <rect x=\"80\" y=\"419\" width=\"835\" height=\"65\" fill=\"#24271f\" stroke=\"#6b705e\"/>\n <path d=\"M105 450H889\" stroke=\"#6b705e\" stroke-width=\"2\" stroke-dasharray=\"12 8\"/>\n <path d=\"M80 484V504M915 484V504M400 484V504M640 484V504\" stroke=\"#6b705e\" stroke-width=\"4\"/>\n <path d=\"M420 390V327H550V390\" stroke=\"#8a8e7e\" stroke-width=\"10\" fill=\"none\"/>\n <rect id=\"ot-clamp-shape\" x=\"453\" y=\"328\" width=\"64\" height=\"44\" fill=\"#34372d\" stroke=\"#8a8e7e\"/>\n <path id=\"ot-cycle-shape\" d=\"M485 377V407\" stroke=\"#34372d\" stroke-width=\"8\"/>\n <g id=\"ot-carrier\" transform=\"translate(0,0)\"><rect x=\"130\" y=\"393\" width=\"100\" height=\"48\" fill=\"#ffb800\" stroke=\"#ffb800\"/><path d=\"M148 399V432M173 399V432M198 399V432\" stroke=\"#0b0c0a\" stroke-width=\"5\"/></g>\n <circle id=\"ot-present-lamp\" cx=\"250\" cy=\"337\" r=\"9\" fill=\"#34372d\"/><text x=\"270\" y=\"343\" class=\"muted\">Part present</text>\n <circle id=\"ot-positioned-lamp\" cx=\"683\" cy=\"337\" r=\"9\" fill=\"#34372d\"/><text x=\"703\" y=\"343\" class=\"muted\">In position</text>\n <text x=\"80\" y=\"539\" class=\"muted\">CONVEYOR</text><text id=\"ot-conveyor\" x=\"190\" y=\"539\">--</text>\n <text x=\"375\" y=\"539\" class=\"muted\">CLAMP</text><text id=\"ot-clamped\" x=\"445\" y=\"539\">--</text>\n <text x=\"663\" y=\"539\" class=\"muted\">CYCLE</text><text id=\"ot-cycle\" x=\"735\" y=\"539\">--</text>\n <rect x=\"1000\" y=\"220\" width=\"360\" height=\"150\" fill=\"#11130f\" stroke=\"#34372d\"/><text x=\"1024\" y=\"253\" class=\"muted\">PROCESSING SECONDS</text><text id=\"ot-progress\" x=\"1024\" y=\"315\" class=\"number\">--</text>\n <rect x=\"1000\" y=\"390\" width=\"360\" height=\"180\" fill=\"#11130f\" stroke=\"#34372d\"/><text x=\"1024\" y=\"424\" class=\"muted\">CURRENT BATCH RESULTS</text><text x=\"1024\" y=\"455\" class=\"muted\">GOOD</text><text x=\"1200\" y=\"455\" class=\"muted\">SCRAP</text><text id=\"ot-good_quantity\" x=\"1024\" y=\"515\" class=\"number\">--</text><text id=\"ot-scrap_quantity\" x=\"1200\" y=\"515\" class=\"number\">--</text>\n <text x=\"40\" y=\"620\">Operator controls</text><text id=\"ot-safety\" x=\"800\" y=\"620\" class=\"muted\">Guard: -- / Power: --</text>\n <foreignObject x=\"40\" y=\"643\" width=\"1320\" height=\"58\"><div xmlns=\"http://www.w3.org/1999/xhtml\" style=\"display:flex;gap:16px\"><button disabled=\"disabled\" id=\"ot-start\" style=\"width:190px;background:#ffb800;color:#0b0c0a\">Start</button><button disabled=\"disabled\" id=\"ot-stop\" style=\"width:190px\">Stop</button><button disabled=\"disabled\" id=\"ot-reset\" style=\"width:280px\">Acknowledge / reset fault</button><button disabled=\"disabled\" id=\"ot-retry\" style=\"width:200px\">Retry command</button><button disabled=\"disabled\" id=\"ot-discard\" style=\"width:200px\">Discard local retry</button></div></foreignObject>\n <foreignObject x=\"40\" y=\"714\" width=\"1320\" height=\"52\"><p xmlns=\"http://www.w3.org/1999/xhtml\" id=\"ot-command-status\">Waiting for a connection. Release a work order in Manufacturing, then Start the dispatched carrier.</p></foreignObject>\n <path d=\"M40 778H1360\" class=\"rule\"/><text x=\"40\" y=\"814\">Fault diagnosis and recovery</text>\n <foreignObject x=\"40\" y=\"832\" width=\"1320\" height=\"42\"><p xmlns=\"http://www.w3.org/1999/xhtml\" id=\"ot-fault-reason\">No observation available</p></foreignObject>\n <foreignObject x=\"40\" y=\"879\" width=\"1320\" height=\"55\"><div xmlns=\"http://www.w3.org/1999/xhtml\" style=\"display:flex;gap:16px\"><button disabled=\"disabled\" id=\"ot-conveyor_jam\" style=\"width:310px\">Inject conveyor jam</button><button disabled=\"disabled\" id=\"ot-sensor_failure\" style=\"width:310px\">Fail position sensor</button><button disabled=\"disabled\" id=\"ot-guard_open\" style=\"width:310px\">Open guard</button><button disabled=\"disabled\" id=\"ot-power_loss\" style=\"width:310px\">Remove power</button></div></foreignObject>\n <text x=\"40\" y=\"961\" class=\"muted\">Restore the condition, acknowledge the fault, then Start. Faults preserve the active batch.</text>\n <text id=\"ot-scope\" x=\"40\" y=\"1000\" class=\"muted\">Run / epoch: --</text>\n</svg>\n",
+        "property": {
+          "events": [
+            {
+              "type": "onopen",
+              "action": "onRunScript",
+              "actparam": "s_simu54_boot",
+              "actoptions": {
+                "params": []
+              }
+            },
+            {
+              "type": "onclose",
+              "action": "onRunScript",
+              "actparam": "s_simu54_close",
+              "actoptions": {
+                "params": []
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "scripts": [
+    {
+      "id": "s_simu54_boot",
+      "name": "Simu54Cell",
+      "mode": "CLIENT",
+      "parameters": [],
+      "code": "// FUXA CLIENT script. Native tag API is the only connection to operator authority.\nif (window.simu54Timer) clearInterval(window.simu54Timer);\nlet frame = null;\nlet refreshing = false;\nconst text = (id, value) => { const node = document.getElementById('ot-' + id); if (node) node.textContent = String(value ?? '--'); };\nconst pending = () => { try { return JSON.parse(sessionStorage.getItem('simu54.pending')); } catch (_) { return null; } };\nconst newCommandId = () => {\n    const bytes = crypto.getRandomValues(new Uint8Array(16));\n    bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;\n    const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');\n    return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-');\n};\nconst send = async (action, fault) => {\n    if (!frame || !frame.connected || Date.now() - frame.heartbeat_ms > 3000) { text('command-status', 'Disconnected. Commands are unavailable.'); return; }\n    if (pending()) { text('command-status', 'An uncertain command is retained. Retry it or discard the local retry before another command. Discard does not cancel an accepted command.'); return; }\n    const command = { command_id: newCommandId(), run_id: frame.run_id, epoch: frame.epoch, action };\n    if (fault) { command.fault = fault; command.active = !frame[fault]; }\n    sessionStorage.setItem('simu54.pending', JSON.stringify(command));\n    ['start', 'stop', 'reset', 'conveyor_jam', 'sensor_failure', 'guard_open', 'power_loss'].forEach(id => { const node = document.getElementById('ot-' + id); if (node) node.disabled = true; });\n    $setTag('command', JSON.stringify(command));\n    text('command-status', 'Command pending: ' + command.command_id);\n};\nconst bind = (id, callback) => { const node = document.getElementById('ot-' + id); if (node && !node.dataset.simu54Bound) { node.dataset.simu54Bound = 'true'; node.addEventListener('click', callback); } };\nconst setup = () => {\n    bind('start', () => send('start')); bind('stop', () => send('stop')); bind('reset', () => send('reset'));\n    ['conveyor_jam', 'sensor_failure', 'guard_open', 'power_loss'].forEach(fault => bind(fault, () => send('fault', fault)));\n    bind('retry', () => { const saved = pending(); if (saved) $setTag('command', JSON.stringify(saved)); });\n    bind('discard', () => { sessionStorage.removeItem('simu54.pending'); text('command-status', 'Local retry discarded. This does not cancel a command already accepted by Manufacturing.'); });\n    const discard = document.getElementById('ot-discard'); if (discard) discard.disabled = !pending();\n};\nconst refresh = async () => {\n    if (refreshing) return;\n    refreshing = true;\n    try {\n        setup();\n        const raw = $getTag('frame');\n        if (raw) frame = JSON.parse(raw);\n        if (!frame) return;\n        const live = !!frame.connected && Date.now() - frame.heartbeat_ms < 3000;\n        text('connection', live ? 'Connected' : 'Stale / disconnected');\n        text('state', live ? frame.cell_state : 'Equipment state is unknown');\n        ['work_order', 'simulation_time', 'good_quantity', 'scrap_quantity'].forEach(key => text(key, frame[key]));\n        text('progress', frame.progress_seconds + ' / ' + frame.duration_seconds);\n        text('conveyor', frame.conveyor ? 'RUNNING' : 'STOPPED');\n        text('clamped', frame.clamped ? 'CLOSED' : 'OPEN');\n        text('cycle', frame.cycle ? 'ACTIVE' : 'IDLE');\n        text('safety', 'Guard: ' + (frame.guard_closed ? 'closed' : 'OPEN') + ' / Power: ' + (frame.power_available ? 'available' : 'OFF'));\n        text('fault-reason', live ? frame.fault_reason : 'Telemetry is stale. Restore the gateway / PLC connection before operating the cell.');\n        text('scope', 'Run: ' + frame.run_id + ' / Epoch: ' + frame.epoch);\n        const carrier = document.getElementById('ot-carrier');\n        if (carrier) { carrier.setAttribute('transform', 'translate(' + (Math.min(4, Math.max(0, Number(frame.position))) * 145) + ',0)'); carrier.style.opacity = live ? '1' : '.25'; }\n        [['present-lamp', frame.part_present], ['positioned-lamp', frame.positioned], ['clamp-shape', frame.clamped]].forEach(([id, on]) => { const node = document.getElementById('ot-' + id); if (node) node.setAttribute('fill', live && on ? '#ffb800' : '#34372d'); });\n        const cycle = document.getElementById('ot-cycle-shape'); if (cycle) cycle.setAttribute('stroke', live && frame.cycle ? '#ffb800' : '#34372d');\n        const saved = pending();\n        if (saved) {\n            const receipt = (frame.receipts || []).find(item => item.idempotency_key === 'fuxa:' + saved.command_id);\n            if (receipt && receipt.status !== 'pending') { sessionStorage.removeItem('simu54.pending'); text('command-status', 'Command ' + receipt.status + (receipt.reason ? ': ' + receipt.reason : '') + ' / ' + saved.command_id); }\n            else if (saved.run_id !== frame.run_id || saved.epoch !== frame.epoch) text('command-status', 'Run changed. The retained command is fenced; discard its local retry before issuing a new command.');\n            else text('command-status', 'Awaiting command acknowledgement: ' + saved.command_id + '. Retry uses the same identity.');\n        } else if (frame.last_command_id) {\n            text('command-status', 'Last command ' + frame.last_command_status + (frame.last_command_reason ? ': ' + frame.last_command_reason : '') + ' / ' + frame.last_command_id);\n        } else {\n            text('command-status', 'No pending command. Release a work order in Manufacturing, then Start the dispatched carrier.');\n        }\n        ['start', 'stop', 'reset', 'conveyor_jam', 'sensor_failure', 'guard_open', 'power_loss'].forEach(id => { const node = document.getElementById('ot-' + id); if (node) node.disabled = !live || !!pending(); });\n        const retry = document.getElementById('ot-retry'); if (retry) retry.disabled = !live || !pending();\n        const start = document.getElementById('ot-start'); if (start) start.disabled = !live || !!pending() || frame.work_order === 'Idle';\n        const labels = { conveyor_jam: ['Inject conveyor jam', 'Clear conveyor jam'], sensor_failure: ['Fail position sensor', 'Restore position sensor'], guard_open: ['Open guard', 'Close guard'], power_loss: ['Remove power', 'Restore power'] };\n        Object.entries(labels).forEach(([id, labels]) => text(id, labels[frame[id] ? 1 : 0]));\n        bind('start', () => send('start')); bind('stop', () => send('stop')); bind('reset', () => send('reset'));\n        Object.keys(labels).forEach(fault => bind(fault, () => send('fault', fault)));\n        bind('retry', () => { const saved = pending(); if (saved) $setTag('command', JSON.stringify(saved)); });\n        bind('discard', () => { sessionStorage.removeItem('simu54.pending'); text('command-status', 'Local retry discarded. This does not cancel a command already accepted by Manufacturing.'); });\n    } catch (_) {\n        text('connection', 'Stale / disconnected');\n        text('state', 'Telemetry unavailable');\n    } finally { refreshing = false; }\n};\nwindow.simu54Timer = setInterval(refresh, 500);\nawait refresh();\n"
+    },
+    {
+      "id": "s_simu54_close",
+      "name": "Simu54Close",
+      "mode": "CLIENT",
+      "parameters": [],
+      "code": "if (window.simu54Timer) clearInterval(window.simu54Timer);"
+    }
+  ],
+  "texts": [],
+  "alarms": [],
+  "notifications": []
+}

@@ -77,3 +77,7 @@ credentials:
 .PHONY: handling-performance-check
 handling-performance-check:
 	sh scripts/check_handling_performance.sh
+
+.PHONY: manufacturing-ot-check
+manufacturing-ot-check:
+	sh scripts/check_manufacturing_ot.sh

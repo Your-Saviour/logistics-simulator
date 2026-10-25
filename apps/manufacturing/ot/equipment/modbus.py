@@ -9,7 +9,9 @@ class Modbus:
         self.host, self.port, self.transaction = host, port, 0
 
     def request(self, function, body):
-        self.transaction += 1
+        # MBAP correlation is a 16-bit transport ID, independent of the durable
+        # logical-step sequence. Each request owns its connection, so reuse is safe.
+        self.transaction = (self.transaction + 1) & 0xffff
         packet = bytes([function]) + body
         with socket.create_connection((self.host, self.port), timeout=3) as connection:
             connection.settimeout(3)

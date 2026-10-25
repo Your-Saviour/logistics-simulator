@@ -1,0 +1,83 @@
+# Optional OT overlay. Use with compose.v1.yaml; no existing deployment is upgraded automatically.
+x-ot-environment: &ot-environment
+  OT_MODE: openplc
+  OT_EQUIPMENT_URL: http://manufacturing-equipment:8010
+  OT_EQUIPMENT_TOKEN: ${OT_EQUIPMENT_TOKEN:?Set OT_EQUIPMENT_TOKEN}
+services:
+  manufacturing-api:
+    image: logistics-simulator:manufacturing-ot-v1
+    environment: *ot-environment
+  manufacturing-worker:
+    image: logistics-simulator:manufacturing-ot-v1
+    environment: *ot-environment
+  manufacturing-controller:
+    image: logistics-simulator:manufacturing-ot-v1
+    environment: *ot-environment
+    depends_on:
+      manufacturing-equipment: {condition: service_started}
+      ot-plc-bootstrap: {condition: service_completed_successfully}
+  openplc:
+    image: logistics-simulator:manufacturing-openplc-v1
+    build: {context: ../.., dockerfile: apps/manufacturing/ot/plc/Dockerfile}
+    restart: unless-stopped
+    volumes:
+      - ot-plc-runtime:/var/run/runtime
+      - ot-generated:/program:ro
+      - ot-plc-build:/workdir/build
+    depends_on:
+      ot-plc-compiler: {condition: service_completed_successfully}
+  ot-plc-compiler:
+    image: logistics-simulator:manufacturing-ot-compiler-v1
+    build: {context: ../.., dockerfile: apps/manufacturing/ot/plc/compiler.Dockerfile}
+    volumes: [ot-generated:/generated]
+  ot-plc-bootstrap:
+    image: ghcr.io/autonomy-logic/openplc-runtime@sha256:2ca9fc611f25c3ad0471b996a4bf27507ac112612292426ca6d5ca4bf06e97e6
+    entrypoint: [python3, /probe/bootstrap.py]
+    environment:
+      PLC_USERNAME: ${PLC_USERNAME:-ot-admin}
+      PLC_PASSWORD: ${PLC_PASSWORD:?Set PLC_PASSWORD}
+      PLC_BUILD: /plc-build
+    volumes: [./ot/compatibility:/probe:ro, ot-generated:/generated:ro, ot-plc-build:/plc-build]
+    depends_on:
+      openplc: {condition: service_healthy}
+      ot-plc-compiler: {condition: service_completed_successfully}
+  manufacturing-equipment:
+    image: logistics-simulator:manufacturing-equipment-v1
+    build: {context: ../.., dockerfile: apps/manufacturing/ot/equipment/Dockerfile}
+    restart: unless-stopped
+    environment: {OT_EQUIPMENT_TOKEN: '${OT_EQUIPMENT_TOKEN:?Set OT_EQUIPMENT_TOKEN}', PLC_HOST: openplc}
+    volumes: [ot-equipment:/data]
+    depends_on:
+      ot-plc-bootstrap: {condition: service_completed_successfully}
+  ot-hmi-proxy:
+    image: ghcr.io/autonomy-logic/openplc-runtime@sha256:2ca9fc611f25c3ad0471b996a4bf27507ac112612292426ca6d5ca4bf06e97e6
+    entrypoint: [python3, /hmi/proxy.py]
+    restart: unless-stopped
+    environment:
+      FUXA_API_USERNAME: ${FUXA_API_USERNAME:-fuxa}
+      FUXA_API_PASSWORD: ${FUXA_API_PASSWORD:?Set FUXA_API_PASSWORD}
+    volumes: [./ot/fuxa:/hmi:ro]
+    depends_on: [manufacturing-api]
+  ot-fuxa-bootstrap:
+    image: ghcr.io/autonomy-logic/openplc-runtime@sha256:2ca9fc611f25c3ad0471b996a4bf27507ac112612292426ca6d5ca4bf06e97e6
+    entrypoint: [python3, /hmi/init_project.py]
+    environment: {FUXA_ADMIN_TOKEN: '${FUXA_ADMIN_TOKEN:-}'}
+    volumes: [./ot/fuxa:/hmi:ro]
+    depends_on: [fuxa]
+  fuxa:
+    image: frangoteam/fuxa@sha256:6e55ac55645a865816e64dca8caf5725f9067548f1b48c17706660eac4609939
+    restart: unless-stopped
+    ports: ['${FUXA_BIND:-127.0.0.1}:${FUXA_PORT:-1881}:1881']
+    volumes:
+      - ot-fuxa-appdata:/usr/src/app/FUXA/server/_appdata
+      - ot-fuxa-db:/usr/src/app/FUXA/server/_db
+      - ot-fuxa-logs:/usr/src/app/FUXA/server/_logs
+    depends_on: [ot-hmi-proxy]
+volumes:
+  ot-plc-runtime:
+  ot-plc-build:
+  ot-generated:
+  ot-equipment:
+  ot-fuxa-appdata:
+  ot-fuxa-db:
+  ot-fuxa-logs:

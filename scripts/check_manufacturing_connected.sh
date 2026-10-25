@@ -1,10 +1,10 @@
 #!/bin/sh
 set -eu
 mkdir -p .superpowers/sdd/simu-3
-work() { python3 scripts/docker_guard.py --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label manufacturing-connected -- docker "$@"; }
+work() { python3 scripts/docker_guard.py --wait --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label manufacturing-connected -- docker "$@"; }
 python3 scripts/manufacturing_connected_compose.py
 manifest=deploy/generated/manufacturing-v1-connected.json
-cleanup() { docker compose -f "$manifest" logs --no-color > .superpowers/sdd/simu-3/connected-services.log; docker compose -f "$manifest" down --volumes; }
+cleanup() { docker compose -f "$manifest" logs --no-color > .superpowers/sdd/simu-3/connected-services.log; work compose -f "$manifest" down --volumes; }
 trap cleanup EXIT HUP INT TERM
 if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then
  work build -t logistics-simulator:adapter -f apps/adapter/Dockerfile .

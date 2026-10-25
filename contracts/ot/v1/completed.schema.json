@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:ot:completed:1.0",
+  "title": "Private correlated equipment completion fact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "event_id", "run_id", "epoch", "session_id", "order_id", "correlation_id", "simulation_time", "quantity", "good_quantity", "scrap_quantity"],
+  "properties": {
+    "version": {"const": "1.0"},
+    "event_id": {"type": "string", "format": "uuid"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "epoch": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "order_id": {"type": "string", "format": "uuid"},
+    "correlation_id": {"type": "string", "format": "uuid"},
+    "simulation_time": {"type": "integer", "minimum": 1},
+    "quantity": {"type": "integer", "minimum": 1, "maximum": 10000},
+    "good_quantity": {"type": "integer", "minimum": 0, "maximum": 10000},
+    "scrap_quantity": {"type": "integer", "minimum": 0, "maximum": 10000}
+  }
+}

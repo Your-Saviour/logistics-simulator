@@ -263,3 +263,8 @@ lineage at the native cell and consumes only confirmed input placements.
 `FLEET_TIME_OFFSET` defaults to zero and must match this department's fleet
 source mapping (finite, nonnegative seconds). Eligibility compares native grant
 plus this offset against physical fleet time; outgoing effective times stay native.
+
+Optional PLC/equipment execution and the editable FUXA cell are documented in
+[manufacturing OT](../../docs/manufacturing-ot.md). The base deployment keeps
+`OT_MODE=disabled`; the separate OT overlay is opt-in. Run
+`make manufacturing-ot-check` for disposable real-PLC/HMI acceptance.

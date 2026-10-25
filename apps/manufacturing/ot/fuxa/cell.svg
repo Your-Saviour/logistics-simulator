@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1040" viewBox="0 0 1400 1040">
+ <style>text{font-family:'IBM Plex Mono',monospace;fill:#e6e7e1;font-size:16px} .muted{fill:#96998c;font-size:13px}.title{font-size:32px;font-weight:600}.rule{stroke:#34372d;stroke-width:1} .number{font-size:42px;fill:#ffb800} button{font:15px monospace;background:#171914;color:#e6e7e1;border:1px solid #6b705e;padding:12px 18px;min-height:48px;width:100%;cursor:pointer;border-radius:0}button:focus-visible{outline:3px solid #ffb800;outline-offset:2px}button:disabled{opacity:.4;cursor:default}p{font:14px monospace;color:#e6e7e1;margin:0;overflow-wrap:anywhere}</style>
+ <rect width="1400" height="1040" fill="#0b0c0a"/>
+ <text x="40" y="58" class="title">Assembly cell</text><text x="40" y="88" class="muted">Manufacturing / OT</text>
+ <text id="ot-connection" x="1000" y="57" fill="#ffb800">Waiting for telemetry</text>
+ <text id="ot-state" x="1000" y="88" class="muted">Disconnected</text><path d="M40 113H1360" class="rule"/>
+ <text x="40" y="149" class="muted">WORK ORDER</text><text id="ot-work_order" x="40" y="180">--</text>
+ <text x="1090" y="149" class="muted">SIMULATION SECONDS</text><text id="ot-simulation_time" x="1090" y="181">--</text>
+ <rect x="40" y="220" width="920" height="350" fill="#11130f" stroke="#34372d"/>
+ <text x="64" y="252">Carrier and assembly station</text><text x="64" y="278" class="muted">Equipment feedback / one carrier per batch</text>
+ <rect x="80" y="419" width="835" height="65" fill="#24271f" stroke="#6b705e"/>
+ <path d="M105 450H889" stroke="#6b705e" stroke-width="2" stroke-dasharray="12 8"/>
+ <path d="M80 484V504M915 484V504M400 484V504M640 484V504" stroke="#6b705e" stroke-width="4"/>
+ <path d="M420 390V327H550V390" stroke="#8a8e7e" stroke-width="10" fill="none"/>
+ <rect id="ot-clamp-shape" x="453" y="328" width="64" height="44" fill="#34372d" stroke="#8a8e7e"/>
+ <path id="ot-cycle-shape" d="M485 377V407" stroke="#34372d" stroke-width="8"/>
+ <g id="ot-carrier" transform="translate(0,0)"><rect x="130" y="393" width="100" height="48" fill="#ffb800" stroke="#ffb800"/><path d="M148 399V432M173 399V432M198 399V432" stroke="#0b0c0a" stroke-width="5"/></g>
+ <circle id="ot-present-lamp" cx="250" cy="337" r="9" fill="#34372d"/><text x="270" y="343" class="muted">Part present</text>
+ <circle id="ot-positioned-lamp" cx="683" cy="337" r="9" fill="#34372d"/><text x="703" y="343" class="muted">In position</text>
+ <text x="80" y="539" class="muted">CONVEYOR</text><text id="ot-conveyor" x="190" y="539">--</text>
+ <text x="375" y="539" class="muted">CLAMP</text><text id="ot-clamped" x="445" y="539">--</text>
+ <text x="663" y="539" class="muted">CYCLE</text><text id="ot-cycle" x="735" y="539">--</text>
+ <rect x="1000" y="220" width="360" height="150" fill="#11130f" stroke="#34372d"/><text x="1024" y="253" class="muted">PROCESSING SECONDS</text><text id="ot-progress" x="1024" y="315" class="number">--</text>
+ <rect x="1000" y="390" width="360" height="180" fill="#11130f" stroke="#34372d"/><text x="1024" y="424" class="muted">CURRENT BATCH RESULTS</text><text x="1024" y="455" class="muted">GOOD</text><text x="1200" y="455" class="muted">SCRAP</text><text id="ot-good_quantity" x="1024" y="515" class="number">--</text><text id="ot-scrap_quantity" x="1200" y="515" class="number">--</text>
+ <text x="40" y="620">Operator controls</text><text id="ot-safety" x="800" y="620" class="muted">Guard: -- / Power: --</text>
+ <foreignObject x="40" y="643" width="1320" height="58"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;gap:16px"><button disabled="disabled" id="ot-start" style="width:190px;background:#ffb800;color:#0b0c0a">Start</button><button disabled="disabled" id="ot-stop" style="width:190px">Stop</button><button disabled="disabled" id="ot-reset" style="width:280px">Acknowledge / reset fault</button><button disabled="disabled" id="ot-retry" style="width:200px">Retry command</button><button disabled="disabled" id="ot-discard" style="width:200px">Discard local retry</button></div></foreignObject>
+ <foreignObject x="40" y="714" width="1320" height="52"><p xmlns="http://www.w3.org/1999/xhtml" id="ot-command-status">Waiting for a connection. Release a work order in Manufacturing, then Start the dispatched carrier.</p></foreignObject>
+ <path d="M40 778H1360" class="rule"/><text x="40" y="814">Fault diagnosis and recovery</text>
+ <foreignObject x="40" y="832" width="1320" height="42"><p xmlns="http://www.w3.org/1999/xhtml" id="ot-fault-reason">No observation available</p></foreignObject>
+ <foreignObject x="40" y="879" width="1320" height="55"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;gap:16px"><button disabled="disabled" id="ot-conveyor_jam" style="width:310px">Inject conveyor jam</button><button disabled="disabled" id="ot-sensor_failure" style="width:310px">Fail position sensor</button><button disabled="disabled" id="ot-guard_open" style="width:310px">Open guard</button><button disabled="disabled" id="ot-power_loss" style="width:310px">Remove power</button></div></foreignObject>
+ <text x="40" y="961" class="muted">Restore the condition, acknowledge the fault, then Start. Faults preserve the active batch.</text>
+ <text id="ot-scope" x="40" y="1000" class="muted">Run / epoch: --</text>
+</svg>

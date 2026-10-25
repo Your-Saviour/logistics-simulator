@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:simulator:ot:command:1.0",
+  "title": "Private manufacturing equipment command",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "command_id", "run_id", "epoch", "session_id", "operation", "payload"],
+  "properties": {
+    "version": {"const": "1.0"},
+    "command_id": {"type": "string", "format": "uuid"},
+    "run_id": {"type": "string", "format": "uuid"},
+    "epoch": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "operation": {"enum": ["initialize", "dispatch", "control", "step", "finalize"]},
+    "payload": {"type": "object"}
+  },
+  "allOf": [
+    {"if": {"properties": {"operation": {"enum": ["initialize", "finalize"]}}}, "then": {"properties": {"payload": {"maxProperties": 0}}}},
+    {"if": {"properties": {"operation": {"const": "step"}}}, "then": {"properties": {"payload": {
+      "additionalProperties": false, "required": ["simulation_time", "power_available"],
+      "properties": {"simulation_time": {"type": "integer", "minimum": 1}, "power_available": {"type": "boolean"}}
+    }}}},
+    {"if": {"properties": {"operation": {"const": "dispatch"}}}, "then": {"properties": {"payload": {
+      "additionalProperties": false, "required": ["order_id", "correlation_id", "quantity", "scrap_quantity", "duration_seconds"],
+      "properties": {
+        "order_id": {"type": "string", "format": "uuid"}, "correlation_id": {"type": "string", "format": "uuid"},
+        "quantity": {"type": "integer", "minimum": 1, "maximum": 10000},
+        "scrap_quantity": {"type": "integer", "minimum": 0, "maximum": 10000},
+        "duration_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}
+      }
+    }}}},
+    {"if": {"properties": {"operation": {"const": "control"}}}, "then": {"properties": {"payload": {
+      "oneOf": [
+        {"additionalProperties": false, "required": ["action"], "properties": {"action": {"enum": ["start", "stop", "reset"]}}},
+        {"additionalProperties": false, "required": ["action", "fault", "active"], "properties": {"action": {"const": "fault"}, "fault": {"enum": ["conveyor_jam", "sensor_failure", "guard_open", "power_loss"]}, "active": {"type": "boolean"}}}
+      ]
+    }}}}
+  ]
+}

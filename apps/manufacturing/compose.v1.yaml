@@ -11,6 +11,9 @@ x-manufacturing: &manufacturing
     manufacturing-rabbit: {condition: service_healthy, required: false}
   environment: &environment
     SIMULATOR: manufacturing
+    OT_MODE: ${OT_MODE:-disabled}
+    OT_EQUIPMENT_URL: ${OT_EQUIPMENT_URL:-}
+    OT_EQUIPMENT_TOKEN: ${OT_EQUIPMENT_TOKEN:-}
     FLEET_TIME_OFFSET: ${FLEET_TIME_OFFSET:-0}
     FLEET_MODE: ${FLEET_MODE:-disabled}
     FLEET_URL: ${FLEET_URL:-}
