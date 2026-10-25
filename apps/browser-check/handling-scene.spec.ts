@@ -1,10 +1,61 @@
-import {test,expect} from '@playwright/test';
-import {readFileSync} from 'node:fs';
+import {test,expect,type Page} from '@playwright/test';
+import {copyFileSync,mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {dirname} from 'node:path';
 const configured=(JSON.parse(process.env.STACK_APPS??'[]') as {name:string;url:string}[]).find(app=>app.name==='twin');
 const url=process.env.TWIN_URL ?? configured?.url ?? '';
 test.skip(!url,'No Twin scene target configured');
 test.use({video:{mode:'on',size:{width:1440,height:900}}});
 const catalog=JSON.parse(readFileSync(new URL('./facility.json',import.meta.url),'utf8'));
+
+async function heldFacility(page:Page){
+  const run={id:'cache-run',epoch:'cache-epoch',state:'held',granted:100,requested:100,committed:100};
+  const units=catalog.locations.filter((row:any)=>row.kind==='shelf').slice(0,500).map((slot:any,index:number)=>({id:`cache-${index}`,barcode:`HU-CACHE-${index}`,run_id:run.id,epoch:run.epoch,category:slot.compatible[0],contents:[{sku:'CACHE-FIXTURE',quantity:1}],owner:'storage',state:'available',status:'confirmed',position:slot.id,connected:true,observations:[]}));
+  await page.route('**/api/status',route=>route.fulfill({json:{identity:{username:'reader',scopes:['status:read']},heartbeats:[]}}));
+  await page.route('**/api/twin',route=>route.fulfill({json:{revision:Date.now(),mode:'live',sources:[{name:'storage',connected:true,stale:false,status:{run},snapshot:{config:{locations:[]}},cursor:'1',error:null}],events:[],aligned:null,controls:[],handling:{version:1,units,unsupported_sources:[]}}}));
+  await page.setViewportSize({width:1440,height:900});await page.goto(url);
+  await page.getByLabel('Username',{exact:true}).fill('reader');await page.getByLabel('Password',{exact:true}).fill('cache');await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await expect(page.locator('[data-recorded-units="500"]')).toBeVisible();
+  await expect(page.locator('[data-models-ready="true"]')).toBeVisible();
+  const reference=test.info().snapshotPath('facility-held.png');mkdirSync(dirname(reference),{recursive:true});
+  copyFileSync(new URL('./fixtures/facility-held.png',import.meta.url),reference);
+  return units;
+}
+
+test('facility pixels survive caching, camera changes, pointer selection, stock changes and context restoration',async({page})=>{
+  const errors:string[]=[];page.on('pageerror',error=>errors.push(String(error)));
+  page.on('console',message=>{if(message.type()==='error'||/INVALID_(OPERATION|FRAMEBUFFER_OPERATION|VALUE|ENUM)/.test(message.text()))errors.push(message.text());});
+  const units=await heldFacility(page),canvas=page.locator('canvas');
+  await expect(canvas).toHaveScreenshot('facility-held.png',{threshold:.02,maxDiffPixels:10});
+  const original=await canvas.screenshot();await canvas.hover({position:{x:100,y:400}});await page.mouse.wheel(0,-250);await page.waitForTimeout(300);
+  expect((await canvas.screenshot()).equals(original)).toBe(false);
+  await page.getByRole('button',{name:'Reset view',exact:true}).click();await page.mouse.move(0,0);
+  await expect(canvas).toHaveScreenshot('facility-held.png',{threshold:.02,maxDiffPixels:10});
+  const box=(await canvas.boundingBox())!;let picked=false;
+  for(const y of [190,180,200,170,210,160]){
+    for(const x of [410,400,420,390,430,380,440]){await page.mouse.click(box.x+x,box.y+y);if(await page.getByRole('heading',{name:/^HU-CACHE-/}).isVisible()){picked=true;break;}}
+    if(picked)break;
+  }
+  expect(picked).toBe(true);expect((await canvas.screenshot()).equals(original)).toBe(false);
+  await page.getByRole('button',{name:'Clear',exact:true}).click();
+  await expect(canvas).toHaveScreenshot('facility-held.png',{threshold:.02,maxDiffPixels:10});
+  units[499].state='consumed';units[499].position=null;
+  await expect(page.locator('[data-recorded-units="499"]')).toBeVisible();
+  const beforeLoss=await canvas.screenshot();expect(beforeLoss.equals(original)).toBe(false);
+  const restored=test.info().snapshotPath('facility-restored.png');mkdirSync(dirname(restored),{recursive:true});writeFileSync(restored,beforeLoss);
+  await page.evaluate(()=>new Promise<void>(resolve=>{const canvas=document.querySelector('canvas')!,gl=canvas.getContext('webgl2')!;(window as any).__contextLoss=gl.getExtension('WEBGL_lose_context');if(!(window as any).__contextLoss)throw Error('Context-loss extension unavailable');canvas.addEventListener('webglcontextlost',()=>resolve(),{once:true});(window as any).__contextLoss.loseContext();}));
+  await expect.poll(()=>page.evaluate(()=>document.querySelector('canvas')!.getContext('webgl2')!.isContextLost())).toBe(true);
+  await expect(page.getByRole('region',{name:'Source watermarks'}).getByRole('heading',{name:'Storage',exact:true})).toBeVisible();
+  await page.evaluate(()=>new Promise<void>(resolve=>{document.querySelector('canvas')!.addEventListener('webglcontextrestored',()=>resolve(),{once:true});(window as any).__contextLoss.restoreContext();}));
+  await expect(canvas).toHaveScreenshot('facility-restored.png',{threshold:.02,maxDiffPixels:10});
+  expect(errors).toEqual([]);
+});
+
+test('devices without a stencil buffer retain the direct-rendered facility',async({page})=>{
+  await page.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(name:any,options:any){return (original as any).call(this,name,name==='webgl2'?{...options,stencil:false}:options);} as any;});
+  await heldFacility(page);
+  expect(await page.evaluate(()=>document.querySelector('canvas')!.getContext('webgl2')!.getContextAttributes()!.stencil)).toBe(false);
+  await expect(page.locator('canvas')).toHaveScreenshot('facility-held.png',{threshold:.02,maxDiffPixels:10});
+});
 
 test('fixed manufacturing machines retain their parent cell transforms in the GPU batch',async({page})=>{
   await page.addInitScript(()=>{
@@ -52,7 +103,7 @@ test('500 recorded units replay on at most 64 robots without duplicate placement
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   const stage=page.getByRole('group',{name:'Selectable 3D facility'});
   await expect(stage).toHaveAttribute('data-active-journeys','64');
-  await expect.poll(()=>page.evaluate(()=>{const frames=((window as any).__fleetDraws as number[]).filter(count=>count>0).slice(-10);return frames.length===10&&frames.every(count=>count<=12);})).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>{const frames=((window as any).__fleetDraws as number[]).filter(count=>count>0).slice(-10);return frames.length===10&&frames.every(count=>count<=3);})).toBe(true);
   const counts=await stage.evaluate(element=>({active:Number(element.getAttribute('data-active-journeys')),queued:Number(element.getAttribute('data-queued-journeys')),static:Number(element.getAttribute('data-static-units')),replay:Number(element.getAttribute('data-replay-units'))}));
   expect(counts.queued).toBeLessThanOrEqual(256);expect(counts.static+counts.replay).toBe(500);
   await page.locator('.asset-list summary').click();

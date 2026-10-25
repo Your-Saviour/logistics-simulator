@@ -2,6 +2,7 @@ import {createContext,useContext,useId,useLayoutEffect,useMemo,useRef,type React
 import {useFrame,useThree} from '@react-three/fiber';
 import {Color,Group,InstancedMesh,Matrix4} from 'three';
 import type {Vec3} from './facility';
+import {FACILITY_LAYER} from './FacilityRenderCache';
 type Shape={kind:'box'|'wheel';at:Vec3;size:Vec3;color:string;rotation:Vec3};
 type Store={entries:Map<string,Shape&{node:Group}>;dirty:boolean;invalidate:()=>void};
 const Shapes=createContext<Store|null>(null);
@@ -36,7 +37,7 @@ export function StaticGeometry({children}:{children:ReactNode}){
   store.dirty=false;
  },-3);
  return <Shapes.Provider value={store}>{children}
-  <instancedMesh ref={boxes} args={[undefined,undefined,1024]} frustumCulled={false}><boxGeometry/><meshLambertMaterial/></instancedMesh>
-  <instancedMesh ref={wheels} args={[undefined,undefined,1024]} frustumCulled={false}><cylinderGeometry args={[.32,.32,.18,12]}/><meshLambertMaterial/></instancedMesh>
+  <instancedMesh ref={boxes} layers-mask={1<<FACILITY_LAYER} args={[undefined,undefined,1024]} frustumCulled={false}><boxGeometry/><meshLambertMaterial/></instancedMesh>
+  <instancedMesh ref={wheels} layers-mask={1<<FACILITY_LAYER} args={[undefined,undefined,1024]} frustumCulled={false}><cylinderGeometry args={[.32,.32,.18,12]}/><meshLambertMaterial/></instancedMesh>
  </Shapes.Provider>;
 }

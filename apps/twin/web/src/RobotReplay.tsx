@@ -1,6 +1,6 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,type RefObject} from 'react';
 import {useFrame,useThree} from '@react-three/fiber';
-import {BoxGeometry,Color,Group,InstancedMesh,Mesh,MeshLambertMaterial,Object3D} from 'three';
+import {BoxGeometry,Color,Group,InstancedMesh,Mesh,MeshLambertMaterial,Object3D,PlaneGeometry} from 'three';
 import {JourneyQueue,LIMITS,poseAt,type Movement,type MotionSource} from './journeys';
 import {visibleUnits,type RecordedUnit,type Vec3} from './facility';
 export type ReplayStats={active:number;queued:number;trails:number;skipped:number;unmapped:number;frozen:boolean};
@@ -26,17 +26,19 @@ export function ReplayDriver(props:ReplayProps) {
   return null;
 }
 export function RobotFleet(props:ReplayProps) {
-  const groups=useRef<(Group|null)[]>([]),parts=useRef<(InstancedMesh|null)[]>([]),trails=useRef<InstancedMesh>(null),loads=useRef<InstancedMesh>(null);
+  const groups=useRef<(Group|null)[]>([]),parts=useRef<InstancedMesh>(null),trails=useRef<InstancedMesh>(null),loads=useRef<InstancedMesh>(null);
   const object=useMemo(()=>new Object3D(),[]);
   const units=useMemo(()=>new Map(props.units.map(unit=>[replayUnitKey(unit),unit])),[props.units]);
   const geometry=useMemo(()=>new BoxGeometry(.8,.72,.86),[]);
+  const trailGeometry=useMemo(()=>new PlaneGeometry(1,1).rotateX(-Math.PI/2),[]);
   const materials=useMemo(()=>({raw:new MeshLambertMaterial({color:'#c5a276'}),finished:new MeshLambertMaterial({color:'#82aa9d'}),selected:new MeshLambertMaterial({color:'#ffb800'}),batch:new MeshLambertMaterial()}),[]);
-  useEffect(()=>()=>{geometry.dispose();Object.values(materials).forEach(material=>material.dispose());},[geometry,materials]);
+  useEffect(()=>()=>{geometry.dispose();trailGeometry.dispose();Object.values(materials).forEach(material=>material.dispose());},[geometry,trailGeometry,materials]);
   useLayoutEffect(()=>{if(trails.current){trails.current.setColorAt(0,new Color(1,1,1));trails.current.count=0;}},[]);
-  const colors=['#d7b568','#607f88','#2c393e','#bbc7c4'];
+  const colors=useMemo(()=>['#d7b568','#607f88','#2c393e','#bbc7c4'].map(value=>new Color(value)),[]);
   function place(part:number,index:number,at:Vec3,size:Vec3,rotation=0) {
     object.position.set(...at);object.scale.set(...size);object.rotation.set(0,rotation,0);object.updateMatrix();
-    parts.current[part]?.setMatrixAt(index,object.matrix);
+    const count=props.queue.active.length,offset=part===0?0:part===1?count:part===2?count*2:count*6;
+    parts.current?.setMatrixAt(offset+index,object.matrix);parts.current?.setColorAt(offset+index,colors[part]);
   }
   useFrame(()=>{
     const active=props.queue.active;
@@ -79,23 +81,23 @@ export function RobotFleet(props:ReplayProps) {
         }
       }
     }
-    parts.current.forEach((part,index)=>{if(part){part.count=active.length*(index===2?4:index===3?2:1);part.instanceMatrix.needsUpdate=true;}});
+    if(parts.current){parts.current.count=active.length*8;parts.current.instanceMatrix.needsUpdate=true;if(parts.current.instanceColor)parts.current.instanceColor.needsUpdate=true;}
     if(loads.current){loads.current.count=active.length;loads.current.instanceMatrix.needsUpdate=true;if(loads.current.instanceColor)loads.current.instanceColor.needsUpdate=true;}
     if(trails.current) {
       let index=0;
       for(const trail of props.queue.trails) for(let segment=1;segment<trail.route.points.length;segment++) {
         const a=trail.route.points[segment-1],b=trail.route.points[segment],length=Math.hypot(b[0]-a[0],b[2]-a[2]);
-        object.position.set((a[0]+b[0])/2,.025,(a[2]+b[2])/2);object.scale.set(.055,.025,length);object.rotation.set(0,Math.atan2(b[0]-a[0],b[2]-a[2]),0);object.updateMatrix();
+        object.position.set((a[0]+b[0])/2,.0375,(a[2]+b[2])/2);object.scale.set(.055,1,length);object.rotation.set(0,Math.atan2(b[0]-a[0],b[2]-a[2]),0);object.updateMatrix();
         trails.current.setMatrixAt(index,object.matrix);const alpha=1-trail.elapsed/LIMITS.trail;trails.current.setColorAt(index,new Color(alpha,alpha,alpha));index++;
       }
       trails.current.count=index;trails.current.instanceMatrix.needsUpdate=true;if(trails.current.instanceColor)trails.current.instanceColor.needsUpdate=true;
     }
   },-1);
   return <>
-    {colors.map((color,index)=><instancedMesh key={color} ref={node=>{parts.current[index]=node;}} args={[undefined,undefined,LIMITS.active*(index===2?4:index===3?2:1)]} frustumCulled={false}><boxGeometry/><meshLambertMaterial color={color}/></instancedMesh>)}
+    <instancedMesh ref={parts} args={[undefined,undefined,LIMITS.active*8]} frustumCulled={false}><boxGeometry/><meshLambertMaterial/></instancedMesh>
     {Array.from({length:LIMITS.active},(_,index)=><group key={index} name={`visual-robot-${index+1}`} ref={node=>{groups.current[index]=node;}} visible={false}><mesh name="carried-unit" geometry={geometry} material={materials.raw} visible={false} dispose={null}/></group>)}
     <instancedMesh ref={loads} args={[geometry,materials.batch,LIMITS.active]} frustumCulled={false} dispose={null}/>
-    <instancedMesh ref={trails} args={[undefined,undefined,LIMITS.queued*5]} frustumCulled={false}><boxGeometry/><shaderMaterial transparent depthWrite={false}
+    <instancedMesh ref={trails} args={[trailGeometry,undefined,LIMITS.queued*5]} frustumCulled={false}><shaderMaterial transparent depthWrite={false}
       vertexShader={'varying float fade; void main(){fade=instanceColor.r;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}'}
       fragmentShader={'varying float fade;void main(){gl_FragColor=vec4(0.85,0.68,0.32,0.45*fade);}'}/></instancedMesh>
   </>;

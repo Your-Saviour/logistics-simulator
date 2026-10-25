@@ -8,6 +8,7 @@ import {JourneyQueue,type Movement} from './journeys';
 import {ReplayDriver,RobotFleet,replayUnitKey,type ReplayProps,type ReplayStats} from './RobotReplay';
 import type {SceneEntity} from './sceneState';
 import {StaticGeometry,StaticBox,StaticWheel} from './StaticGeometry';
+import {FACILITY_LAYER,FacilityRenderCache} from './FacilityRenderCache';
 import './facility3d.css';
 
 type Props = {
@@ -44,7 +45,7 @@ function Markers() {
     ref.current.instanceMatrix.needsUpdate = true;
     if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
   },[locations]);
-  return <instancedMesh ref={ref} args={[undefined,undefined,locations.length]}><boxGeometry args={[1.05,.12,1.05]}/><meshLambertMaterial/></instancedMesh>;
+  return <instancedMesh ref={ref} layers-mask={1<<FACILITY_LAYER} args={[undefined,undefined,locations.length]}><boxGeometry args={[1.05,.12,1.05]}/><meshLambertMaterial/></instancedMesh>;
 }
 function Machines() {
   const cells = useMemo(() => facility.locations.filter(location => location.kind === 'cell_input' && location.id.endsWith('input01')), []);
@@ -74,25 +75,24 @@ function Trucks() {
 function Units(props: Props & {replay:ReplayProps}) {
   const records = useMemo(() => visibleUnits(props.units ?? []), [props.units]);
   const ref = useRef<InstancedMesh>(null);
+  const previous=useRef<{mesh:InstancedMesh|null;signature:string}>({mesh:null,signature:''});
   const temporary=useMemo(()=>new Object3D(),[]);
-  useLayoutEffect(() => {
-    if (!ref.current) return;
-    const object = temporary;
-    records.forEach((unit,index) => {
-      const position = recordedPlacement(unit)!;
-      object.position.set(position[0],position[1]+.36,position[2]); object.updateMatrix();
-      ref.current!.setMatrixAt(index,object.matrix);
-      ref.current!.setColorAt(index,new Color(props.selected === `unit:${unit.run_id}:${unit.epoch}:${unit.id}` ? COLORS.selected : unit.category === 'raw' ? COLORS.raw : COLORS.finished));
-    });
-    ref.current.instanceMatrix.needsUpdate = true;
-    if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
-  },[records,props.selected,temporary]);
+  const entries=useMemo(()=>records.map(unit=>{
+    const key=replayUnitKey(unit),color=props.selected===`unit:${unit.run_id}:${unit.epoch}:${unit.id}`?COLORS.selected:unit.category==='raw'?COLORS.raw:COLORS.finished;
+    return {key,position:recordedPlacement(unit)!,color:new Color(color),visualKey:`${key}/${unit.position}/${color}`};
+  }),[records,props.selected]);
   useFrame(()=>{
-    if(!ref.current)return;
+    const mesh=ref.current;if(!mesh)return;
     const active=new Set(props.replay.queue.active.map(journey=>`${journey.move.run_id}/${journey.move.epoch}/${journey.move.unit_id}`));
-    const object=temporary;
-    records.forEach((unit,index)=>{const position=recordedPlacement(unit)!;object.position.set(position[0],position[1]+.36,position[2]);object.scale.setScalar(active.has(replayUnitKey(unit))?0:1);object.updateMatrix();ref.current!.setMatrixAt(index,object.matrix);});
-    ref.current.instanceMatrix.needsUpdate=true;
+    // Updates to a carried unit's recorded endpoint do not change static pixels.
+    const signature=entries.map(entry=>active.has(entry.key)?entry.key+'/hidden':entry.visualKey).join('|');
+    if(previous.current.mesh===mesh&&previous.current.signature===signature)return;
+    previous.current={mesh,signature};
+    entries.forEach((entry,index)=>{
+      temporary.position.set(entry.position[0],entry.position[1]+.36,entry.position[2]);temporary.scale.setScalar(active.has(entry.key)?0:1);temporary.updateMatrix();
+      mesh.setMatrixAt(index,temporary.matrix);mesh.setColorAt(index,entry.color);
+    });
+    mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
   });
   function choose(event: ThreeEvent<MouseEvent>) {
     if (event.instanceId === undefined) return;
@@ -103,7 +103,7 @@ function Units(props: Props & {replay:ReplayProps}) {
       row:unit as unknown as Record<string,unknown>,related:[],source});
   }
   if (!records.length) return null;
-  return <instancedMesh ref={ref} args={[undefined,undefined,records.length]} onClick={choose}>
+  return <instancedMesh ref={ref} layers-mask={1<<FACILITY_LAYER} args={[undefined,undefined,records.length]} frustumCulled={false} onClick={choose}>
     <boxGeometry args={[.8,.72,.86]}/><meshLambertMaterial/>
   </instancedMesh>;
 }
@@ -154,10 +154,11 @@ export default function Facility3D(props: Props) {
   return <div ref={root} className="facility-stage" role="group" aria-label="Selectable 3D facility" data-models-ready={ready} data-recorded-units={visibleUnits(props.units ?? []).length}>
     <div className="scene-controls"><span>Fixed catalog · Drag to orbit · Scroll to zoom</span><button type="button" onClick={()=>setReset(value=>value+1)}>Reset view</button></div>
     <SceneBoundary onFailure={()=>setFailed(true)}>
-      <Canvas orthographic dpr={1} frameloop="demand" camera={{near:.1,far:300,zoom:6}} gl={{antialias:false,alpha:false}} onCreated={()=>setReady(true)}>
-        <color attach="background" args={['#151d20']}/><hemisphereLight args={['#f3f1e2','#3b5058',2.3]}/>
-        <directionalLight position={[-30,60,30]} intensity={2.5}/><directionalLight position={[40,15,-30]} intensity={.7}/>
+      <Canvas orthographic dpr={1} frameloop="demand" camera={{near:.1,far:300,zoom:6}} gl={{antialias:false,alpha:false,stencil:true}} onCreated={()=>setReady(true)}>
+        <color attach="background" args={['#151d20']}/><hemisphereLight layers-mask={3} args={['#f3f1e2','#3b5058',2.3]}/>
+        <directionalLight layers-mask={3} position={[-30,60,30]} intensity={2.5}/><directionalLight layers-mask={3} position={[40,15,-30]} intensity={.7}/>
         <Camera reset={reset}/><World {...props} replay={replay}/>
+        <FacilityRenderCache/>
       </Canvas>
     </SceneBoundary>
     <div className="scene-replay" aria-label="Visual replay">{reduced?'Reduced motion · recorded positions':`Visual estimate · ${stats.active} robots · ${stats.queued} queued${stats.frozen?' · frozen':''}`}<span>Generated robots, routes and timing · {stats.skipped} movements coalesced{stats.unmapped?` · ${stats.unmapped} unmapped`:''}</span></div>

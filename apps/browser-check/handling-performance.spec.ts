@@ -18,11 +18,18 @@ test('500 units and 64 concurrent journeys meet the 30-second frame budget',asyn
  const run={id:'benchmark-run',epoch:'benchmark-epoch',state:'running',granted:100,requested:101,committed:100,speed:1};
  const slots=catalog.locations.filter((slot:any)=>slot.kind==='shelf').slice(0,500);
  const units=slots.map((slot:any,index:number)=>({id:`benchmark-${index}`,barcode:`HU-BENCHMARK-${index}`,run_id:run.id,epoch:run.epoch,category:slot.compatible[0],contents:[{sku:'BENCHMARK',quantity:1}],owner:'storage',state:'available',status:'confirmed',position:slot.id,connected:true,observations:[]}));
+ const groups=['raw','finished'].map(category=>slots.map((slot:any,index:number)=>({slot,index})).filter((row:any)=>row.slot.compatible[0]===category).map((row:any)=>row.index));
+ const moving=groups.flatMap(indices=>Array.from({length:32},(_,i)=>{const bay=i<16?i:i+16;return indices[bay*4+bay%4];}));
+ const partners=new Map<number,number>(),initialOrigins=new Map<number,string>();
+ for(const indices of groups){
+  indices.forEach((index:number,ordinal:number)=>initialOrigins.set(index,slots[indices[(ordinal+Math.floor(indices.length/2))%indices.length]].id));
+  for(const index of moving.filter(index=>indices.includes(index)))partners.set(index,indices[indices.indexOf(index)^128]);
+ }
+ expect(moving.length).toBe(64);expect(new Set(moving.map(index=>`${slots[index].position[0]}/${slots[index].position[2]}`)).size).toBe(64);
  const events:any[]=[];let round=0;
- function append(count:number){round++;for(let index=0;index<count;index++){
-  const unit=units[index],origin=unit.position;if(round>1)unit.position=round%2 ? slots[index].id : slots[index^1].id;
-  const alternative=slots[index^1].id;
-  events.push({id:`storage:unit-movement:${index}-${round}`,source:'storage',run_id:run.id,epoch:run.epoch,payload:{id:`storage:unit-movement:${index}-${round}`,run_id:run.id,epoch:run.epoch,unit_id:unit.id,sequence:round,action:'putaway',origin:round===1?alternative:origin,destination:unit.position}});
+ function append(count:number){round++;for(const index of count===500?units.map((_,index)=>index):moving){
+  const unit=units[index],origin=unit.position;if(round>1)unit.position=round%2 ? slots[index].id : slots[partners.get(index)!].id;
+  events.push({id:`storage:unit-movement:${index}-${round}`,source:'storage',run_id:run.id,epoch:run.epoch,payload:{id:`storage:unit-movement:${index}-${round}`,run_id:run.id,epoch:run.epoch,unit_id:unit.id,sequence:round,action:'putaway',origin:round===1?initialOrigins.get(index):origin,destination:unit.position}});
  }}
  append(500);
  await page.route('**/api/status',route=>route.fulfill({json:{identity:{username:'reader',scopes:['status:read']},heartbeats:[]}}));
@@ -34,7 +41,7 @@ test('500 units and 64 concurrent journeys meet the 30-second frame budget',asyn
   const frames=(window as any).__handlingFrames.frames.filter((frame:any)=>frame.time>=start);
   const intervals=frames.slice(1).map((frame:any,index:number)=>frame.time-frames[index].time).sort((a:number,b:number)=>a-b);
   const gl=document.querySelector('canvas')!.getContext('webgl2')!,debug=gl.getExtension('WEBGL_debug_renderer_info');
-  return {fixture:'synthetic rendering workload; no native acceptance claim',viewport:{width:innerWidth,height:innerHeight},drawingBuffer:{width:gl.drawingBufferWidth,height:gl.drawingBufferHeight},durationMs:performance.now()-start,frameCount:frames.length,rafFrameCount:(window as any).__handlingFrames.frame-(window as any).__handlingFrames.startFrame,maxDrawCalls:Math.max(...frames.map((frame:any)=>frame.drawCalls)),maxPreparationMs:Math.max(...frames.map((frame:any)=>frame.prepMs)),maxRenderSubmissionMs:Math.max(...frames.map((frame:any)=>frame.spanMs)),p95Ms:intervals[Math.ceil(intervals.length*.95)-1],maxIntervalMs:intervals.at(-1),minActive:Math.min(...frames.map((frame:any)=>frame.active)),maxActive:Math.max(...frames.map((frame:any)=>frame.active)),maxQueued:Math.max(...frames.map((frame:any)=>frame.queued)),minUnits:Math.min(...frames.map((frame:any)=>frame.units)),maxUnits:Math.max(...frames.map((frame:any)=>frame.units)),renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),browser:navigator.userAgent};
+  return {fixture:'synthetic rendering workload: 500 units, 64 mixed-height inter-rack journeys across raw and finished storage; no native acceptance claim',viewport:{width:innerWidth,height:innerHeight},drawingBuffer:{width:gl.drawingBufferWidth,height:gl.drawingBufferHeight},durationMs:performance.now()-start,frameCount:frames.length,rafFrameCount:(window as any).__handlingFrames.frame-(window as any).__handlingFrames.startFrame,maxDrawCalls:Math.max(...frames.map((frame:any)=>frame.drawCalls)),maxPreparationMs:Math.max(...frames.map((frame:any)=>frame.prepMs)),maxRenderSubmissionMs:Math.max(...frames.map((frame:any)=>frame.spanMs)),p95Ms:intervals[Math.ceil(intervals.length*.95)-1],maxIntervalMs:intervals.at(-1),minActive:Math.min(...frames.map((frame:any)=>frame.active)),maxActive:Math.max(...frames.map((frame:any)=>frame.active)),maxQueued:Math.max(...frames.map((frame:any)=>frame.queued)),minUnits:Math.min(...frames.map((frame:any)=>frame.units)),maxUnits:Math.max(...frames.map((frame:any)=>frame.units)),renderer:debug?gl.getParameter(debug.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),browser:navigator.userAgent};
  },start);
  const result={...report,host:JSON.parse(process.env.HOST_HARDWARE_JSON??'{}'),container:{architecture:os.arch(),cpu:os.cpus()[0]?.model,logicalCpus:os.cpus().length,memoryBytes:os.totalmem()}};
  writeFileSync(test.info().outputPath('performance.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));

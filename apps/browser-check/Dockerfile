@@ -6,4 +6,5 @@ COPY apps/browser-check/playwright.config.ts ./
 COPY apps/browser-check/loopback-targets.mjs ./
 COPY apps/browser-check/stacks.spec.ts apps/browser-check/twin.spec.ts apps/browser-check/runtime.spec.ts apps/browser-check/handling-scene.spec.ts apps/browser-check/handling-inspector.spec.ts apps/browser-check/handling-performance.spec.ts ./
 COPY contracts/handling/v1/facility.json ./facility.json
+COPY apps/browser-check/fixtures/ ./fixtures/
 CMD ["node","loopback-targets.mjs"]
