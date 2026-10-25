@@ -14,9 +14,12 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
 - Twin's PostgreSQL-backed suite passed 52 tests for extension validation,
   immutable identity, event/snapshot agreement, retained history, scope fencing,
   conflicts and receipt-based custody reconciliation.
-- Frontend model checks passed 17 tests, including ten journey tests and five
+- Frontend model checks passed 20 tests, including thirteen journey tests and five
   catalog/placement tests. Two retained tests cover the previous legacy ETA
   helper and do not prove the replacement renderer.
+- Departure and receipt observations for the same custody generation replay as
+  one physical trip. Recipient confirmation takes over an in-progress estimate
+  without restarting it; the complete recorded history remains inspectable.
 - The Docker Chromium pixel check verified real WebGL2 output with SwiftShader.
 - The replacement scene replayed 500 synthetic recorded units with 64 robots,
   bounded its queue, avoided duplicate static/replay placements, froze on source
@@ -43,11 +46,33 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
 - All four real `/api/projection` responses from that scenario passed Twin's
   projection validator. Receipt-based reconciliation confirmed all four units
   with no remaining physical placement after consumption or customer delivery.
+- `make stack-check APP=all` passed production builds, HTTP roles and auditing,
+  broker/worker/database recovery, Twin absence, website isolation and each
+  application's independent dependency graph. Browser checks passed 27 cases
+  in the combined stack, four for each business application alone, and nineteen
+  for Twin alone. The opt-in performance test remained skipped in this command.
+- `make mixed-check` passed the orderly and native-loss scenarios, delayed and
+  held grants, external power, stable event identities, optional Twin sources
+  and durable finalization. Its adapter suite passed 38 tests plus native smoke.
+- Docker browser targets now use real loopback HTTP forwarding. Chromium's
+  native UUID API works without a shim. Two tests verify request forwarding and
+  cleanup of an unanswered upstream request when the browser disconnects.
+  Initial combined browser checks exposed a leaked forwarding socket after all
+  tests had passed; it was closed during diagnosis. The cleanup fix passed its
+  regression, and subsequent independent-deployment runs exited normally.
+- A separate Chromium recording replayed the captured native projections with
+  four concurrent unit journeys, optional inspection and no business writes or
+  page errors. See `screenshots/twin-captured-native-replay.png` and
+  `screenshots/twin-captured-native-inspection.png`. The local video is retained
+  under `.superpowers/sdd/2026-10-25-simu64-implementation/native-replay/results/`.
 
-Fixtures used for browser rendering are explicitly synthetic. The captured
+The busy 500-unit browser workload is explicitly synthetic. The captured
 native handling fixture in `apps/twin/tests/fixtures/handling-factory.json`
 comes from the four-department factory scenario; it is separate evidence from
-browser workload generation.
+browser workload generation. The new native replay uses captured HTTP data in a
+mocked read-model transport, not a live backend connection. Its connectivity
+labels and missing observation timestamps are fixture metadata, not evidence
+of live source availability or a hosted deployment.
 
 ## Rendering budget: open gate
 
@@ -98,9 +123,8 @@ application check.
 ## Remaining acceptance gates
 
 - Final upgrade/drain/conversion and recovery evidence against the final branch.
-- Final `make stack-check APP=all` and `make mixed-check` results. Earlier narrower
-  checks are not substitutes for these final commands.
-- Final renderer budget verification and shelf/truck interaction recordings.
+- Final renderer budget verification. The native truck/shelf recording is
+  functional evidence and does not establish the busy-scene frame budget.
 - Fresh whole-branch review and resolution of required findings.
 
 The five websites remain separate. No push, PR, hosted deployment, Jira write or

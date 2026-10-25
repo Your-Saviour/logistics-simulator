@@ -3,6 +3,7 @@ import {endpoint, type Endpoint, type Vec3} from './facility.ts';
 export type Movement = {
   id: string; source: string; run_id: string; epoch: string; unit_id: string;
   sequence: number; origin: string | null; destination: string | null; action: string;
+  custody_generation?: number;
 };
 export type MotionSource = {name: string; run_id: string; epoch: string; running: boolean; connected: boolean};
 export type Route = {origin: Endpoint; destination: Endpoint; points: Vec3[]};
@@ -59,6 +60,12 @@ export function poseAt(route: Route,progress: number) {
 }
 const unitKey = (move: Movement) => `${move.run_id}/${move.epoch}/${move.unit_id}`;
 const eventKey = (move: Movement) => `${move.source}/${move.run_id}/${move.epoch}/${move.id}`;
+function handoffLegKey(move: Movement): string | null {
+  if (!['depart','receive'].includes(move.action)||!Number.isInteger(move.custody_generation)||move.custody_generation!<1) return null;
+  const origin=endpoint(move.origin),destination=endpoint(move.destination);
+  if (!origin||!destination||origin.owner===destination.owner) return null;
+  return `${unitKey(move)}/${move.custody_generation}/${origin.id}/${destination.id}`;
+}
 export class JourneyQueue {
   active: Journey[]=[];
   queued: Journey[]=[];
@@ -68,6 +75,7 @@ export class JourneyQueue {
   private seen=new Set<string>();
   private sources=new Map<string,MotionSource>();
   private sequences=new Map<string,number>();
+  private handoffLegs=new Map<string,string>();
   private previous: number | null=null;
   private reduced=false;
   private matches(move: Movement) {
@@ -93,6 +101,7 @@ export class JourneyQueue {
     this.trails=this.trails.filter(trail=>this.matches(trail.move));
     const scopes=new Set(sources.map(source=>`${source.run_id}/${source.epoch}/`));
     for (const key of this.sequences.keys()) if (![...scopes].some(scope=>key.startsWith(scope))) this.sequences.delete(key);
+    for (const key of this.handoffLegs.keys()) if (![...scopes].some(scope=>key.startsWith(scope))) this.handoffLegs.delete(key);
     if (reducedMotion) {this.active=[];this.queued=[];this.trails=[];}
     for (const move of movements) {
       if (!this.matches(move)||this.seen.has(eventKey(move))) continue;
@@ -100,7 +109,22 @@ export class JourneyQueue {
       const route=routeFor(move);
       if (!route) {if (move.origin!==null&&move.destination!==null&&move.origin!==move.destination&&(!endpoint(move.origin)||!endpoint(move.destination))) this.unmapped++;continue;}
       if (reducedMotion) continue;
+      const leg=handoffLegKey(move);
+      if (leg&&this.handoffLegs.has(leg)) {
+        // Departure and receipt are two durable observations of one physical
+        // trip. A recipient confirmation can take over its existing estimate;
+        // it must not send the unit back to the origin for a second trip.
+        if (move.action==='receive'&&this.handoffLegs.get(leg)==='depart') {
+          const active=this.active.find(journey=>handoffLegKey(journey.move)===leg);
+          const queued=this.queued.find(journey=>handoffLegKey(journey.move)===leg);
+          if (active) {active.move=move;this.sequences.set(unitKey(move),Math.max(move.sequence,this.sequences.get(unitKey(move))??0));}
+          if (queued) queued.move=move;
+          this.handoffLegs.set(leg,'receive');
+        }
+        this.skipped++;continue;
+      }
       if (move.sequence<=(this.sequences.get(unitKey(move))??0)) {this.skipped++;continue;}
+      if (leg) this.handoffLegs.set(leg,move.action);
       this.queued.push({move,route,observed:now,elapsed:0,duration:LIMITS.duration});
     }
     this.queued.sort((a,b)=>a.move.sequence-b.move.sequence||a.observed-b.observed||eventKey(a.move).localeCompare(eventKey(b.move)));

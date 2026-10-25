@@ -7,6 +7,38 @@ function movement(unit, sequence=1) {
     origin:'storage.raw.r01.b01.l04',destination:'storage.raw_dispatch.dock01',action:'retrieve'};
 }
 
+function nativeHandoff() {
+  const depart={...movement('native-raw',4),source:'logistics',action:'depart',custody_generation:1,
+    origin:'logistics.inbound.dock01',destination:'storage.inbound.dock01'};
+  return {depart,receive:{...depart,id:'storage-receipt',source:'storage',sequence:5,action:'receive'}};
+}
+
+test('native departure and receipt describe one physical handoff while subsequent putaway remains separate',()=>{
+  const queue=new JourneyQueue(),{depart,receive}=nativeHandoff();
+  const putaway={...receive,id:'putaway',sequence:6,action:'putaway',origin:receive.destination,destination:'storage.raw.r01.b01.l04'};
+  queue.observe([depart,receive,putaway],[{...running,name:'logistics'},running],0);queue.tick(0);
+  assert.equal(queue.active.length,1);assert.equal(queue.active[0].move.id,receive.id);
+  assert.equal(queue.queued.length,1);assert.equal(queue.queued[0].move.id,putaway.id);
+  queue.tick(2001);assert.equal(queue.active[0].move.id,putaway.id);
+});
+
+test('a confirmed recipient takes over the same replay without restarting it or replaying it twice',()=>{
+  const queue=new JourneyQueue(),{depart,receive}=nativeHandoff();
+  queue.observe([depart],[{...running,name:'logistics'},running],0);queue.tick(0);queue.tick(500);
+  queue.observe([depart,receive],[{...running,name:'logistics',running:false},running],500);queue.tick(1000);
+  assert.equal(queue.active[0].move.source,'storage');assert.equal(queue.active[0].elapsed,1000);assert.equal(queue.queued.length,0);
+  queue.tick(2001);assert.equal(queue.active.length,0);assert.equal(queue.trails.length,1);
+  queue.observe([depart,receive],[{...running,name:'logistics'},running],3000);queue.tick(3000);
+  assert.equal(queue.active.length,0);
+});
+
+test('receipt-first delivery coalesces a late departure but retains later custody generations',()=>{
+  const queue=new JourneyQueue(),{depart,receive}=nativeHandoff(),sources=[{...running,name:'logistics'},running];
+  queue.observe([receive,depart],sources,0);queue.tick(0);queue.tick(2001);
+  queue.observe([{...depart,id:'next-custody',sequence:8,custody_generation:3}],sources,3000);queue.tick(3000);
+  assert.equal(queue.active.length,1);assert.equal(queue.active[0].move.id,'next-custody');
+});
+
 test('independent units replay concurrently while each unit retains sequence order', () => {
   const queue=new JourneyQueue();
   queue.observe([movement('a',2),movement('b'),movement('a')],[running],0);
