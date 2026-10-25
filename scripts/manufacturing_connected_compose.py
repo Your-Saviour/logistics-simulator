@@ -5,7 +5,7 @@ from stacks_compose import generate,ROOT
 
 
 def main():
-    manifest=generate(['manufacturing']);manifest['name']='simu3-manufacturing-connected'
+    manifest=generate(['manufacturing'],write=False);manifest['name']='simu3-manufacturing-connected'
     identity=json.loads((ROOT/'deploy/generated/migration-manufacturing.identity.json').read_text())
     context={'FEDERATION_ID':'manufacturing-domain-reference','FEDERATION_RUN_ID':str(uuid4()),'FEDERATION_EPOCH':str(uuid4())}
     routes=[{'endpoint':'storage/events','destination':'storage','boundary':boundary} for boundary in ('requests','supply')]
