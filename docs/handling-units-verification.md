@@ -30,9 +30,14 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
 - `sh scripts/check_handling_upgrade.sh` passed native API startup and restart
   against pre-handling-unit schemas for all four business departments. Old
   migration checksums, held run/epoch and seeded Storage/Manufacturing aggregate
-  quantities survived. No handling units were implicitly created. This check
-  covers migration compatibility, not operator conversion or active custody
-  worker recovery. Its disposable volumes were removed afterward.
+  quantities survived. No handling units were implicitly created. Native
+  Storage and Manufacturing workers then rejected quantity-losing conversion
+  manifests and accepted explicit 4+6 manifests for the ten legacy units of
+  quantity. Identical command retries returned the original identity; changed
+  retries conflicted. A subsequent API/worker restart preserved exact unit IDs,
+  barcodes, positions, aggregate quantities and conversion provenance, with no
+  fictional movement history. This does not prove recovery during an active
+  custody exchange. Its disposable volumes were removed afterward.
 - Five inspector browser checks cover keyboard navigation through lineage,
   unavailable WebGL, unknown/disputed/unobserved placement, source hold and
   disconnection, epoch replacement and missing handling extensions. Desktop and

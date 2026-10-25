@@ -19,8 +19,13 @@ for app in apps:
     env=services[app+'-api']['environment']
     identities[app]={'username':env['APP_USERNAME'],'password':env['APP_PASSWORD']}
     databases[app]=env['DATABASE_URL']
-    for role in ('worker','controller','web','verify'):
+    for role in ('api','worker','controller'):
+        services[app+'-'+role]['environment'].update(AUTONOMOUS_WAREHOUSE='false',AUTONOMOUS_PRODUCTION='false')
+    for role in ('web','verify'):
         services.pop(app+'-'+role,None)
+    if app not in ('storage','manufacturing'):
+        for role in ('worker','controller'):
+            services.pop(app+'-'+role,None)
 services.pop('browser-check',None)
 services['upgrade-check']={'image':'logistics-simulator:bootstrap','profiles':['test'],'user':'0:0',
     'environment':{'UPGRADE_DATABASES':json.dumps(databases),'UPGRADE_IDENTITIES':json.dumps(identities)},
@@ -43,3 +48,7 @@ work compose -f "$manifest" up -d storage-api manufacturing-api shipping-api log
 work compose -f "$manifest" run --rm upgrade-check migrated
 work compose -f "$manifest" restart storage-api manufacturing-api shipping-api logistics-api
 work compose -f "$manifest" run --rm upgrade-check restarted
+work compose -f "$manifest" up -d storage-worker storage-controller manufacturing-worker manufacturing-controller
+work compose -f "$manifest" run --rm upgrade-check convert
+work compose -f "$manifest" restart storage-api storage-worker manufacturing-api manufacturing-worker
+work compose -f "$manifest" run --rm upgrade-check converted-restart
