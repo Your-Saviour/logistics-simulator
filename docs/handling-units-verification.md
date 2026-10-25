@@ -14,12 +14,14 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
 - Twin's PostgreSQL-backed suite passed 52 tests for extension validation,
   immutable identity, event/snapshot agreement, retained history, scope fencing,
   conflicts and receipt-based custody reconciliation.
-- Frontend model checks passed 20 tests, including thirteen journey tests and five
+- Frontend model checks passed 21 tests, including fourteen journey tests and five
   catalog/placement tests. Two retained tests cover the previous legacy ETA
   helper and do not prove the replacement renderer.
 - Departure and receipt observations for the same custody generation replay as
   one physical trip. Recipient confirmation takes over an in-progress estimate
   without restarting it; the complete recorded history remains inspectable.
+  Native Shipping's `load` departure is included: carrier receipt takes over
+  the same trip, including receipt-first and already-completed deliveries.
 - The Docker Chromium pixel check verified real WebGL2 output with SwiftShader.
 - The replacement scene replayed 500 synthetic recorded units with 64 robots,
   bounded its queue, avoided duplicate static/replay placements, froze on source
@@ -57,6 +59,15 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
   barcodes and contents. Two inbound vehicles were configured separately from
   the outbound fleet. The second cycle explicitly verifies the persisted
   truck-to-dock unload movement and Storage receipt from that exact dock.
+- The opt-in native factory restart scenario restarted both Logistics and
+  Storage workers at raw capacity acceptance, physical receipt and final
+  acknowledgement. Both complete factory cycles, all fifteen publication-loss
+  gates and contradictory-receipt checks passed afterward. This mode lets the
+  first waiting manufacturing request retrieve its raw input from the receipt
+  dock; the second cycle still requires raw and finished shelf traversal.
+  Run `HANDLING_FACTORY_RESTART_WORKERS=1 HANDLING_FACTORY_REUSE_IMAGES=1 sh scripts/check_handling_factory.sh`
+  against already built factory images. Docker inspection records distinct
+  before/after process start times for each worker at every checkpoint.
 - All four real `/api/projection` responses from that scenario passed Twin's
   projection validator. Receipt-based reconciliation confirmed all four units
   with no remaining physical placement after consumption or customer delivery.

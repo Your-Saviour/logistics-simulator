@@ -50,19 +50,31 @@ def main():
     def gate(source,target,stage):
         sender=source if stage=='acknowledged' else target
         db[sender].execute('UPDATE factory_transport_gate SET closed=false WHERE source_owner=%s AND destination_owner=%s AND stage=%s',(source,target,stage))
+    def restart_checkpoint(source,target,stage):
+        if os.environ.get('FACTORY_RESTART_WORKERS')!='1' or (source,target)!=('logistics','storage'):return
+        request=Path('/evidence/restart-'+stage+'.request');ack=request.with_suffix('.ack')
+        request.write_text(json.dumps({'source':source,'target':target,'stage':stage}))
+        wait(lambda:ack.exists(),bool,'host restarts raw custody workers at '+stage,timeout=120)
+        evidence=json.loads(ack.read_text())
+        assert all(item['before']!=item['after'] and item['running'] for item in evidence.values()),evidence
+        record.setdefault('worker_restarts',{})[stage]=evidence
+        save('both raw custody workers restarted at '+stage)
     def accepted(source,target,identity):
         h=wait(lambda:row(target,f'SELECT * FROM {receivers[target]} WHERE unit_id=%s',identity),lambda v:v and v['state']=='accepted',source+' to '+target+' capacity')
         before=unit(source,identity);assert before['state']=='reserved' and before['position'] is not None,before
         assert unit(target,identity) is None,'Capacity acceptance cannot create target stock'
+        restart_checkpoint(source,target,'accepted')
         gate(source,target,'accepted')
         wait(lambda:row(target,f'SELECT * FROM {receivers[target]} WHERE unit_id=%s',identity),lambda v:v and v['state']=='received',source+' to '+target+' physical receipt')
         departed=unit(source,identity);assert departed['position'] is None and departed['state']=='in_transit' and departed['custody_generation']==before['custody_generation']+1,departed
         received=unit(target,identity);assert received['barcode']==before['barcode'] and received['quantity']==before['quantity'] and received['custody_generation']>=departed['custody_generation'],received
+        restart_checkpoint(source,target,'received')
         save(source+' to '+target+': positive capacity, unplaced departure and exact barcode receipt')
         return h
     def close(source,target,identity):
         gate(source,target,'received')
         wait(lambda:row(source,f'SELECT state FROM {sources[source]} WHERE unit_id=%s',identity),lambda v:v and v['state']=='acknowledged',source+' retires same custody')
+        restart_checkpoint(source,target,'acknowledged')
         gate(source,target,'acknowledged')
         wait(lambda:row(target,f'SELECT state FROM {receivers[target]} WHERE unit_id=%s',identity),lambda v:v and v['state']=='acknowledged',target+' recovers lost acknowledgement')
         save(source+' to '+target+': late receipt and lost acknowledgement converged')
@@ -104,7 +116,15 @@ def main():
         order=command('shipping',{'action':'create','customer':'FACTORY-CUSTOMER','destination':'CUSTOMER-A','lines':[{'sku':'PRODUCT','quantity':1}]});command('shipping',{'action':'fulfil','reference':order});record['order_id']=order
         batch=wait(lambda:row('manufacturing','SELECT * FROM production_orders WHERE run_id=%s',run),bool,'actual Shipping shortage creates native Manufacturing demand')
         wait(lambda:row('manufacturing',"SELECT * FROM production_material_failures WHERE run_id=%s AND state='applied' LIMIT 1",run),bool,'actual raw shortage handled without stalling')
-        raw=str(uuid4());inbound(raw,'TRUCK-3',faults=True);command('storage',{'action':'putaway','unit_id':raw,'destination':'storage.raw.r01.b01.l04'});record.update(raw_unit_id=raw,batch_id=str(batch['id']))
+        raw=str(uuid4());inbound(raw,'TRUCK-3',faults=True)
+        if os.environ.get('FACTORY_RESTART_WORKERS')=='1':
+            # Restart pauses let the already waiting production request reserve
+            # the received raw unit at its dock. Do not race that valid owner
+            # transition with manual putaway. The second cycle below still
+            # requires the complete raw/finished shelf path.
+            save('restart cycle lets the waiting production request retrieve raw material from the receipt dock')
+        else:command('storage',{'action':'putaway','unit_id':raw,'destination':'storage.raw.r01.b01.l04'})
+        record.update(raw_unit_id=raw,batch_id=str(batch['id']))
         accepted('storage','manufacturing',raw)
         wait(lambda:unit('manufacturing',raw),lambda v:v['state']=='consumed','native recipe consumes the exact imported input')
         assert row('manufacturing','SELECT count(*) n FROM production_unit_inputs WHERE batch_id=%s AND unit_id=%s',batch['id'],raw)['n']==1

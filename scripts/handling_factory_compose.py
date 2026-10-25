@@ -1,5 +1,6 @@
 """Four native departments and private HELICS adapters; Twin is absent."""
 import json
+import os
 from uuid import uuid4
 from stacks_compose import generate, ROOT
 
@@ -35,9 +36,9 @@ def main():
         config={'name':app,'coreType':'tcp_ss','coreInit':'--federates=1','broker':'tcp://factory-helics-broker:24900','period':1.0,'timeDelta':1.0,'endpoints':[{'name':app+'/events','global':True,'type':'application/json'}],'publications':[{'key':'completed_items','type':'double','unit':'item'}]}
         services[app+'-adapter']={'image':image,'environment':{**context,'SIMULATOR':app,'HELICS_CONFIG':json.dumps(config),'HELICS_OUTPUTS':json.dumps(outputs),'HELICS_ADAPTER_TOKEN':token,'ADAPTER_JOURNAL':'/journal/adapter.sqlite'},'volumes':[app+'-journal:/journal'],'depends_on':{'factory-helics-broker':{'condition':'service_healthy'}},'restart':'no'}
         value['volumes'][app+'-journal']={};services.pop(app+'-verify',None);services.pop(app+'-web',None)
-    artifacts=ROOT/'.superpowers/sdd/2026-10-25-simu64-implementation/factory-native';artifacts.mkdir(parents=True,exist_ok=True)
+    artifacts=ROOT/os.environ.get('HANDLING_FACTORY_ARTIFACTS','.superpowers/sdd/2026-10-25-simu64-implementation/factory-native');artifacts.mkdir(parents=True,exist_ok=True)
     services['verify']={'image':'logistics-simulator:bootstrap','profiles':['test'],'working_dir':'/app','user':'0:0','command':['python','scripts/handling_factory_verify.py'],
-        'environment':{'FACTORY_IDENTITIES':json.dumps(identities),'FACTORY_DATABASES':json.dumps(databases),'EXPECTED_RUN_ID':run,'EXPECTED_EPOCH':epoch,'PYTHONPATH':'/app:/app/src'},'volumes':[str(ROOT/'scripts')+':/app/scripts:ro',str(ROOT/'contracts')+':/app/contracts:ro',str(ROOT/'apps/twin/backend')+':/app/twin:ro',str(artifacts)+':/evidence']}
+        'environment':{'FACTORY_IDENTITIES':json.dumps(identities),'FACTORY_DATABASES':json.dumps(databases),'EXPECTED_RUN_ID':run,'EXPECTED_EPOCH':epoch,'PYTHONPATH':'/app:/app/src','FACTORY_RESTART_WORKERS':os.environ.get('HANDLING_FACTORY_RESTART_WORKERS','0')},'volumes':[str(ROOT/'scripts')+':/app/scripts:ro',str(ROOT/'contracts')+':/app/contracts:ro',str(ROOT/'apps/twin/backend')+':/app/twin:ro',str(artifacts)+':/evidence']}
     path=ROOT/'deploy/generated/handling-factory.json';path.write_text(json.dumps(value,indent=2));path.chmod(0o600);print(path)
 
 
