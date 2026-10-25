@@ -26,11 +26,11 @@ export function ReplayDriver(props:ReplayProps) {
   return null;
 }
 export function RobotFleet(props:ReplayProps) {
-  const groups=useRef<(Group|null)[]>([]),parts=useRef<(InstancedMesh|null)[]>([]),trails=useRef<InstancedMesh>(null);
+  const groups=useRef<(Group|null)[]>([]),parts=useRef<(InstancedMesh|null)[]>([]),trails=useRef<InstancedMesh>(null),loads=useRef<InstancedMesh>(null);
   const object=useMemo(()=>new Object3D(),[]);
   const units=useMemo(()=>new Map(props.units.map(unit=>[replayUnitKey(unit),unit])),[props.units]);
   const geometry=useMemo(()=>new BoxGeometry(.8,.72,.86),[]);
-  const materials=useMemo(()=>({raw:new MeshLambertMaterial({color:'#c5a276'}),finished:new MeshLambertMaterial({color:'#82aa9d'}),selected:new MeshLambertMaterial({color:'#ffb800'})}),[]);
+  const materials=useMemo(()=>({raw:new MeshLambertMaterial({color:'#c5a276'}),finished:new MeshLambertMaterial({color:'#82aa9d'}),selected:new MeshLambertMaterial({color:'#ffb800'}),batch:new MeshLambertMaterial()}),[]);
   useEffect(()=>()=>{geometry.dispose();Object.values(materials).forEach(material=>material.dispose());},[geometry,materials]);
   useLayoutEffect(()=>{if(trails.current){trails.current.setColorAt(0,new Color(1,1,1));trails.current.count=0;}},[]);
   const colors=['#d7b568','#607f88','#2c393e','#bbc7c4'];
@@ -69,9 +69,18 @@ export function RobotFleet(props:ReplayProps) {
         else carried.position.set(pose.forkOffset[0],pose.forkHeight+.36,pose.forkOffset[2]);
         const unit=units.get(`${journey.move.run_id}/${journey.move.epoch}/${journey.move.unit_id}`);
         carried.material=unit&&props.selected===`unit:${unit.run_id}:${unit.epoch}:${unit.id}` ? materials.selected : unit?.category==='finished' ? materials.finished : materials.raw;
+        // The robot child owns the load pose. Submit those same world transforms
+        // in one GPU batch, just as the bases, masts and forks are submitted.
+        if(loads.current){
+          carried.updateWorldMatrix(true,false);loads.current.updateWorldMatrix(true,false);
+          object.matrix.copy(loads.current.matrixWorld).invert().multiply(carried.matrixWorld);
+          loads.current.setMatrixAt(index,object.matrix);
+          loads.current.setColorAt(index,(carried.material as MeshLambertMaterial).color);
+        }
       }
     }
     parts.current.forEach((part,index)=>{if(part){part.count=active.length*(index===2?4:index===3?2:1);part.instanceMatrix.needsUpdate=true;}});
+    if(loads.current){loads.current.count=active.length;loads.current.instanceMatrix.needsUpdate=true;if(loads.current.instanceColor)loads.current.instanceColor.needsUpdate=true;}
     if(trails.current) {
       let index=0;
       for(const trail of props.queue.trails) for(let segment=1;segment<trail.route.points.length;segment++) {
@@ -84,7 +93,8 @@ export function RobotFleet(props:ReplayProps) {
   },-1);
   return <>
     {colors.map((color,index)=><instancedMesh key={color} ref={node=>{parts.current[index]=node;}} args={[undefined,undefined,LIMITS.active*(index===2?4:index===3?2:1)]} frustumCulled={false}><boxGeometry/><meshLambertMaterial color={color}/></instancedMesh>)}
-    {Array.from({length:LIMITS.active},(_,index)=><group key={index} name={`visual-robot-${index+1}`} ref={node=>{groups.current[index]=node;}} visible={false}><mesh name="carried-unit" geometry={geometry} material={materials.raw} dispose={null}/></group>)}
+    {Array.from({length:LIMITS.active},(_,index)=><group key={index} name={`visual-robot-${index+1}`} ref={node=>{groups.current[index]=node;}} visible={false}><mesh name="carried-unit" geometry={geometry} material={materials.raw} visible={false} dispose={null}/></group>)}
+    <instancedMesh ref={loads} args={[geometry,materials.batch,LIMITS.active]} frustumCulled={false} dispose={null}/>
     <instancedMesh ref={trails} args={[undefined,undefined,LIMITS.queued*5]} frustumCulled={false}><boxGeometry/><shaderMaterial transparent depthWrite={false}
       vertexShader={'varying float fade; void main(){fade=instanceColor.r;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}'}
       fragmentShader={'varying float fade;void main(){gl_FragColor=vec4(0.85,0.68,0.32,0.45*fade);}'}/></instancedMesh>

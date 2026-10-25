@@ -27,6 +27,13 @@ test('fixed manufacturing machines retain their parent cell transforms in the GP
 });
 
 test('500 recorded units replay on at most 64 robots without duplicate placements', async ({page}) => {
+  await page.addInitScript(()=>{
+    const frames:number[]=[];(window as any).__fleetDraws=frames;let calls=0;
+    const clock=()=>{if(document.querySelector('[data-active-journeys="64"]'))frames.push(calls);calls=0;requestAnimationFrame(clock);};requestAnimationFrame(clock);
+    for(const name of ['drawElements','drawArrays','drawElementsInstanced','drawArraysInstanced']){
+      const proto=WebGL2RenderingContext.prototype as any,original=proto[name];proto[name]=function(...args:any[]){calls++;return original.apply(this,args);};
+    }
+  });
   const run={id:'11111111-1111-4111-8111-111111111111',epoch:'22222222-2222-4222-8222-222222222222',state:'running',granted:100,requested:101,committed:100,speed:1};
   const locations=catalog.locations.filter((row:any)=>row.kind==='shelf').slice(0,500);
   const units=locations.map((location:any,index:number)=>({id:`fixture-${index}`,barcode:`HU-FIXTURE-${index}`,run_id:run.id,epoch:run.epoch,category:location.compatible[0],contents:[{sku:'BROWSER-FIXTURE',quantity:1}],owner:'storage',state:'available',status:'confirmed',position:location.id,connected:true,observations:[]}));
@@ -45,6 +52,7 @@ test('500 recorded units replay on at most 64 robots without duplicate placement
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   const stage=page.getByRole('group',{name:'Selectable 3D facility'});
   await expect(stage).toHaveAttribute('data-active-journeys','64');
+  await expect.poll(()=>page.evaluate(()=>{const frames=((window as any).__fleetDraws as number[]).filter(count=>count>0).slice(-10);return frames.length===10&&frames.every(count=>count<=12);})).toBe(true);
   const counts=await stage.evaluate(element=>({active:Number(element.getAttribute('data-active-journeys')),queued:Number(element.getAttribute('data-queued-journeys')),static:Number(element.getAttribute('data-static-units')),replay:Number(element.getAttribute('data-replay-units'))}));
   expect(counts.queued).toBeLessThanOrEqual(256);expect(counts.static+counts.replay).toBe(500);
   await page.locator('.asset-list summary').click();
