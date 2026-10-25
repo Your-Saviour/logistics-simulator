@@ -47,8 +47,8 @@ function along(points: Vec3[],progress: number): Vec3 {
 export function poseAt(route: Route,progress: number) {
   const p=clamp(progress),start=route.points[0],end=route.points.at(-1)!;
   if (p<.2) {
-    const retract=clamp((p-.15)/.05);
-    return {position:start,forkHeight:p<.15 ? interpolate(.15,route.origin.position[1],p/.1) : interpolate(route.origin.position[1],.55,retract),
+    const retract=clamp((p-.15)/.02),lower=clamp((p-.17)/.03);
+    return {position:start,forkHeight:p<.15 ? interpolate(.15,route.origin.position[1],p/.1) : interpolate(route.origin.position[1],.55,lower),
       forkOffset:[(route.origin.position[0]-start[0])*(1-retract),0,(route.origin.position[2]-start[2])*(1-retract)] as Vec3,
       carrying:p>=.12,phase:'pickup' as const};
   }

@@ -117,6 +117,17 @@ test('routes use catalog access and vertical shelf/truck poses without guessing 
   assert.equal(routeFor({...move,origin:move.destination}),null);
 });
 
+test('a shelf pickup clears the rack horizontally before lowering its carried unit',()=>{
+  const route=routeFor(movement('shelf-clearance'));
+  assert.ok(route);
+  for(let progress=.12;progress<.2;progress+=.001){
+    const pose=poseAt(route,progress);
+    if(pose.forkHeight>=route.origin.position[1]-.001)continue;
+    const loadX=pose.position[0]+pose.forkOffset[0];
+    assert.ok(Math.abs(loadX-route.origin.position[0])>=1.1,'Lowering before the box clears rack uprights/shelves');
+  }
+});
+
 test('completed trails expire after three seconds and never become unit occupancy', () => {
   const queue=new JourneyQueue();queue.observe([movement('a')],[running],0);queue.tick(0);queue.tick(2001);
   assert.equal(queue.trails.length,1);assert.equal(queue.active.length,0);
