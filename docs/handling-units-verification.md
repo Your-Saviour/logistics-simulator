@@ -5,6 +5,9 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
 
 ## Completed local evidence
 
+- Final `make stack-unit APP=<app>` checks passed for Storage, Manufacturing,
+  Logistics, Shipping and Twin. The five runs were serialized, and their
+  disposable containers and data volumes were removed afterward.
 - Twin's PostgreSQL-backed suite passed 52 tests for extension validation,
   immutable identity, event/snapshot agreement, retained history, scope fencing,
   conflicts and receipt-based custody reconciliation.
@@ -22,6 +25,16 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
   the inspector, including its Clear control.
 - Three orchestration regression tests verify fresh unit-check projects and
   volume teardown for Manufacturing, Logistics and Twin.
+- The connected four-department factory check passed two native recipe/order
+  cycles with Twin absent. The second output was put away at
+  `storage.finished.r01.b01.l04`, retrieved from that same shelf, handed through
+  Shipping and loaded for confirmed customer delivery. The first cycle retained
+  twelve publication-loss checks and four contradictory-receipt quarantine
+  checks. Two dispatch vehicles were configured for the two deliveries; their
+  recorded locations were never reset.
+- All four real `/api/projection` responses from that scenario passed Twin's
+  projection validator. Receipt-based reconciliation confirmed all four units
+  with no remaining physical placement after consumption or customer delivery.
 
 Fixtures used for browser rendering are explicitly synthetic. The captured
 native handling fixture in `apps/twin/tests/fixtures/handling-factory.json`
@@ -76,12 +89,11 @@ application check.
 
 ## Remaining acceptance gates
 
-- Connected native inbound-to-outbound proof including finished putaway and
-  retrieval through a finished rack. The existing factory scenario exercises
-  the actual departmental handoffs and faults but currently bypasses that rack.
+- Explicit inbound truck unloading evidence. Storage's current external receipt
+  creates a unit at an inbound dock with a null movement origin; that proves
+  dock receipt, not a recorded truck-to-dock journey.
 - Final upgrade/drain/conversion and recovery evidence against the final branch.
-- Final per-application `make stack-unit APP=<app>`,
-  `make stack-check APP=all`, and `make mixed-check` results. Earlier narrower
+- Final `make stack-check APP=all` and `make mixed-check` results. Earlier narrower
   checks are not substitutes for these final commands.
 - Final renderer budget verification and shelf/truck interaction recordings.
 - Fresh whole-branch review and resolution of required findings.

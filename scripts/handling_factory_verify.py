@@ -24,7 +24,7 @@ def wait(fetch,predicate,label,timeout=150):
 
 def main():
     run,epoch=os.environ['EXPECTED_RUN_ID'],os.environ['EXPECTED_EPOCH'];path=Path('/evidence/evidence.json')
-    record={'status':'running','run_id':run,'epoch':epoch,'twin_present':False,'scope':'real Storage/Manufacturing/Shipping/Logistics order through customer receipt','steps':[]}
+    record={'status':'running','run_id':run,'epoch':epoch,'twin_present':False,'scope':'two native recipe/order cycles, finished-rack placement/retrieval, real HTTP projections and customer receipts','steps':[]}
     identities=json.loads(os.environ['FACTORY_IDENTITIES']);urls=json.loads(os.environ['FACTORY_DATABASES'])
     clients={a:httpx.Client(base_url=f'http://{a}-api:8000',auth=(v['username'],v['password']),timeout=10) for a,v in identities.items()}
     db={a:psycopg.connect(url,row_factory=dict_row,autocommit=True) for a,url in urls.items()}
@@ -150,8 +150,84 @@ def main():
         assert row('manufacturing',"SELECT quantity FROM production_materials WHERE run_id=%s AND sku='COMPONENT'",run)['quantity']==0
         assert row('manufacturing',"SELECT count(*) n FROM production_events WHERE run_id=%s",run)['n']==1
         assert len(delivered['shipment']['confirmation_id'])>0
-        record.update(status='passed',dropped_publications=drops,handling_frames=frames,handling=snapshots,customer_receipt={'journey_id':str(journey['id']),'destination':journey.get('customer_destination'),'received_at':journey['received_at']},twin_present=False);save('four native departments completed one conserved recipe/order with all twelve transport losses')
-    except Exception as error:record.update(status='failed',error=str(error));save();raise
+        # A second, operator-created batch is stocked before its customer order.
+        # This preserves the shortage/retry proof above and avoids racing a
+        # pending customer allocation against the finished putaway command.
+        rack_raw=str(uuid4())
+        rack_receipt=command('storage',{'action':'expect','sku':'COMPONENT','location':'RAW-A','quantity':2,'correlation_id':str(uuid4()),'units':[{'id':rack_raw,'quantity':2}]})
+        command('storage',{'action':'receive','reference':rack_receipt})
+        command('storage',{'action':'putaway','unit_id':rack_raw,'destination':'storage.raw.r01.b01.l04'})
+        rack_batch=command('manufacturing',{'action':'create','product':'PRODUCT','line':'LINE-1','quantity':1,'correlation_id':str(uuid4())})
+        command('manufacturing',{'action':'release','reference':rack_batch})
+        wait(lambda:unit('manufacturing',rack_raw),lambda value:value and value['state']=='consumed','second native recipe consumes its exact raw input')
+        rack_output=wait(lambda:row('manufacturing','SELECT * FROM production_output_custody WHERE batch_id=%s',rack_batch),bool,'second native batch offers fresh finished output')
+        rack_finished=str(rack_output['unit_id'])
+        assert len({raw,finished,rack_raw,rack_finished})==4,'Every production output must receive a fresh immutable identity'
+        wait(lambda:row('storage','SELECT state FROM warehouse_custody_receivers WHERE unit_id=%s',rack_finished),lambda value:value and value['state']=='acknowledged','second output arrives before a customer order exists')
+        wait(lambda:unit('storage',rack_finished),lambda value:value and value['state']=='available','finished stock remains available for putaway')
+        rack_slot='storage.finished.r01.b01.l04'
+        command('storage',{'action':'putaway','unit_id':rack_finished,'destination':rack_slot})
+        racked=unit('storage',rack_finished)
+        assert racked['position']==rack_slot and racked['state']=='available',racked
+        record['full_rack']={'raw_unit_id':rack_raw,'batch_id':rack_batch,'output_unit_id':rack_finished,'racked_record':racked}
+        save('second native output placed in the finished rack before customer allocation')
+        rack_order=command('shipping',{'action':'create','customer':'RACK-CUSTOMER','destination':'CUSTOMER-A','lines':[{'sku':'PRODUCT','quantity':1}]})
+        command('shipping',{'action':'fulfil','reference':rack_order})
+        wait(lambda:get('shipping','shipping/orders/'+rack_order),lambda value:value['status']=='ready','racked finished unit is retrieved and received by Shipping')
+        command('shipping',{'action':'pack','reference':rack_order})
+        command('shipping',{'action':'dispatch','reference':rack_order})
+        record['full_rack']['order_id']=rack_order
+        save('second customer order retrieved the finished rack unit and requested carrier dispatch')
+        rack_delivery=wait(lambda:get('shipping','shipping/orders/'+rack_order),lambda value:value['status']=='delivered','second native order reaches the customer')
+        current={app:get(app,domains[app])['handling'] for app in domains}
+        movements=current['storage']['movements']
+        putaway=[move for move in movements if move['unit_id']==rack_finished and move['action']=='putaway' and move['destination']==rack_slot]
+        retrieval=[move for move in movements if move['unit_id']==rack_finished and move['action']=='retrieve' and move['origin']==rack_slot]
+        assert len(putaway)==len(retrieval)==1 and putaway[0]['sequence']<retrieval[0]['sequence'],(putaway,retrieval)
+        assert retrieval[0]['destination'].startswith('storage.outbound.dock'),retrieval
+        raw_moves=[move for move in movements if move['unit_id']==rack_raw]
+        assert any(move['action']=='receive' and move['destination'].startswith('storage.inbound.dock') for move in raw_moves),raw_moves
+        assert any(move['action']=='putaway' and move['destination']=='storage.raw.r01.b01.l04' for move in raw_moves),raw_moves
+        rack_lineage=[lineage for lineage in current['manufacturing']['lineage'] if lineage['batch_id']==rack_batch]
+        assert len(rack_lineage)==1 and rack_lineage[0]['input_unit_ids']==[rack_raw] and rack_lineage[0]['output_unit_ids']==[rack_finished],rack_lineage
+        assert unit('manufacturing',rack_raw)['position'] is None and unit('logistics',rack_finished)['position'] is None
+        assert row('storage',"SELECT sum(on_hand) on_hand,sum(reserved) reserved FROM warehouse_stock WHERE run_id=%s",run)=={'on_hand':0,'reserved':0}
+        assert row('manufacturing',"SELECT count(*) n FROM production_events WHERE run_id=%s",run)['n']==2
+        record['full_rack']={'raw_unit_id':rack_raw,'batch_id':rack_batch,'output_unit_id':rack_finished,'order_id':rack_order,'racked_record':racked,'putaway':putaway[0],'retrieval':retrieval[0],'lineage':rack_lineage[0],'customer_receipt':rack_delivery['shipment']['confirmation_id']}
+        save('second native cycle traversed raw receipt, raw shelf, manufacturing, finished shelf, retrieval and customer delivery')
+
+        # Validate real HTTP producer envelopes, not reconstructed test events.
+        from twin.projection import validate as validate_projection
+        from twin.handling_projection import reconcile_handling
+        projections={app:get(app,'projection') for app in domains}
+        record['projections']=projections
+        save('captured complete real HTTP projections for validation and replay')
+        observed=[]
+        for app,projection in projections.items():
+            validate_projection({'name':app},projection)
+            observed.append({'name':app,'snapshot':projection['snapshot'],'status':{'run':projection['run']},'connected':True})
+        canonical=reconcile_handling(observed)
+        record['reconciled_handling']=canonical
+        assert len(canonical['units'])==4 and all(value['status']=='confirmed' and value['position'] is None for value in canonical['units']),canonical
+        save('all four real HTTP projections agree with durable movements, lineage and receipt-based terminal custody')
+        record.update(status='passed',dropped_publications=drops,handling_frames=frames,handling=current,primary_handling=snapshots,customer_receipt={'journey_id':str(journey['id']),'destination':journey.get('customer_destination'),'received_at':journey['received_at']},twin_present=False);save('four native departments completed two conserved recipe/order cycles, the finished rack and all twelve first-cycle transport losses')
+    except Exception as error:
+        record.update(status='failed',error=str(error),diagnostics={})
+        # Preserve authoritative queue and transport state before disposable
+        # databases are removed, so a failed wait does not require a blind rerun.
+        for app,connection in db.items():
+            details={}
+            for table in ('runs','jobs','boundary_outbox','boundary_inbox',
+                          'transport_transfers','transport_expected_units',
+                          'transport_commands','transport_vehicles'):
+                try:
+                    if connection.execute('SELECT to_regclass(%s) AS name',(table,)).fetchone()['name']:
+                        details[table]=connection.execute(f'SELECT * FROM {table} LIMIT 500').fetchall()
+                except Exception as diagnostic_error:
+                    details[table]={'error':str(diagnostic_error)}
+            record['diagnostics'][app]=details
+        save()
+        raise
     finally:
         for c in clients.values():c.close()
         for c in db.values():c.close()

@@ -23,6 +23,13 @@ def main():
             service=services[app+'-'+role];service['image']='logistics-simulator:handling-factory-'+app
             env=service['environment'];env.update(context,CLOCK_MODE='helics',BOUNDARY_PROVIDERS=json.dumps(providers[app]),HELICS_PEERS=json.dumps(peers[app]),HELICS_OUTPUTS=json.dumps(outputs),HELICS_ADAPTER_URL='http://'+app+'-adapter:8010',HELICS_ADAPTER_TOKEN=token,HELICS_TIMEOUT_SECONDS='240',AUTONOMOUS_SAMPLE='true' if app=='logistics' else 'false',AUTONOMOUS_WAREHOUSE='false',AUTONOMOUS_SHIPPING='false',AUTONOMOUS_PRODUCTION='true' if app=='manufacturing' else 'false')
             if app=='manufacturing':env.update(MATERIAL_RETRY_QUANTA='60',SCENARIO=json.dumps({'manufacturing':{'products':[{'sku':'PRODUCT','bom':{'COMPONENT':2},'duration_seconds':60,'scrap_percent':0}],'lines':[{'code':'LINE-1','capacity':1,'products':['PRODUCT']}]}}))
+            # Two customer deliveries need two vehicles initially at Dispatch.
+            # A delivered vehicle remains at Customer; this fixture does not
+            # invent an empty return journey or reset its durable location.
+            if app=='logistics':env['SCENARIO']=json.dumps({'transport':{
+                'locations':[{'code':code} for code in ('WAREHOUSE','DISPATCH','CUSTOMER')],
+                'routes':[{'code':'DISPATCH-CUSTOMER','origin':'DISPATCH','destination':'CUSTOMER','journey_seconds':20}],
+                'vehicles':[{'code':'TRUCK-1','capacity':100,'location':'DISPATCH'},{'code':'TRUCK-2','capacity':100,'location':'DISPATCH'}]}})
             if role=='api':identities[app]={'username':env['APP_USERNAME'],'password':env['APP_PASSWORD']};databases[app]=env['DATABASE_URL']
             if role=='controller':service['depends_on'][app+'-adapter']={'condition':'service_started'}
         config={'name':app,'coreType':'tcp_ss','coreInit':'--federates=1','broker':'tcp://factory-helics-broker:24900','period':1.0,'timeDelta':1.0,'endpoints':[{'name':app+'/events','global':True,'type':'application/json'}],'publications':[{'key':'completed_items','type':'double','unit':'item'}]}
@@ -30,7 +37,7 @@ def main():
         value['volumes'][app+'-journal']={};services.pop(app+'-verify',None);services.pop(app+'-web',None)
     artifacts=ROOT/'.superpowers/sdd/2026-10-25-simu64-implementation/factory-native';artifacts.mkdir(parents=True,exist_ok=True)
     services['verify']={'image':'logistics-simulator:bootstrap','profiles':['test'],'working_dir':'/app','user':'0:0','command':['python','scripts/handling_factory_verify.py'],
-        'environment':{'FACTORY_IDENTITIES':json.dumps(identities),'FACTORY_DATABASES':json.dumps(databases),'EXPECTED_RUN_ID':run,'EXPECTED_EPOCH':epoch},'volumes':[str(ROOT/'scripts')+':/app/scripts:ro',str(ROOT/'contracts')+':/app/contracts:ro',str(artifacts)+':/evidence']}
+        'environment':{'FACTORY_IDENTITIES':json.dumps(identities),'FACTORY_DATABASES':json.dumps(databases),'EXPECTED_RUN_ID':run,'EXPECTED_EPOCH':epoch,'PYTHONPATH':'/app:/app/src'},'volumes':[str(ROOT/'scripts')+':/app/scripts:ro',str(ROOT/'contracts')+':/app/contracts:ro',str(ROOT/'apps/twin/backend')+':/app/twin:ro',str(artifacts)+':/evidence']}
     path=ROOT/'deploy/generated/handling-factory.json';path.write_text(json.dumps(value,indent=2));path.chmod(0o600);print(path)
 
 
