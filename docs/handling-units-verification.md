@@ -7,7 +7,10 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
 
 - Final `make stack-unit APP=<app>` checks passed for Storage, Manufacturing,
   Logistics, Shipping and Twin. The five runs were serialized, and their
-  disposable containers and data volumes were removed afterward.
+  disposable containers and data volumes were removed afterward. Storage was
+  rechecked after adding raw inbound custody (409 checks); Logistics' full
+  PostgreSQL/RabbitMQ suite and `go vet` passed after adding the sender and
+  routing regression.
 - Twin's PostgreSQL-backed suite passed 52 tests for extension validation,
   immutable identity, event/snapshot agreement, retained history, scope fencing,
   conflicts and receipt-based custody reconciliation.
@@ -29,9 +32,14 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
   cycles with Twin absent. The second output was put away at
   `storage.finished.r01.b01.l04`, retrieved from that same shelf, handed through
   Shipping and loaded for confirmed customer delivery. The first cycle retained
-  twelve publication-loss checks and four contradictory-receipt quarantine
+  fifteen publication-loss checks and five contradictory-receipt quarantine
   checks. Two dispatch vehicles were configured for the two deliveries; their
   recorded locations were never reset.
+- Both raw inputs were loaded into recorded Logistics inbound truck slots,
+  unloaded into Logistics docks, then handed to Storage with unchanged UUIDs,
+  barcodes and contents. Two inbound vehicles were configured separately from
+  the outbound fleet. The second cycle explicitly verifies the persisted
+  truck-to-dock unload movement and Storage receipt from that exact dock.
 - All four real `/api/projection` responses from that scenario passed Twin's
   projection validator. Receipt-based reconciliation confirmed all four units
   with no remaining physical placement after consumption or customer delivery.
@@ -89,9 +97,6 @@ application check.
 
 ## Remaining acceptance gates
 
-- Explicit inbound truck unloading evidence. Storage's current external receipt
-  creates a unit at an inbound dock with a null movement origin; that proves
-  dock receipt, not a recorded truck-to-dock journey.
 - Final upgrade/drain/conversion and recovery evidence against the final branch.
 - Final `make stack-check APP=all` and `make mixed-check` results. Earlier narrower
   checks are not substitutes for these final commands.

@@ -88,7 +88,7 @@ func handlingSnapshot(ctx context.Context, tx pgx.Tx, run row) (row, error) {
 	if err != nil {
 		return nil, err
 	}
-	handoffs, err := objects(ctx, tx, "SELECT state,acceptance,receipt FROM transport_custody WHERE run_id=$1 AND epoch=$2 ORDER BY id", run["id"], run["epoch"])
+	handoffs, err := objects(ctx, tx, "SELECT id,state,acceptance,receipt FROM transport_custody WHERE run_id=$1 AND epoch=$2 UNION ALL SELECT id,state,COALESCE(departure,offer) AS acceptance,receipt FROM transport_source_custody WHERE run_id=$1 AND epoch=$2 ORDER BY id", run["id"], run["epoch"])
 	if err != nil {
 		return nil, err
 	}

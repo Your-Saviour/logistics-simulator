@@ -226,14 +226,39 @@ contain at most eight whole units per line. Shipping reserves receiving capacity
 for the complete order before picks begin. Source reference commands are fenced
 to their originating peer.
 
+Logistics migration `016_source_custody.sql` adds the outgoing raw custody
+ledger. Its `handoff` transport command takes the unloaded unit UUID as
+`reference`, an exact `storage.inbound.dockNN` as `destination`, and a
+`correlation_id`, alongside the usual run, epoch and due time. A completed truck
+unload and transport receipt must already exist. Intake alone cannot initiate
+the handoff. The unit remains reserved at its Logistics dock until Storage
+accepts capacity, becomes unplaced on departure, and retires only after the
+matching Storage receipt. Outstanding raw handoffs prevent finalization while
+ordinary time advancement continues to deliver their protocol messages.
+
+For this route, configure Logistics `destinations` as `helics` with the Storage
+peer and an output to Storage's `supply` boundary. Add Logistics to Storage's
+`supply` peers alongside Manufacturing, and route Storage replies to Logistics'
+`destinations` boundary. Storage validates raw SKU/category and inbound dock
+ownership, imports into `STORAGE_RAW_LOCATION` (default `RAW-A`), and publishes
+the stock notification used by Manufacturing. The existing finished receiver
+and pending job format remain compatible. Changing Logistics' destination
+provider also removes synthetic customer receipts: confirm those deliveries
+through explicit authorized receipt commands or configured peer confirmations.
+Preserve all closed source/receiver records during upgrades; do not recreate
+units from an aggregate balance or restore source stock after a timeout.
+
 `make handling-factory-check` runs the four real departmental backends, four
 private adapters and a native HELICS broker without Twin. It starts an order
-against empty stock, adds an explicit raw receipt through Storage's API, and
-checks recipe consumption, fresh output lineage, all four custody legs and the
-native customer receipt. Twelve publication gates drop acceptance, receipt and
-acknowledgement messages. The verifier checks that late confirmations preserve
-onward delivery and newer custody generations. This is local single-order
-acceptance; renderer performance and broader outage/upgrade acceptance remain
+against empty stock, unloads raw units through Logistics' native truck workflow,
+and hands the same identities to Storage. It checks recipe consumption, fresh
+output lineage, five custody legs and explicit customer receipts. Fifteen
+publication gates drop acceptance, receipt and acknowledgement messages. A
+second cycle stocks the finished rack before creating its customer order, then
+retrieves that unit for delivery. The verifier checks that late confirmations
+preserve onward delivery and newer custody generations, and validates the four
+real HTTP projections. Consult `handling-units-verification.md` for completed
+evidence; renderer performance and broader outage/upgrade acceptance remain
 separate checks.
 
 ## Custody quarantine

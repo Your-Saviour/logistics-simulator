@@ -12,7 +12,7 @@ public static class CustodyQuarantine
         var header=(JsonObject)e.DeepClone();header["type"]="sample.completed.v1";header["payload"]=new JsonObject {["quantity"]=1};Rules.Envelope(header);
         var boundary=Rules.Text(e["boundary"]);if(e["destination"]!.ToString()!="storage"||e["federation_id"]!.ToString()!=settings.Federation||settings.Providers[boundary]?.ToString()!="helics"||!settings.HasPeer(boundary,Rules.Text(e["source"]),endpoint))throw new Conflict("Unconfigured custody peer");
         if(ledger.Db.Transaction(u=>Seen(u,u.Run(),e)))return "quarantined";
-        try {var result=e["payload"] is JsonObject h&&h["source"]?.ToString()=="manufacturing"?FinishedCustody.Ingest(ledger,settings,e,endpoint):StorageCustody.Ingest(ledger,settings,e,endpoint);if(result!="fenced")return result;
+        try {var result=e["payload"] is JsonObject h&&h["source"]?.ToString() is "manufacturing" or "logistics"?FinishedCustody.Ingest(ledger,settings,e,endpoint):StorageCustody.Ingest(ledger,settings,e,endpoint);if(result!="fenced")return result;
             ledger.Db.Transaction(u=>{Record(u,u.Run(),e,endpoint,"ingest","Custody run or epoch mismatch");return true;});
         }catch(Exception error)when(error is Conflict or Validation){ledger.Db.Transaction(u=>{Record(u,u.Run(),e,endpoint,"ingest",error.Message);return true;});}
         return "quarantined";

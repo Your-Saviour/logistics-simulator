@@ -95,10 +95,15 @@ func validateCustody(env TransportEnvelope) (row, error) {
 		return nil, Conflict("Invalid unit category")
 	}
 	source, ok := h["source"].(string)
-	if !ok || source == "logistics" || !containsCustodyOwner(source) || h["destination_owner"] != "logistics" || unit["owner"] != source {
+	outgoing := source == "logistics" && h["destination_owner"] == "storage" && category == "raw"
+	destinationOwner := "logistics"
+	if outgoing {
+		destinationOwner = "storage"
+	}
+	if !ok || !containsCustodyOwner(source) || (!outgoing && (source == "logistics" || h["destination_owner"] != "logistics")) || unit["owner"] != source {
 		return nil, Conflict("Custody endpoint ownership mismatch")
 	}
-	if !custodyEndpoint(h["origin"], source, category) || !custodyEndpoint(h["destination"], "logistics", category) {
+	if !custodyEndpoint(h["origin"], source, category) || !custodyEndpoint(h["destination"], destinationOwner, category) {
 		return nil, Conflict("Unknown or incompatible physical endpoint")
 	}
 	if physicalLocations[h["destination"].(string)].Kind != "dock" {
@@ -108,7 +113,14 @@ func validateCustody(env TransportEnvelope) (row, error) {
 		return nil, Conflict("Unit identity, scope or version mismatch")
 	}
 	state, ok := h["state"].(string)
-	if !ok || env.Type != "handling."+state+".v1" || env.Source != source || env.Destination != "logistics" || env.RunID != h["run_id"] || env.Epoch != h["epoch"] || env.AggregateID != h["id"] || env.CausationID != h["id"] || float64(env.AggregateVersion) != num(unit, "version") {
+	envelopeSource := source
+	if outgoing {
+		envelopeSource = "storage"
+		if env.Boundary != "destinations" || (state != "accepted" && state != "received") || !strings.HasPrefix(h["origin"].(string), "logistics.inbound.dock") || !strings.HasPrefix(h["destination"].(string), "storage.inbound.dock") {
+			return nil, Conflict("Unsupported outgoing raw proof route")
+		}
+	}
+	if !ok || env.Type != "handling."+state+".v1" || env.Source != envelopeSource || env.Destination != "logistics" || env.RunID != h["run_id"] || env.Epoch != h["epoch"] || env.AggregateID != h["id"] || env.CausationID != h["id"] || float64(env.AggregateVersion) != num(unit, "version") {
 		return nil, Conflict("Custody envelope metadata mismatch")
 	}
 	if h["reason"] != nil {
@@ -116,8 +128,11 @@ func validateCustody(env TransportEnvelope) (row, error) {
 			return nil, Conflict("Invalid custody reason")
 		}
 	}
+	if !outgoing && state != "offered" && state != "departed" && state != "acknowledged" {
+		return nil, Conflict("Unsupported destination custody transition")
+	}
 	switch state {
-	case "offered":
+	case "offered", "accepted":
 		// Source departure and receiver receipt each advance version/sequence.
 		if num(unit, "version") > handlingMaxCounter-2 || num(unit, "last_sequence") > handlingMaxCounter-2 || num(unit, "custody_generation") > handlingMaxCounter-1 {
 			return nil, Conflict("Custody counters lack SQL movement headroom")
@@ -125,7 +140,7 @@ func validateCustody(env TransportEnvelope) (row, error) {
 		if unit["state"] != "reserved" || unit["position"] != h["origin"] || unit["origin"] != nil || unit["destination"] != nil || unit["handoff_id"] != nil || h["departure_token"] != nil || h["receipt_id"] != nil {
 			return nil, Conflict("Offer requires confirmed reserved source placement")
 		}
-	case "departed", "acknowledged":
+	case "departed", "acknowledged", "received":
 		if num(unit, "version") > handlingMaxCounter-1 || num(unit, "last_sequence") > handlingMaxCounter-1 {
 			return nil, Conflict("Departure counters lack receipt headroom")
 		}
@@ -151,7 +166,7 @@ func validateCustody(env TransportEnvelope) (row, error) {
 		if unit["state"] != "in_transit" || unit["position"] != nil || unit["origin"] != h["origin"] || unit["destination"] != h["destination"] || unit["handoff_id"] != h["id"] || num(unit, "custody_generation") < 1 || num(unit, "last_sequence") < 1 {
 			return nil, Conflict("Departure requires unplaced source custody")
 		}
-		if state == "acknowledged" {
+		if state == "acknowledged" || state == "received" {
 			id, ok := h["receipt_id"].(string)
 			if !ok {
 				return nil, Conflict("Receipt UUID required")
@@ -310,6 +325,9 @@ func (s *Store) applyCustody(ctx context.Context, tx pgx.Tx, r, j row, env Trans
 	if err != nil {
 		return err
 	}
+	if h["source"] == "logistics" {
+		return s.applySourceCustody(ctx, tx, r, j, h, env.CorrelationID)
+	}
 	unit := h["unit"].(map[string]any)
 	old, err := object(ctx, tx, "SELECT * FROM transport_custody WHERE id=$1", h["id"])
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -452,6 +470,21 @@ func replayCustody(ctx context.Context, tx pgx.Tx, r row, incoming TransportEnve
 		state = "accepted"
 	case "handling.departed.v1":
 		state = "received"
+	case "handling.accepted.v1", "handling.received.v1":
+		source, err := object(ctx, tx, "SELECT state FROM transport_source_custody WHERE id=$1 AND run_id=$2 AND epoch=$3", incoming.AggregateID, r["id"], r["epoch"])
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if source["state"] == "acknowledged" {
+			state = "acknowledged"
+		} else if incoming.Type == "handling.accepted.v1" && source["state"] == "departed" {
+			state = "departed"
+		} else {
+			return nil
+		}
 	default:
 		return nil
 	}
@@ -467,7 +500,7 @@ func replayCustody(ctx context.Context, tx pgx.Tx, r row, incoming TransportEnve
 	return err
 }
 func recoverCustody(ctx context.Context, tx pgx.Tx, r row) (int, error) {
-	rows, err := objects(ctx, tx, "SELECT DISTINCT b.envelope FROM boundary_outbox b JOIN transport_custody c ON c.id::text=b.envelope->'payload'->>'id' AND c.state=b.envelope->'payload'->>'state' WHERE c.run_id=$1 AND c.epoch=$2 AND c.state IN ('accepted','received') AND b.run_id=$1 AND b.envelope->>'type' LIKE 'handling.%' AND NOT EXISTS(SELECT 1 FROM boundary_outbox n WHERE n.run_id=b.run_id AND n.envelope->>'type' LIKE 'handling.%' AND n.envelope->>'event_id'=b.envelope->>'event_id' AND (n.sent_at IS NULL OR n.sent_at>clock_timestamp()-interval '5 seconds'))", r["id"], r["epoch"])
+	rows, err := objects(ctx, tx, "SELECT DISTINCT b.envelope FROM boundary_outbox b JOIN (SELECT id,run_id,epoch,state FROM transport_custody UNION ALL SELECT id,run_id,epoch,state FROM transport_source_custody) c ON c.id::text=b.envelope->'payload'->>'id' AND c.state=b.envelope->'payload'->>'state' WHERE c.run_id=$1 AND c.epoch=$2 AND c.state IN ('accepted','received','offered','departed') AND b.run_id=$1 AND b.envelope->>'type' LIKE 'handling.%' AND NOT EXISTS(SELECT 1 FROM boundary_outbox n WHERE n.run_id=b.run_id AND n.envelope->>'type' LIKE 'handling.%' AND n.envelope->>'event_id'=b.envelope->>'event_id' AND (n.sent_at IS NULL OR n.sent_at>clock_timestamp()-interval '5 seconds'))", r["id"], r["epoch"])
 	if err != nil {
 		return 0, err
 	}

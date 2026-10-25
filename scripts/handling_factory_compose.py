@@ -12,10 +12,10 @@ def main():
     token=uuid4().hex+uuid4().hex;image='logistics-simulator:handling-factory-adapter'
     services['factory-helics-broker']={'image':image,'entrypoint':['helics_broker','-t','tcp_ss','-f4','--port=24900','--ipv4','--loglevel=warning'],
         'healthcheck':{'test':['CMD','python','-c',"import socket; socket.create_connection(('127.0.0.1',24900),2).close()"],'interval':'2s','timeout':'3s','retries':30}}
-    providers={'storage':{'supply':'helics','requests':'helics'},'manufacturing':{'materials':'helics','demand':'helics','power':'synthetic'},'shipping':{'orders':'synthetic','goods':'helics','carrier':'helics'},'logistics':{'transport':'helics','destinations':'synthetic'}}
+    providers={'storage':{'supply':'helics','requests':'helics'},'manufacturing':{'materials':'helics','demand':'helics','power':'synthetic'},'shipping':{'orders':'synthetic','goods':'helics','carrier':'helics'},'logistics':{'transport':'helics','destinations':'helics'}}
     peer=lambda app:{'source':app,'endpoint':app+'/events'}
-    peers={'storage':{'supply':peer('manufacturing'),'requests':[peer('manufacturing'),peer('shipping')]},'manufacturing':{'materials':peer('storage'),'demand':peer('shipping')},'shipping':{'goods':[peer('storage'),peer('manufacturing')],'carrier':peer('logistics')},'logistics':{'transport':peer('shipping')}}
-    routes={'storage':[('manufacturing','materials'),('shipping','goods')],'manufacturing':[('storage','requests'),('storage','supply')],'shipping':[('storage','requests'),('manufacturing','demand'),('logistics','transport')],'logistics':[('shipping','carrier')]}
+    peers={'storage':{'supply':[peer('manufacturing'),peer('logistics')],'requests':[peer('manufacturing'),peer('shipping')]},'manufacturing':{'materials':peer('storage'),'demand':peer('shipping')},'shipping':{'goods':[peer('storage'),peer('manufacturing')],'carrier':peer('logistics')},'logistics':{'transport':peer('shipping'),'destinations':peer('storage')}}
+    routes={'storage':[('manufacturing','materials'),('shipping','goods'),('logistics','destinations')],'manufacturing':[('storage','requests'),('storage','supply')],'shipping':[('storage','requests'),('manufacturing','demand'),('logistics','transport')],'logistics':[('shipping','carrier'),('storage','supply')]}
     identities={};databases={}
     for app in apps:
         outputs=[{'endpoint':target+'/events','destination':target,'boundary':boundary} for target,boundary in routes[app]]
@@ -28,8 +28,8 @@ def main():
             # invent an empty return journey or reset its durable location.
             if app=='logistics':env['SCENARIO']=json.dumps({'transport':{
                 'locations':[{'code':code} for code in ('WAREHOUSE','DISPATCH','CUSTOMER')],
-                'routes':[{'code':'DISPATCH-CUSTOMER','origin':'DISPATCH','destination':'CUSTOMER','journey_seconds':20}],
-                'vehicles':[{'code':'TRUCK-1','capacity':100,'location':'DISPATCH'},{'code':'TRUCK-2','capacity':100,'location':'DISPATCH'}]}})
+                'routes':[{'code':'DISPATCH-CUSTOMER','origin':'DISPATCH','destination':'CUSTOMER','journey_seconds':20},{'code':'WAREHOUSE-DISPATCH','origin':'WAREHOUSE','destination':'DISPATCH','journey_seconds':10}],
+                'vehicles':[{'code':'TRUCK-1','capacity':100,'location':'DISPATCH'},{'code':'TRUCK-2','capacity':100,'location':'DISPATCH'},{'code':'TRUCK-3','capacity':100,'location':'WAREHOUSE'},{'code':'TRUCK-4','capacity':100,'location':'WAREHOUSE'}]}})
             if role=='api':identities[app]={'username':env['APP_USERNAME'],'password':env['APP_PASSWORD']};databases[app]=env['DATABASE_URL']
             if role=='controller':service['depends_on'][app+'-adapter']={'condition':'service_started'}
         config={'name':app,'coreType':'tcp_ss','coreInit':'--federates=1','broker':'tcp://factory-helics-broker:24900','period':1.0,'timeDelta':1.0,'endpoints':[{'name':app+'/events','global':True,'type':'application/json'}],'publications':[{'key':'completed_items','type':'double','unit':'item'}]}

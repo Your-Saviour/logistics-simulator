@@ -286,7 +286,7 @@ func (s *Store) Execute(ctx context.Context, id string) (result string, e error)
 		}
 		if j["payload"].(map[string]any)["transport"] != nil {
 			result = "completed"
-			return executeTransport(ctx, tx, r, j)
+			return s.executeTransport(ctx, tx, r, j)
 		}
 		quantity := num(j["payload"].(map[string]any), "quantity")
 		if quantity < 1 || quantity > 10000 || quantity != math.Trunc(quantity) {
@@ -489,6 +489,13 @@ func (s *Store) Control(ctx context.Context, action string, speed int, confirmat
 			}
 			_, e = tx.Exec(ctx, "UPDATE runs SET speed=$1,anchor=clock_timestamp() WHERE id=$2", speed, r["id"])
 		case "finalize":
+			var rawPending bool
+			if err := tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM transport_source_custody WHERE run_id=$1 AND epoch=$2 AND state<>'acknowledged')", r["id"], r["epoch"]).Scan(&rawPending); err != nil {
+				return err
+			}
+			if rawPending {
+				return Conflict("Confirm pending raw custody before finalizing")
+			}
 			if r["mode"] == "helics" {
 				if !active(r) {
 					return Conflict("Only an active connected run can begin finalization")

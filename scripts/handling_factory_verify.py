@@ -1,4 +1,4 @@
-"""Actual four-department custody and recipe proof, with twelve transport losses."""
+"""Actual four-department custody and recipe proof, with fifteen transport losses."""
 import json
 import os
 import time
@@ -30,9 +30,9 @@ def main():
     db={a:psycopg.connect(url,row_factory=dict_row,autocommit=True) for a,url in urls.items()}
     units={'storage':'warehouse_handling_units','manufacturing':'production_handling_units','shipping':'shipping_handling_units','logistics':'transport_handling_units'}
     receivers={'manufacturing':'production_custody','storage':'warehouse_custody_receivers','shipping':'shipping_handling_handoffs','logistics':'transport_custody'}
-    sources={'storage':'warehouse_custody_sources','manufacturing':'production_output_custody','shipping':'shipping_handling_departures'}
+    sources={'logistics':'transport_source_custody','storage':'warehouse_custody_sources','manufacturing':'production_output_custody','shipping':'shipping_handling_departures'}
     domains={'storage':'warehouse','manufacturing':'production','shipping':'shipping','logistics':'transport'}
-    legs=[('storage','manufacturing'),('manufacturing','storage'),('storage','shipping'),('shipping','logistics')]
+    legs=[('logistics','storage'),('storage','manufacturing'),('manufacturing','storage'),('storage','shipping'),('shipping','logistics')]
     def save(step=None):
         if step:record['steps'].append(step);print(step,flush=True)
         path.write_text(json.dumps(record,indent=2,default=str))
@@ -44,7 +44,7 @@ def main():
             r=get(app,'status')['run'];payload={**body,'run_id':run,'epoch':epoch,'due_at':max(r['granted'],r['requested'])+2}
             response=clients[app].post('/api/'+domains[app]+'/commands',json=payload,headers={'Idempotency-Key':uuid4().hex})
             if response.status_code==409 and 'Schedule' in response.text:continue
-            response.raise_for_status();identity=response.json()['id'];table={'storage':'warehouse_commands','manufacturing':'production_commands','shipping':'shipping_commands'}[app];field='outcome' if app=='shipping' else 'status'
+            response.raise_for_status();identity=response.json()['id'];table={'storage':'warehouse_commands','manufacturing':'production_commands','shipping':'shipping_commands','logistics':'transport_commands'}[app];field='outcome' if app=='shipping' else 'status'
             done=wait(lambda:row(app,f'SELECT * FROM {table} WHERE id=%s',identity),lambda v:v and v[field]!='pending',app+' '+body['action']);assert done[field]=='completed',done;return identity
         raise AssertionError('Could not schedule a command beyond the grant')
     def gate(source,target,stage):
@@ -66,6 +66,29 @@ def main():
         gate(source,target,'acknowledged')
         wait(lambda:row(target,f'SELECT state FROM {receivers[target]} WHERE unit_id=%s',identity),lambda v:v and v['state']=='acknowledged',target+' recovers lost acknowledgement')
         save(source+' to '+target+': late receipt and lost acknowledgement converged')
+    def inbound(identity,vehicle,faults=False):
+        correlation=str(uuid4())
+        command('logistics',{'action':'intake','sku':'COMPONENT','category':'raw','location':'WAREHOUSE','quantity':2,'correlation_id':correlation,'units':[{'id':identity,'quantity':2}]})
+        transfer=command('logistics',{'action':'request','route':'WAREHOUSE-DISPATCH','sku':'COMPONENT','quantity':2,'correlation_id':correlation,'unit_ids':[identity]})
+        command('logistics',{'action':'assign','reference':transfer,'vehicle':vehicle})
+        command('logistics',{'action':'load','reference':transfer})
+        loaded=unit('logistics',identity);assert loaded['position'].startswith('logistics.inbound.truck'),loaded
+        command('logistics',{'action':'depart','reference':transfer})
+        trip=row('logistics','SELECT * FROM transport_transfers WHERE id=%s',transfer)
+        wait(lambda:get('logistics','status')['run'],lambda value:value['granted']>=trip['planned_eta'],'inbound native truck reaches its ETA')
+        wait(lambda:row('logistics','SELECT status FROM transport_transfers WHERE id=%s',transfer),lambda value:value['status']=='arrived','durable native inbound arrival')
+        command('logistics',{'action':'unload','reference':transfer})
+        command('logistics',{'action':'receive','reference':transfer})
+        unloaded=unit('logistics',identity);assert unloaded['position'].startswith('logistics.inbound.dock'),unloaded
+        command('logistics',{'action':'handoff','reference':identity,'destination':'storage.inbound.dock01','correlation_id':correlation})
+        if faults:accepted('logistics','storage',identity)
+        else:wait(lambda:row('storage','SELECT state FROM warehouse_custody_receivers WHERE unit_id=%s',identity),lambda value:value and value['state']=='acknowledged','raw Storage receipt and source acknowledgement')
+        record.setdefault('inbound_trucks',[]).append({'unit_id':identity,'transfer_id':transfer,'loaded':loaded,'unloaded':unloaded})
+        save('native raw truck unloaded at its recorded dock and transferred the same barcode to Storage')
+    def customer_receipt(identity):
+        trip=wait(lambda:row('logistics',"SELECT * FROM transport_transfers WHERE run_id=%s AND unit_ids @> %s::jsonb",run,json.dumps([identity])),lambda value:value and value['status']=='unloaded','carrier unloads before explicit customer receipt')
+        command('logistics',{'action':'receive','reference':str(trip['id'])})
+        return row('logistics','SELECT * FROM transport_transfers WHERE id=%s',trip['id'])
     save()
     try:
         for app in clients:wait(lambda:get(app,'status'),lambda s:s['run']['state']=='running' and s['run']['granted']>0,app+' native initialization')
@@ -81,7 +104,7 @@ def main():
         order=command('shipping',{'action':'create','customer':'FACTORY-CUSTOMER','destination':'CUSTOMER-A','lines':[{'sku':'PRODUCT','quantity':1}]});command('shipping',{'action':'fulfil','reference':order});record['order_id']=order
         batch=wait(lambda:row('manufacturing','SELECT * FROM production_orders WHERE run_id=%s',run),bool,'actual Shipping shortage creates native Manufacturing demand')
         wait(lambda:row('manufacturing',"SELECT * FROM production_material_failures WHERE run_id=%s AND state='applied' LIMIT 1",run),bool,'actual raw shortage handled without stalling')
-        raw=str(uuid4());receipt=command('storage',{'action':'expect','sku':'COMPONENT','location':'RAW-A','quantity':2,'correlation_id':str(uuid4()),'units':[{'id':raw,'quantity':2}]});command('storage',{'action':'receive','reference':receipt});command('storage',{'action':'putaway','unit_id':raw,'destination':'storage.raw.r01.b01.l04'});record.update(raw_unit_id=raw,batch_id=str(batch['id']))
+        raw=str(uuid4());inbound(raw,'TRUCK-3',faults=True);command('storage',{'action':'putaway','unit_id':raw,'destination':'storage.raw.r01.b01.l04'});record.update(raw_unit_id=raw,batch_id=str(batch['id']))
         accepted('storage','manufacturing',raw)
         wait(lambda:unit('manufacturing',raw),lambda v:v['state']=='consumed','native recipe consumes the exact imported input')
         assert row('manufacturing','SELECT count(*) n FROM production_unit_inputs WHERE batch_id=%s AND unit_id=%s',batch['id'],raw)['n']==1
@@ -99,14 +122,16 @@ def main():
         wait(lambda:get('shipping','shipping/orders/'+order),lambda v:v['status']=='ready','own durable goods receipt makes Shipping ready before source echo')
         command('shipping',{'action':'pack','reference':order});command('shipping',{'action':'dispatch','reference':order})
         accepted('shipping','logistics',finished)
+        journey=customer_receipt(finished)
         delivered=wait(lambda:get('shipping','shipping/orders/'+order),lambda v:v['status']=='delivered','actual Go customer receipt completes Shipping while custody receipts are lost')
-        journey=row('logistics','SELECT * FROM transport_transfers WHERE run_id=%s',run);assert journey['status']=='received' and journey['custody']=='destination',journey
+        assert journey['status']=='received' and journey['custody']=='destination',journey
         assert unit('logistics',finished)['position'] is None,'Customer receipt cannot invent an in-facility location'
         shipping_version=unit('shipping',finished)['version'];close('shipping','logistics',finished);assert unit('shipping',finished)['version']==shipping_version,'Late carrier receipt retired Shipping twice'
         close('storage','shipping',finished)
         wait(lambda:row('shipping',"SELECT count(*) n FROM shipping_intents WHERE order_id=%s AND kind='receive' AND state='completed'",order),lambda v:v['n']==1,'late source business confirmation settles historical goods receipt')
         assert get('shipping','shipping/orders/'+order)['status']=='delivered' and unit('shipping',finished)['version']==shipping_version,'Late goods echo reversed onward delivery'
         storage_version=unit('storage',finished)['version'];close('manufacturing','storage',finished);assert unit('storage',finished)['version']==storage_version,'Old-generation Manufacturing acknowledgement changed onward Storage custody'
+        raw_storage_version=unit('storage',raw)['version'];close('logistics','storage',raw);assert unit('storage',raw)['version']==raw_storage_version,'Late inbound acknowledgement changed newer raw custody'
         # Contradictory, schema-valid acknowledgements traverse the real native
         # transport. Only transport outbox rows are injected, never business rows.
         quarantined={}
@@ -124,7 +149,7 @@ def main():
             assert case['envelope']==delivered_invalid,{'retained':case['envelope'],'delivered':delivered_invalid}
             assert get(target,domains[target])['handling']['units']==before,'Quarantine changed stock, counters or placement'
             assert get(target,'status')['run']['state']=='running','Bad proof stalled an independent native department'
-            quarantined[target]={'event_id':invalid['event_id'],'reason':case['reason']}
+            quarantined[source+'->'+target]={'event_id':invalid['event_id'],'reason':case['reason']}
         record['quarantined_receipts']=quarantined
         save('all four native receivers retained contradictory receipts without changing units or stopping execution')
         frames=[];drops={};snapshots={}
@@ -142,7 +167,7 @@ def main():
                 if e['event_id'] in events:assert events[e['event_id']]==e,'Retry changed immutable complete envelope'
                 events[e['event_id']]=e
             frames.extend(events.values());drops[app]=db[app].execute('SELECT source_owner,destination_owner,stage,dropped FROM factory_transport_gate ORDER BY source_owner,destination_owner,stage').fetchall()
-        assert sum(len(v) for v in drops.values())==12 and all(g['dropped']>=1 for values in drops.values() for g in values),drops
+        assert sum(len(v) for v in drops.values())==15 and all(g['dropped']>=1 for values in drops.values() for g in values),drops
         for app in ('manufacturing','storage','shipping','logistics'):
             v=unit(app,finished);assert v['barcode']=='HU-'+finished.replace('-','').upper() and v['quantity']==1 and v['state']=='dispatched' and v['position'] is None,(app,v)
         assert [unit(a,finished)['custody_generation'] for a in ('manufacturing','storage','shipping','logistics')]==[1,2,3,3]
@@ -154,8 +179,7 @@ def main():
         # This preserves the shortage/retry proof above and avoids racing a
         # pending customer allocation against the finished putaway command.
         rack_raw=str(uuid4())
-        rack_receipt=command('storage',{'action':'expect','sku':'COMPONENT','location':'RAW-A','quantity':2,'correlation_id':str(uuid4()),'units':[{'id':rack_raw,'quantity':2}]})
-        command('storage',{'action':'receive','reference':rack_receipt})
+        inbound(rack_raw,'TRUCK-4')
         command('storage',{'action':'putaway','unit_id':rack_raw,'destination':'storage.raw.r01.b01.l04'})
         rack_batch=command('manufacturing',{'action':'create','product':'PRODUCT','line':'LINE-1','quantity':1,'correlation_id':str(uuid4())})
         command('manufacturing',{'action':'release','reference':rack_batch})
@@ -178,6 +202,7 @@ def main():
         command('shipping',{'action':'dispatch','reference':rack_order})
         record['full_rack']['order_id']=rack_order
         save('second customer order retrieved the finished rack unit and requested carrier dispatch')
+        customer_receipt(rack_finished)
         rack_delivery=wait(lambda:get('shipping','shipping/orders/'+rack_order),lambda value:value['status']=='delivered','second native order reaches the customer')
         current={app:get(app,domains[app])['handling'] for app in domains}
         movements=current['storage']['movements']
@@ -186,7 +211,9 @@ def main():
         assert len(putaway)==len(retrieval)==1 and putaway[0]['sequence']<retrieval[0]['sequence'],(putaway,retrieval)
         assert retrieval[0]['destination'].startswith('storage.outbound.dock'),retrieval
         raw_moves=[move for move in movements if move['unit_id']==rack_raw]
-        assert any(move['action']=='receive' and move['destination'].startswith('storage.inbound.dock') for move in raw_moves),raw_moves
+        assert any(move['action']=='receive' and move['origin'].startswith('logistics.inbound.dock') and move['destination'].startswith('storage.inbound.dock') for move in raw_moves),raw_moves
+        unloads=[move for move in current['logistics']['movements'] if move['unit_id']==rack_raw and move['action']=='unload']
+        assert len(unloads)==1 and unloads[0]['origin'].startswith('logistics.inbound.truck') and unloads[0]['destination'].startswith('logistics.inbound.dock'),unloads
         assert any(move['action']=='putaway' and move['destination']=='storage.raw.r01.b01.l04' for move in raw_moves),raw_moves
         rack_lineage=[lineage for lineage in current['manufacturing']['lineage'] if lineage['batch_id']==rack_batch]
         assert len(rack_lineage)==1 and rack_lineage[0]['input_unit_ids']==[rack_raw] and rack_lineage[0]['output_unit_ids']==[rack_finished],rack_lineage
@@ -210,7 +237,7 @@ def main():
         record['reconciled_handling']=canonical
         assert len(canonical['units'])==4 and all(value['status']=='confirmed' and value['position'] is None for value in canonical['units']),canonical
         save('all four real HTTP projections agree with durable movements, lineage and receipt-based terminal custody')
-        record.update(status='passed',dropped_publications=drops,handling_frames=frames,handling=current,primary_handling=snapshots,customer_receipt={'journey_id':str(journey['id']),'destination':journey.get('customer_destination'),'received_at':journey['received_at']},twin_present=False);save('four native departments completed two conserved recipe/order cycles, the finished rack and all twelve first-cycle transport losses')
+        record.update(status='passed',dropped_publications=drops,handling_frames=frames,handling=current,primary_handling=snapshots,customer_receipt={'journey_id':str(journey['id']),'destination':journey.get('customer_destination'),'received_at':journey['received_at']},twin_present=False);save('four native departments completed two conserved recipe/order cycles, the finished rack and all fifteen first-cycle transport losses')
     except Exception as error:
         record.update(status='failed',error=str(error),diagnostics={})
         # Preserve authoritative queue and transport state before disposable

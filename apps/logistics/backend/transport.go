@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"io"
 	"regexp"
+	"strings"
 )
 
 type Location struct {
@@ -80,6 +81,7 @@ type HandlingManifest struct {
 }
 
 type TransportCommand struct {
+	Destination         string             `json:"destination,omitempty"`
 	CustomerDestination string             `json:"customer_destination,omitempty"`
 	ExpectedUnits       []HandlingManifest `json:"expected_units,omitempty"`
 	ExpectedSource      string             `json:"expected_source,omitempty"`
@@ -122,6 +124,8 @@ func parseTransport(r io.Reader) (TransportCommand, error) {
 	case "request":
 		required = append(required, "route", "sku", "quantity", "correlation_id", "unit_ids")
 		allowed["external_reference"] = true
+	case "handoff":
+		required = append(required, "reference", "destination", "correlation_id")
 	case "assign":
 		required = append(required, "reference", "vehicle")
 	case "load", "depart", "arrive", "unload", "receive":
@@ -202,6 +206,14 @@ func parseTransport(r io.Reader) (TransportCommand, error) {
 	} else if c.Action != "intake" {
 		if _, e = uuid.Parse(c.Reference); e != nil {
 			return c, e
+		}
+	}
+	if c.Action == "handoff" {
+		if _, e = uuid.Parse(c.CorrelationID); e != nil {
+			return c, e
+		}
+		if !custodyEndpoint(c.Destination, "storage", "raw") || !strings.HasPrefix(c.Destination, "storage.inbound.dock") {
+			return c, errors.New("exact Storage inbound dock required")
 		}
 	}
 	if c.Action == "assign" && !transportCode.MatchString(c.Vehicle) {

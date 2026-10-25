@@ -54,6 +54,46 @@ func TestTransportInternalNamespaceReservedOnLegacyEndpoint(t *testing.T) {
 	transportRequest(t, s, "POST", "/api/jobs", "transport:arrival:reserved", row{"due_at": 1, "quantity": 1}, 409)
 }
 
+func TestLocalTransportFactsDoNotLeakIntoShippingOrRawCustodySupply(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	id := requestedTransfer(t, s, 2)
+	tr := transferByID(t, s, id)
+	r, _ := s.Run(ctx)
+	local, _ := json.Marshal(row{"type": "logistics.request.completed.v1", "transfer": tr, "command_id": uuid.NewString(), "time": 1})
+	tr["external_reference"] = uuid.NewString()
+	requested, _ := json.Marshal(row{"type": "logistics.unload.completed.v1", "transfer": tr, "command_id": uuid.NewString(), "time": 2})
+	for _, raw := range [][]byte{local, requested} {
+		if _, err := s.DB.Exec(ctx, "INSERT INTO boundary_outbox(id,run_id,envelope) VALUES($1,$2,$3)", uuid.NewString(), r["id"], raw); err != nil {
+			t.Fatal(err)
+		}
+	}
+	publications := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		var body row
+		json.NewDecoder(req.Body).Decode(&body)
+		if body["operation"] == "publish" {
+			publications++
+			payload := body["payload"].(map[string]any)
+			e := payload["envelope"].(map[string]any)
+			if payload["endpoint"] != "shipping/events" || e["type"] != "logistics.unload.completed.v1" {
+				t.Errorf("unowned transport output escaped: %v", payload)
+			}
+		}
+		json.NewEncoder(w).Encode(row{"version": "1.0", "request_id": body["request_id"], "result": row{"state": "executing"}})
+	}))
+	defer server.Close()
+	s.C.AdapterURL = server.URL
+	s.C.Outputs = []Output{{Endpoint: "shipping/events", Destination: "shipping", Boundary: "carrier"}, {Endpoint: "storage/events", Destination: "storage", Boundary: "supply"}}
+	a := &Adapter{Store: s, RunID: r["id"].(string), Epoch: r["epoch"].(string), SessionID: uuid.NewString(), Client: server.Client()}
+	if err := a.settle(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	if publications != 1 {
+		t.Fatalf("expected only the referenced Shipping outcome, got %d publications", publications)
+	}
+}
+
 func TestCustodyOutputPreservesEnvelopeAndUsesOnlyConfiguredRecipient(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()

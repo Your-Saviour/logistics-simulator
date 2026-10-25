@@ -300,7 +300,12 @@ func (a *Adapter) settle(ctx context.Context, r row) error {
 			} else if out["envelope"].(map[string]any)["transfer"] != nil {
 				body := out["envelope"].(map[string]any)
 				tr := body["transfer"].(map[string]any)
-				if route.Destination == "storage" && (body["type"] != "logistics.unload.completed.v1" || tr["external_reference"] == nil) {
+				// Local fleet work has no peer request to answer. Raw custody
+				// uses complete typed supply envelopes, not legacy arrival facts.
+				if tr["external_reference"] == nil {
+					continue
+				}
+				if route.Destination == "storage" && (route.Boundary != "requests" || body["type"] != "logistics.unload.completed.v1") {
 					continue
 				}
 				envelope = transportBoundaryEnvelope(a.Store.C, r, out, route)

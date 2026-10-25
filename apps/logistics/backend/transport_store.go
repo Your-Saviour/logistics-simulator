@@ -129,7 +129,7 @@ func (s *Store) ScheduleTransport(ctx context.Context, key string, c TransportCo
 	})
 	return
 }
-func executeTransport(ctx context.Context, tx pgx.Tx, r, j row) error {
+func (s *Store) executeTransport(ctx context.Context, tx pgx.Tx, r, j row) error {
 	var c TransportCommand
 	raw, _ := json.Marshal(j["payload"].(map[string]any)["transport"])
 	if e := json.Unmarshal(raw, &c); e != nil {
@@ -139,7 +139,7 @@ func executeTransport(ctx context.Context, tx pgx.Tx, r, j row) error {
 	if e != nil {
 		return e
 	}
-	e = applyTransport(ctx, save, r, j, c)
+	e = s.applyTransport(ctx, save, r, j, c)
 	var conflict Conflict
 	if errors.As(e, &conflict) {
 		if err := save.Rollback(ctx); err != nil {
@@ -164,9 +164,12 @@ func executeTransport(ctx context.Context, tx pgx.Tx, r, j row) error {
 	_, e = tx.Exec(ctx, "UPDATE jobs SET status='completed',error=NULL WHERE id=$1", j["id"])
 	return e
 }
-func applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand) error {
+func (s *Store) applyTransport(ctx context.Context, tx pgx.Tx, r, j row, c TransportCommand) error {
 	if e := ensureTransport(ctx, tx, r); e != nil {
 		return e
+	}
+	if c.Action == "handoff" {
+		return s.beginSourceCustody(ctx, tx, r, j, c)
 	}
 	if c.Action == "intake" {
 		return intakeHandling(ctx, tx, r, j, c)
