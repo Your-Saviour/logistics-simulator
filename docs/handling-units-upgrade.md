@@ -1,105 +1,296 @@
-# Handling units: upgrade and recovery
+# Handling-unit upgrade (SIMU-64)
 
-This change does not perform a live cutover. Each department retains its own
-API, worker, controller and SQL transactions. The private adapter alone owns
-native HELICS; Twin remains an optional observer.
+This is an additive upgrade under development. It performs no live cutover.
+Do not run old quantity-only writers concurrently with whole-unit writers.
+Retain database volumes and take a verified backup before applying new migrations.
 
-## Additive migrations
+## Storage
 
-Apply migrations through the corresponding application's normal startup. Retain
-existing migration checksums and database volumes. The handling additions are:
+Migration `009_handling_units.sql` adds the unit ledger, barcode constraints,
+single-slot placement index, immutable allocation membership and sequenced
+physical movement records. Earlier migration files remain unchanged. It does
+not turn existing aggregate stock into invented barcodes or shelf placements.
 
-| Owner | Migration directory | Handling additions |
-| --- | --- | --- |
-| Storage | `apps/storage/backend/migrations` | 009–013 |
-| Manufacturing | `apps/manufacturing/backend/src/main/resources/migrations` | 009–014 |
-| Logistics | `apps/logistics/backend/migrations` | 008–015 |
-| Shipping | `apps/shipping/migrations` | 010–016 |
-| Twin | `migrations` | 006, following the existing 004–005 read model |
+Drain expected receipts, live reservations and in-transit transfers before
+conversion. Existing unconverted quantities appear in
+`GET /api/warehouse` → `handling.legacy_stock`; reservation of such quantities
+fails with a conversion reason. Existing active work without unit identities
+requires operator reconciliation, never a guessed allocation or lineage.
 
-The migrations add ledgers, retained handoffs, recovery/quarantine records and
-whole-order goods reservations. They do not reconstruct barcodes or positions
-from old aggregate quantities. Twin's immutable manifest registry retains unit
-identity across source removal, restart and epoch retirement.
-
-## Before enabling whole-unit operations
-
-1. Stop admitting new operational commands. Let current receipts, reservations,
-   manufacturing batches, shipments and custody handoffs finish or resolve them
-   with their owning department.
-2. Coordinate controller shutdown/holds after draining. Preserve adapter
-   publications, command receipts and closed handoff evidence. Do not run old
-   and new controllers concurrently against the same run.
-3. Take and verify backups of each owning database and its migration ledger.
-4. Apply the matching native application and adapter versions. Check that peers
-   agree on run/epoch, catalog version and departure-token protocol.
-5. Inspect aggregate stock for legacy/unplaced quantities. Submit an explicit
-   conversion manifest before allocating that stock as whole units.
-
-## Warehouse conversion
-
-Submit an explicit conversion to the authenticated
-`POST /api/warehouse/commands` endpoint with `action: "convert"`. This template
-requires real operator-selected IDs, the current scope and a valid scheduled
-`due_at`; its placeholders are not runnable values:
+An operator can queue `action: "convert"` through the existing authenticated
+`POST /api/warehouse/commands` with an `Idempotency-Key`. Supply current `run_id`,
+`epoch`, a valid future `due_at`, `sku`, logical `location`, exact total `quantity`,
+`correlation_id` and `units`, for example:
 
 ```json
 {
-  "run_id": "<current run UUID>",
-  "epoch": "<current epoch UUID>",
-  "due_at": 0,
-  "action": "convert",
-  "sku": "COMPONENT",
-  "location": "RAW-A",
-  "quantity": 2,
-  "correlation_id": "<new correlation UUID>",
   "units": [
-    {
-      "id": "<new unit UUID>",
-      "quantity": 2,
-      "position": "storage.raw.r01.b01.l01"
-    }
+    {"id": "a1111111-1111-4111-8111-111111111111", "quantity": 4, "position": "storage.raw.r01.b01.l01"},
+    {"id": "a2222222-2222-4222-8222-222222222222", "quantity": 6, "position": "storage.raw.r01.b02.l01"}
   ]
 }
 ```
 
-Set `due_at` using the current run's scheduling rules. Preserve the
-`Idempotency-Key` and the entire request when retrying. An accepted HTTP command
-is queued work: inspect its completed outcome before relying on the conversion.
+The omitted command fields above depend on the live run and stock; read them
+before submitting. The manifest must exactly conserve that location/SKU's
+untouched unreserved aggregate stock. IDs must be fresh; positions must belong
+to Storage, accept the SKU category, and have capacity. Conversion commits all
+units or none, retains its command receipt/provenance and emits no fictional
+historical physical movements. Identical command retries retain their identity;
+altered manifests under the same key conflict.
 
-The manifest must exactly conserve the SKU quantity at the logical location.
-Units require fresh identities and compatible, free catalog endpoints. Active
-receipts, reservations and transfers must be drained; aggregate reserved stock
-must be zero. A conflict leaves aggregate stock and unit records unchanged.
-Conversion records provenance and creates no invented past movement. Barcodes
-are derived from UUIDs; quantities on an existing unit are immutable.
+New `expect` commands require an explicit `units` manifest containing unit UUIDs
+and whole quantities summing exactly to the receipt quantity. `receive` assigns
+exact available inbound or finished-receipt dock positions. `putaway` and
+`retrieve` take `unit_id` and catalog `destination`; they use the same run/epoch,
+grant barrier, worker and idempotency path as existing commands. No partial picks
+or implicit unit creation from legacy quantities are supported.
 
-Existing manufacturing/material or shipment work without whole-unit evidence
-must be drained or reconciled by its owner. Do not fabricate a destination
-receipt or edit ledgers directly to make a legacy workflow appear converted.
+Rollback to old writers is supported only before whole-unit writes are enabled,
+or by restoring a verified pre-upgrade backup and reconciling operations. Old
+binaries cannot preserve the new unit invariants after those writes occur.
 
-## Interrupted custody and projection recovery
+## Manufacturing
 
-Restart the owning roles using the application's normal procedure. Durable
-outboxes retry the same handoff evidence; timeout alone cannot restore source
-stock or confirm destination receipt. An accepted destination reserves capacity
-but is not stock. Retain receipt IDs, departure tokens and closed handoffs until
-retries converge. Inspect quarantine before resolving inconsistent scope,
-identity, contents or proof; do not silently rewrite a rejected manifest.
+Migration `009_handling_units.sql` is appended to the native migration index.
+It adds barcoded raw/finished units, single-position capacity constraints,
+once-only input consumption membership, completed batch lineage and durable
+physical receipt/production movements. Applied migrations 001–008 are unchanged.
 
-A disconnected Twin retains last recorded observations. It does not authorize
-business work. Conflicted or unobserved custody has no confirmed 3D placement;
-unknown endpoint strings remain unmapped. Reconnecting an observer cannot
-advance a business transaction.
+`supply` requires an explicit `units` manifest of fresh UUIDs and quantities
+summing to the command quantity. The website plans one whole unit per receipt.
+The fixed facility maps the first four configured production lines, in persisted
+configuration order, to `manufacturing.cell01` through `cell04`. Raw receipts use
+input positions; good output uses output positions. A batch waits when its exact
+recipe cannot be made from whole units at its cell, or when output positions are
+full. It never splits inputs. Start atomically consumes whole inputs and records
+batch membership; completion creates a fresh output unit and durable lineage.
+All-scrap batches retain their input lineage and create no zero-quantity unit.
 
-Old writers cannot preserve the new invariants after whole-unit writes begin.
-A rollback requires a verified pre-upgrade backup and coordinated operational
-reconciliation. Do not delete applied migrations or reuse immutable unit IDs in
-a new epoch.
+Unconverted raw quantities appear in `handling.legacy_stock`. After draining
+active work orders and pending boundary work, an operator can queue `convert`
+through `POST /api/production/commands` with current run/epoch, future `due_at`,
+`sku`, exact legacy `quantity`, and `units` containing UUID, quantity and exact
+`manufacturing.cellNN.inputNN` position. Conversion requires untouched legacy
+stock and commits atomically without changing aggregate quantity or fabricating
+physical history. Preserve its idempotency key when retrying. Existing running
+batches without whole-input provenance require operator reconciliation; the new
+worker will not manufacture invented output lineage for them.
 
-## Disposable local checks
+Legacy quantity-only Storage facts remain visible observations. They do not
+authorize material placement or create new barcodes in Manufacturing. The
+cross-database token/acknowledgement protocol must be deployed before enabling
+connected whole-unit operations. Independent reset never imports old-scope stock.
 
-Build and test only through the guarded Make targets. Unit and stack checks use
-fresh Compose projects and remove their disposable volumes during teardown.
-Keep the default 20 GiB reserve. Persistent application volumes are outside
-those test projects; cleanup must never use blanket volume pruning.
+## Logistics
+
+Migration `008_handling_units.sql` adds unit-linked transport manifests, unique
+active allocations, exact truck/staging placement and sequenced physical history.
+It does not backfill identities for old quantity-only transfers. Drain those
+transfers before upgrading; the worker rejects attempts to move unreconciled
+legacy loads rather than inventing barcodes.
+
+Initial stock fixtures use `intake` through the normal transport command endpoint
+with run/epoch, future due time, SKU, raw/finished `category`, exact `quantity`,
+correlation ID and explicit `units` (UUID and quantity). Optional `location` is
+the configured logical route origin; it is separate from the recorded physical
+endpoint. The service assigns compatible finite staging positions. Real custody
+imports must use the handoff protocol, preserving the existing barcode.
+
+`request` requires `unit_ids`. Selected units must be available in this run/epoch,
+at the logical origin, with exactly the requested SKU/quantity. Loading validates
+both vehicle quantity capacity and its eight physical slots, committing every
+unit or none. Departure clears confirmed placement and preserves origin/intended
+destination. Unload and receipt remain separate. An off-site trip retains unknown
+world position until confirmation; it does not acquire an invented scene coordinate.
+
+Quantity-only legacy Storage transfer facts are retained observations and cannot
+create transport stock. Source projection and the website receive unit data plus
+`unit_context` (logical origin/current transfer); logical names are never scene
+coordinates. Cross-database token/acknowledgement integration remains required
+before connected whole-unit cutover.
+
+## Shipping local units and custody protocol
+
+Shipping migrations `010`–`014` add immutable single-SKU unit contents, unique
+barcodes and occupied positions, active line allocations, explicit synthetic
+supply plans, sequenced movements and durable incoming/outgoing handoffs. Old
+quantity-only orders remain historical records; they are not backfilled with
+invented barcodes or positions. Drain active workflows before upgrading.
+
+`intake` accepts a complete `sku`, `quantity` and explicit `units` manifest of
+UUID/quantity entries. It creates stock only at compatible, free Shipping
+positions; rejection rolls back the complete manifest. Fulfilment first searches
+for an exact subset of available whole units. Synthetic replenishment creates
+new, explicitly planned units; an existing larger unit remains intact. Packing
+requires owned, reserved units with confirmed physical positions.
+
+The native custody receiver persists slot acceptance without placing stock.
+Only the matching source departure token can import the reserved barcode,
+contents, generation and continuing movement sequence. The native source clears
+placement before publishing departure and acknowledges only its exact departure
+proof. Conflicting identities, endpoints, contents and receipts reject atomically.
+Temporary destination capacity rejection marks the original command retryable;
+the identical peer offer can requeue that same command after capacity frees.
+Pending source offers fence release and alternative synthetic departure.
+Pending stages retry at five-second wall-clock intervals using the same immutable
+event envelope; a fresh private adapter operation performs each actual retry.
+Duplicate receipt messages can recover a lost acknowledgement without repeating
+retirement or movement history. Protocol evidence received after its original
+simulation time runs at the current grant and cannot rewind history.
+
+These PHP protocol components and controlled peer fixtures are not evidence of
+a connected four-department lifecycle. The automatic carrier integration below
+adds real two-department evidence; other native participants and whole-factory
+connected acceptance remain required before any whole-unit cutover.
+Known returning barcodes currently require explicit reconciliation rather than
+automatic re-import.
+
+## Logistics custody receiver
+
+Migrations `009` and `010` add a separate durable custody ledger and incoming
+control-event journal. Accepted offers reserve their exact compatible endpoint
+without creating stock. Matching departure evidence imports the original unit
+with the next movement sequence; an acknowledgement closes the receiver record.
+The complete native snapshot retains accepted, received and acknowledged states.
+
+Temporary slot pressure leaves the offer unaccepted and marks its command
+retryable. Identical peer redelivery can requeue that same job once capacity is
+free. Lost acceptance/receipt replies reuse the full original envelope and a new
+private adapter operation, with at most one unsent retry per event. The adapter
+relays only to an explicitly matching recipient/boundary route. Counter bounds
+reserve PostgreSQL integer headroom for source departure and destination receipt;
+exhausted local counters reject before mutation rather than failing SQL arithmetic.
+
+These receiver components use existing configured peer endpoints. The next
+section covers provisional requests and vehicle coupling. Onward Logistics
+source handoffs, explicit multi-peer routing and full-factory connected
+acceptance remain required.
+
+## Automatic Shipping-to-Logistics dispatch
+
+Logistics migrations `011`–`014` add expected memberships, a separate customer
+address and run/epoch-scoped receiving-slot reservations. A configured Shipping
+peer sends `unit_ids`, an exact `unit_manifest` and `customer_destination` with
+its carrier request. These are expectations, not stock. Public Logistics commands
+still require owned units and cannot create peer-only expectations.
+
+Assignment reserves every staging endpoint for the complete manifest in one
+transaction, alongside vehicle capacity. Its `unit_destinations` mapping triggers
+Shipping's worker to offer those exact units to those exact endpoints. Shipping
+keeps its placements until acceptance. Logistics binds received units to the
+expected transfer, waits for every receipt before loading, and releases staging
+reservations after the atomic truck load. Peer receipts cannot bypass vehicle
+loading by placing stock directly into truck slots. The wire supports at most
+eight whole units per line; Shipping rejects an unsupported dispatch before
+creating a shipment or outbox entry. No unit or quantity is split or clamped.
+
+The route's existing `destination` remains its logical stop. The additive
+`customer_destination` preserves the order address for carrier confirmations.
+Shipping's journey reference uses the actual confirmed carrier transfer ID.
+A late custody receipt can acknowledge the same generation after confirmed
+delivery already retired it, without another retirement; newer generations fence
+that receipt.
+
+Run `make handling-carrier-check` for a disposable real PHP/Go/native HELICS pair
+with Twin absent. It uses configured synthetic goods and customer providers,
+then verifies the actual carrier request, reserved endpoints, same barcode and
+contents in both databases, receipt/load history, customer delivery and custody
+acknowledgement. Transport-only fault gates suppress receipts until after delivery
+and suppress the first acknowledgements; durable retries must converge without
+extra source retirement. The gate never changes stock or business records.
+Artifacts are under `.superpowers/sdd/2026-10-25-simu64-implementation/carrier-native`.
+This is outbound-pair evidence, not Storage/Manufacturing or whole-factory
+acceptance.
+
+## Native Storage-to-Shipping transfers
+
+Storage migration `012_shipping_custody_source.sql` adds the external destination
+owner and an `awaiting_acceptance` transfer state. Shipping migration
+`015_goods_reservations.sql` retains canonical reservation facts and receiving
+plans. Existing transfers keep their existing internal Storage destination;
+their destination owner is not guessed or backfilled as Shipping.
+
+Drain old connected customer transfers and quantity-only pending writers before
+enabling the new route. An existing internal DISPATCH receipt is not a Shipping
+custody receipt. Preserve the original records and reconcile incomplete legacy
+orders through the established drain/conversion process.
+
+Configure Storage's request peers with Manufacturing and Shipping, and its
+outputs with Manufacturing `materials` and Shipping `goods`. Shipping requires
+Storage on `goods` and Logistics on `carrier`; `goods` can also include
+Manufacturing. Finished-stock feedback comes from Storage. Shipping
+outgoing routes are Storage `requests`,
+Manufacturing `demand` and Logistics `transport`. Customer reservation manifests
+contain at most eight whole units per line. Shipping reserves receiving capacity
+for the complete order before picks begin. Source reference commands are fenced
+to their originating peer.
+
+`make handling-factory-check` runs the four real departmental backends, four
+private adapters and a native HELICS broker without Twin. It starts an order
+against empty stock, adds an explicit raw receipt through Storage's API, and
+checks recipe consumption, fresh output lineage, all four custody legs and the
+native customer receipt. Twelve publication gates drop acceptance, receipt and
+acknowledgement messages. The verifier checks that late confirmations preserve
+onward delivery and newer custody generations. This is local single-order
+acceptance; renderer performance and broader outage/upgrade acceptance remain
+separate checks.
+
+## Custody quarantine
+
+Each department exposes durable rejected custody evidence in its existing API
+and projection under `handling.quarantine`. Records retain the original envelope,
+peer endpoint, reason, ingest/application phase, observation time and optional
+command reference. The record's `run_id` and `epoch` identify the observing run;
+the original envelope retains its claimed scope, including a rejected old epoch.
+
+Configured peers with valid envelope headers can produce inspectable quarantine
+cases for stale scope, changed event identity, malformed custody payloads and
+contradictory proofs. Unknown peers and invalid headers remain transport errors.
+Application quarantine commits after the failed business savepoint is rolled
+back. Capacity waits retain their normal retry path. Repeating the same rejected
+frame does not allocate another unit, create more work or replace accepted
+history. Quarantine records are evidence for reconciliation; they do not restore
+source stock or authorize a new receipt.
+
+`handling-factory-check` also sends contradictory receipt acknowledgements over
+the real native transport to all four receivers and verifies retained cases,
+unchanged units and continuing execution.
+
+## Twin read model and viewer
+
+Root migration `006_twin_unit_manifests.sql` extends the existing 004–005 Twin
+read model with immutable observed unit identity and per-source conflict
+evidence. Apply it through normal Twin startup without editing earlier checksums
+or removing its data volume. Registry entries survive source removal, restart
+and epoch retirement; they are not business inventory.
+
+The consumer requires complete movement/lineage events matching each handling
+snapshot. It commits accepted manifests, events, snapshot and cursor together.
+A rejected conflicting observation preserves the last successful snapshot and
+records a typed source conflict separately. Correcting the source and accepting
+a valid observation clears that source's conflict evidence.
+
+Custody reconciliation follows durable departure/receipt proofs, never source
+clock or HTTP arrival order. Conflicting and unobserved custody has no confirmed
+3D placement. Unknown endpoint strings remain inspectable without coordinates.
+The keyboard-accessible inspector and lineage links work without WebGL. Source
+holds/disconnection freeze visual replay; reduced motion uses recorded placement.
+Generated robots, routes and timings do not write business state.
+
+Run `make handling-performance-check` for the explicit 500-unit/64-journey,
+30-second browser benchmark. Current local software rendering does **not** meet
+the 33.4 ms p95 target; see
+[verification results](handling-units-verification.md) and
+[raw local measurement](handling-performance-local.json). Do not substitute a
+static screenshot or model test for a passing rendering-budget result.
+
+## Disposable verification resources
+
+Framework unit checks and stack checks use fresh Compose projects and remove
+their test volumes at teardown. Keep the default 20 GiB Docker guard reserve.
+Persistent application volumes are outside these projects. No blanket volume
+pruning, automatic live cutover or rollback to old writers is performed.
+
+The shared protocol is documented in
+[`contracts/handling/v1/README.md`](../contracts/handling/v1/README.md).
