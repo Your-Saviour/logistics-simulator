@@ -13,6 +13,13 @@ final class Ot {
   var request=Map.of("version","1.0","command_id",id,"run_id",run.get("id"),"epoch",run.get("epoch"),"session_id",cell.get("session_id"),"operation",operation,"payload",payload);
   sql(c,"INSERT INTO ot_operations(id,run_id,epoch,session_id,order_id,op_key,operation,request) VALUES (?,?,?,?,?,?,?,?::jsonb) ON CONFLICT(run_id,op_key) DO NOTHING",id,run.get("id"),run.get("epoch"),cell.get("session_id"),cell.get("active_order"),key,operation,Json.write(request));return id;
  }
+ /** Admit every interval of an actual grant in its SQL transaction, before Hold can interleave. */
+ static void admit(Connection c,Map<String,Object> run,double granted,String blocked)throws SQLException{
+  if(!enabled(run)||!run.get("state").equals("running"))return;
+  if(granted>65535)throw new Conflict("OT logical sequence exhausted; controlled new epoch required");
+  var cell=one(c,"SELECT * FROM ot_cells WHERE run_id=? AND initialized AND NOT finalized",run.get("id"));if(cell==null)return;
+  for(long target=((Number)cell.get("settled")).longValue()+1;target<=Math.floor(granted);target++)issue(c,run,"step:"+target,"step",Map.of("simulation_time",target,"power_available",blocked==null),null);
+ }
  static boolean outstanding(Connection c,Map<String,Object> run)throws SQLException{
   if(!enabled(run))return false;var cell=one(c,"SELECT * FROM ot_cells WHERE run_id=?",run.get("id"));
   return cell==null||!Boolean.TRUE.equals(cell.get("initialized"))||number(cell,"settled")<Math.floor(number(run,"granted"))||one(c,"SELECT 1 FROM ot_operations WHERE run_id=? AND status='pending' LIMIT 1",run.get("id"))!=null;
@@ -27,7 +34,7 @@ final class Ot {
   var admitted=one(c,"SELECT * FROM ot_operations WHERE run_id=? AND epoch=? AND status='pending' AND operation='step' ORDER BY ordinal LIMIT 1",run.get("id"),run.get("epoch"));if(admitted!=null)return admitted;
   long target=((Number)cell.get("settled")).longValue()+1;
   if(target<=Math.floor(number(run,"granted"))){
-   if(!run.get("state").equals("running")||Boolean.TRUE.equals(cell.get("finalized")))return null;
+   if(!run.get("state").equals("running")||Boolean.TRUE.equals(cell.get("finalized")))return pending;
    UUID id=issue(c,run,"step:"+target,"step",Map.of("simulation_time",target,"power_available",run.get("blocked_reason")==null),null);return one(c,"SELECT * FROM ot_operations WHERE id=?",id);
   }
   return pending;
@@ -56,8 +63,8 @@ final class Ot {
   Policy.fields(body,"run_id","epoch","action","fault","active");UUID runId=Policy.uuid(body.get("run_id")),epoch=Policy.uuid(body.get("epoch"));String action=body.path("action").asText();if(!Set.of("start","stop","reset","fault").contains(action))throw new IllegalArgumentException("Unknown OT action");if(action.equals("fault")){if(!Set.of("conveyor_jam","sensor_failure","guard_open","power_loss").contains(body.path("fault").asText())||!body.path("active").isBoolean())throw new IllegalArgumentException("Known fault and boolean active required");}else if(body.has("fault")||body.has("active"))throw new IllegalArgumentException("Fault fields require fault action");
   if(audit==null||!audit.role().equals("operator"))throw new Conflict("OT controls require an attributed operator");if(key==null||key.isBlank()||key.length()>128)throw new IllegalArgumentException("Idempotency-Key of 1..128 characters required");
   return s.tx(c->{var run=current(c);if(!run.get("id").equals(runId)||!run.get("epoch").equals(epoch))throw new Conflict("Stale OT command scope");if(!enabled(run))throw new Conflict("OT is disabled for this run");var old=one(c,"SELECT * FROM ot_commands WHERE run_id=? AND actor=? AND idempotency_key=?",runId,audit.actor(),key);if(old!=null){if(!json(old.get("body")).equals(body))throw new Conflict("OT idempotency key conflicts with prior body");return old;}
-   if(!Set.of("running","held").contains(run.get("state"))||action.equals("start")&&!run.get("state").equals("running"))throw new Conflict("Run state does not admit this OT action");
-   UUID id=Store.uuid5(epoch,"ot.operator:"+audit.actor()+":"+key);var payload=new LinkedHashMap<String,Object>();payload.put("action",action);if(action.equals("fault")){payload.put("fault",body.path("fault").asText());payload.put("active",body.path("active").asBoolean());}issue(c,run,"control:"+id,"control",payload,id);sql(c,"INSERT INTO ot_commands(id,run_id,epoch,actor,idempotency_key,body) VALUES (?,?,?,?,?,?::jsonb)",id,runId,epoch,audit.actor(),key,Json.write(body));s.accepted(c,run,audit,id);return one(c,"SELECT * FROM ot_commands WHERE id=?",id);
+   boolean rejected=!Set.of("running","held").contains(run.get("state"))||action.equals("start")&&!run.get("state").equals("running");
+   UUID id=Store.uuid5(epoch,"ot.operator:"+audit.actor()+":"+key);var payload=new LinkedHashMap<String,Object>();payload.put("action",action);if(action.equals("fault")){payload.put("fault",body.path("fault").asText());payload.put("active",body.path("active").asBoolean());}issue(c,run,"control:"+id,"control",payload,id);sql(c,"INSERT INTO ot_commands(id,run_id,epoch,actor,idempotency_key,body) VALUES (?,?,?,?,?,?::jsonb)",id,runId,epoch,audit.actor(),key,Json.write(body));if(rejected){String reason="Run state does not admit this OT action";sql(c,"UPDATE ot_operations SET status='rejected',reason=? WHERE id=?",reason,id);sql(c,"UPDATE ot_commands SET status='rejected',reason=? WHERE id=?",reason,id);}s.accepted(c,run,audit,id);return one(c,"SELECT * FROM ot_commands WHERE id=?",id);
   });
  }
  static void rejected(Store s,UUID id,String reason){s.tx(c->{var run=current(c);var op=one(c,"SELECT * FROM ot_operations WHERE id=? AND run_id=? AND epoch=?",id,run.get("id"),run.get("epoch"));if(op==null)throw new Conflict("Stale OT rejection");if(!op.get("operation").equals("control"))throw new Conflict("Equipment rejected durable batch execution: "+reason);sql(c,"UPDATE ot_operations SET status='rejected',reason=? WHERE id=? AND status='pending'",cut(reason,1000),id);sql(c,"UPDATE ot_commands SET status='rejected',reason=? WHERE id=?",cut(reason,1000),id);return null;});}

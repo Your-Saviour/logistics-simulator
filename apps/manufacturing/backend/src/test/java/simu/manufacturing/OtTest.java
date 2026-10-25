@@ -11,18 +11,35 @@ class OtTest {
  @AfterEach void cleanup(){if(store!=null){var disabled=new Store(new Settings(Map.of("DATABASE_URL",System.getenv("MANUFACTURING_TEST_DATABASE"),"APP_PASSWORD","test")));try{disabled.control("reset",1,store.run().get("id").toString(),null,null);}finally{disabled.pool.close();store.pool.close();}}}
  Map<String,Object> acquire(){return Ot.acquire(store,UUID.randomUUID());}
  Map<String,Object> next(){return Ot.next(store);}
- void acknowledge(Map<String,Object> op){var request=Store.json(op.get("request"));var payload=request.path("payload");var result=new LinkedHashMap<String,Object>();result.put("initialized",true);result.put("scope",Map.of("run_id",request.path("run_id").asText(),"epoch",request.path("epoch").asText(),"session_id",request.path("session_id").asText()));result.put("simulation_time",request.path("operation").asText().equals("step")?payload.path("simulation_time").asInt():store.tx(c->Store.one(c,"SELECT settled FROM ot_cells WHERE run_id=?",request.path("run_id").asText().isEmpty()?null:UUID.fromString(request.path("run_id").asText()))).get("settled"));result.put("sequence",1);result.put("cell",Map.of("completed",false));Ot.acknowledge(store,Store.uuid(op.get("id")),Json.M.valueToTree(Map.of("version","1.0","command_id",op.get("id"),"result",result)));}
+ void acknowledge(Map<String,Object> op){var request=Store.json(op.get("request"));var payload=request.path("payload");var result=new LinkedHashMap<String,Object>();result.put("initialized",true);result.put("scope",Map.of("run_id",request.path("run_id").asText(),"epoch",request.path("epoch").asText(),"session_id",request.path("session_id").asText()));result.put("simulation_time",request.path("operation").asText().equals("step")?payload.path("simulation_time").asInt():store.tx(c->Store.one(c,"SELECT settled FROM ot_cells WHERE run_id=?",request.path("run_id").asText().isEmpty()?null:UUID.fromString(request.path("run_id").asText()))).get("settled"));result.put("sequence",1);result.put("finalized",request.path("operation").asText().equals("finalize"));result.put("cell",Map.of("completed",false));Ot.acknowledge(store,Store.uuid(op.get("id")),Json.M.valueToTree(Map.of("version","1.0","command_id",op.get("id"),"result",result)));}
  @Test void configuredModeRequiresExplicitEndpointTokenAndWholeQuantum(){
   var env=new HashMap<>(environment());env.put("OT_MODE","unknown");assertThrows(IllegalArgumentException.class,()->new Settings(env));
   env.put("OT_MODE","openplc");env.put("OT_EQUIPMENT_TOKEN","");assertThrows(IllegalArgumentException.class,()->new Settings(env));
   env.put("OT_EQUIPMENT_TOKEN","test-equipment-token");env.put("HANDOFF_QUANTUM","1.5");assertThrows(IllegalArgumentException.class,()->new Settings(env));
  }
- @Test void unadmittedGrantBlocksPreparationAndHeldRunCannotAdmitSteps(){
-  acquire();acknowledge(next());var epoch=store.run().get("epoch");store.grant(1,epoch,null);
-  assertFalse(store.prepare(2,epoch),"The grant itself must create the equipment barrier before a step intent exists");
-  store.control("hold",1,null,null,null);assertNull(next(),"Hold must prevent new equipment step admission");
-  store.control("resume",1,null,null,null);var step=next();assertEquals(1,Store.json(step.get("request")).path("payload").path("simulation_time").asInt());acknowledge(step);
-  assertTrue(store.prepare(2,epoch));
+ @Test void persistedModeRequiresResetAndCannotBeSilentlyDisabled(){
+  var disabled=new Store(new Settings(Map.of("DATABASE_URL",System.getenv("MANUFACTURING_TEST_DATABASE"),"APP_PASSWORD","test")));
+  try{
+   assertThrows(Store.Conflict.class,disabled::migrate);
+   disabled.control("reset",1,store.run().get("id").toString(),null,null);store.migrate();
+   assertEquals("disabled",store.run().get("ot_mode"),"Desired configuration must wait for explicit reset");
+   store.control("reset",1,store.run().get("id").toString(),null,null);assertEquals("openplc",store.run().get("ot_mode"));assertThrows(Store.Conflict.class,disabled::migrate);
+  }finally{disabled.pool.close();}
+ }
+ @Test void grantedIntervalsAreAdmittedAtomicallyBeforeHoldAndStopCanSettle(){
+  acquire();acknowledge(next());var epoch=store.run().get("epoch");store.grant(3,epoch,null);
+  assertFalse(store.prepare(4,epoch));store.control("hold",1,null,null,null);
+  var run=store.run();var body=Json.M.valueToTree(Map.of("run_id",run.get("id"),"epoch",epoch,"action","stop"));
+  Ot.command(store,"held-stop",body,new Store.Audit("operator","operator",UUID.randomUUID(),"ot:stop","held-stop","test",run.get("id")));
+  for(int time=1;time<=3;time++){var step=next();assertNotNull(step,"Granted interval was admitted before Hold");assertEquals("step",step.get("operation"));assertEquals(time,Store.json(step.get("request")).path("payload").path("simulation_time").asInt());acknowledge(step);}
+  var stop=next();assertEquals("control",stop.get("operation"));acknowledge(stop);assertNull(next());assertFalse(Boolean.TRUE.equals(store.tx(c->Store.outstanding(c,Store.current(c)))));
+  store.control("finalize",1,null,null,null);var finish=next();assertEquals("finalize",finish.get("operation"));acknowledge(finish);Ot.finalizeLocal(store,epoch);assertEquals("finalized",store.run().get("state"));
+ }
+ @Test void rejectedStartKeepsItsIdentityAndOutcomeAfterResume(){
+  acquire();acknowledge(next());store.control("hold",1,null,null,null);var run=store.run();var body=Json.M.valueToTree(Map.of("run_id",run.get("id"),"epoch",run.get("epoch"),"action","start"));var audit=new Store.Audit("operator","operator",UUID.randomUUID(),"ot:start","held-start","test",run.get("id"));
+  var rejected=Ot.command(store,"held-start",body,audit);assertEquals("rejected",rejected.get("status"));assertNull(next());store.control("resume",1,null,null,null);
+  assertEquals("rejected",Ot.command(store,"held-start",body,audit).get("status"));assertNull(next());
+  var changed=Json.M.valueToTree(Map.of("run_id",run.get("id"),"epoch",run.get("epoch"),"action","stop"));assertThrows(Store.Conflict.class,()->Ot.command(store,"held-start",changed,audit));
  }
  @Test void admittedStepMaySettleAfterHoldAndDuplicateReplyIsStable(){
   acquire();acknowledge(next());store.grant(1,store.run().get("epoch"),null);var step=next();store.control("hold",1,null,null,null);acknowledge(step);acknowledge(step);assertNull(next());
