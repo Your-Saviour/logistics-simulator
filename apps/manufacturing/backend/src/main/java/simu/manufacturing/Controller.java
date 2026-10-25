@@ -14,7 +14,7 @@ final class Controller {
  void run(){
   boolean connected=settings.mode.equals("helics");
   while(!Thread.currentThread().isInterrupted()){
-   Object epoch=null;boolean owned=false;Connection lease=null;Adapter adapter=null;Exception failure=null;
+   Object epoch=null;boolean owned=false;Connection lease=null;Adapter adapter=null;Exception failure=null;OtGateway ot=null;UUID otOwner=UUID.randomUUID();
    try{
     lease=store.connect();lease.setAutoCommit(true);
     if(!Boolean.TRUE.equals(Store.one(lease,"SELECT pg_try_advisory_lock(8192102) held").get("held")))throw new Store.Conflict("Another controller owns manufacturing");
@@ -28,17 +28,20 @@ final class Controller {
      if(!required.equals(configured)||settings.federation.isEmpty()||!settings.outputs.isArray()||settings.outputs.isEmpty())throw new Store.Conflict("Connected mode requires explicit peer routes, outputs and federation identity");
      adapter=new Adapter(store,settings,run);adapter.call("initialize",Map.of());
     }
+    if(Ot.enabled(run)&&!Set.of("failed","stalled","finalized").contains(run.get("state")))ot=new OtGateway(store,otOwner);
     boolean initialized=!connected,pending=connected;long waitingSince=System.nanoTime();
     double timeout=Double.parseDouble(settings.get("HELICS_TIMEOUT_SECONDS","60"));
     while(!Thread.currentThread().isInterrupted()){
      Store.one(lease,"SELECT 1");run=store.run();
      if(!run.get("epoch").equals(epoch)&&connected)throw new Store.Conflict("Controller epoch changed");
      if(!connected)epoch=run.get("epoch");
+     if(!connected&&Ot.enabled(run)&&!Set.of("failed","stalled","finalized").contains(run.get("state"))&&(ot==null||!ot.epoch.equals(epoch)))ot=new OtGateway(store,otOwner);
+     if(!Ot.enabled(run))ot=null;
      if(Set.of("failed","stalled","finalized").contains(run.get("state"))){
       if(!connected){store.heartbeat("controller","");Thread.sleep(100);continue;}
       break;
      }
-     if(run.get("state").equals("finalizing")){finalizeNative(adapter);break;}
+     if(run.get("state").equals("finalizing")){if(finish(ot,adapter,epoch)){if(connected)break;continue;}Thread.sleep(100);continue;}
      store.heartbeat("controller","");
      if(adapter!=null){
       if(pending&&(System.nanoTime()-waitingSince)/1e9>timeout)throw new Store.Conflict("HELICS initialization/grant timed out; federation recovery required");
@@ -62,7 +65,8 @@ final class Controller {
        publish(adapter);run=store.run();
       }
      }
-     if(run.get("state").equals("finalizing")){finalizeNative(adapter);break;}
+     if(run.get("state").equals("finalizing")){if(finish(ot,adapter,epoch)){if(connected)break;continue;}Thread.sleep(100);continue;}
+     if(ot!=null){ot.settle();run=store.run();}
      if(connected&&run.get("state").equals("finalized"))break;
      if(!initialized||run.get("state").equals("held")){Thread.sleep(100);continue;}
      if(settings.get("AUTONOMOUS_PRODUCTION",settings.get("AUTONOMOUS_SAMPLE","true")).equalsIgnoreCase("true"))store.seed();
@@ -97,6 +101,10 @@ final class Controller {
    finally{if(interrupted)Thread.currentThread().interrupt();}
    return;
   }
+ }
+ boolean finish(OtGateway ot,Adapter adapter,Object epoch)throws Exception{
+  if(ot!=null){if(!ot.settle()||!Ot.stopped(store))return false;}
+  if(adapter!=null)finalizeNative(adapter);else Ot.finalizeLocal(store,epoch);return true;
  }
  void finalizeNative(Adapter adapter)throws Exception{
   if(adapter==null)throw new Store.Conflict("Native finalization requires the owning adapter session");

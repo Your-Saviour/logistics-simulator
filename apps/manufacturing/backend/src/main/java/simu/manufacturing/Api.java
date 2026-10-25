@@ -19,14 +19,18 @@ final class Api {
    }else{
     var account=settings.identify(request.getHeader("Authorization"));if(account==null)throw new HttpError(401,"Invalid username or password");
     audit=new Store.Audit(account.username(),account.role(),requestId,audit.action(),audit.key(),audit.peer(),audit.runId());
-    String scope=path.equals("/api/audit")?"audit:read":command&&(path.equals("/api/jobs")||path.equals("/api/production/commands"))?"jobs:write":command&&path.startsWith("/api/control/")?"runs:control":"status:read";
+    String scope=path.equals("/api/audit")?"audit:read":command&&(path.equals("/api/jobs")||path.equals("/api/production/commands"))?"jobs:write":command&&(path.startsWith("/api/control/")||path.startsWith("/api/ot/"))?"runs:control":"status:read";
     if(!account.scopes().contains(scope))throw new HttpError(403,"This identity cannot perform the requested action");
     if(method.equals("GET"))result=switch(path){
      case "/api/status"->{var value=store.status();value.put("identity",account.publicValue());value.put("application","manufacturing");value.put("providers",settings.providers);value.put("quantum",settings.quantum);var run=(Map<String,Object>)value.get("run");value.put("simulation_time",Scenario.instant(Store.json(run.get("scenario")),Store.number(run,"granted")).toOffsetDateTime().toString());yield value;}
      case "/api/projection"->Projection.read(store);
      case "/api/production"->Production.snapshot(store);
+     case "/api/ot"->Ot.snapshot(store);
+     case "/api/ot/tags"->OtTags.read(store);
      case "/api/sources"->List.of();case "/api/audit"->store.audit();default->throw new HttpError(404,"Not found");
     };
+    else if(command&&path.equals("/api/ot/commands")){result=Ot.command(store,request.getHeader("Idempotency-Key"),Json.parse(body==null?"":body),audit);}
+    else if(command&&path.equals("/api/ot/tags")){result=OtTags.write(store,Json.parse(body==null?"":body),audit);}
     else if(command&&path.equals("/api/production/commands")){result=Production.command(store,request.getHeader("Idempotency-Key"),Json.parse(body==null?"":body),audit);}
     else if(command&&path.equals("/api/jobs")){
      var json=Policy.job(Json.parse(body==null?"":body));String key=request.getHeader("Idempotency-Key");if(key==null||key.isEmpty()||key.length()>128)throw new IllegalArgumentException("Idempotency-Key of 1..128 characters required");if(key.startsWith("production:")||key.startsWith("synthetic:")||key.startsWith("boundary:")||key.startsWith("synthetic-sample:"))throw new Store.Conflict("This idempotency key namespace is reserved for internal providers");result=store.schedule(key,json.get("due_at").doubleValue(),json.get("quantity").intValue(),audit,null);

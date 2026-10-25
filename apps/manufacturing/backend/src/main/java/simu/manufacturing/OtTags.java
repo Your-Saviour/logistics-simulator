@@ -1,0 +1,22 @@
+package simu.manufacturing;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.util.*;
+/** FUXA own-tag HTTP connector. Only the command mailbox is writable. */
+final class OtTags {
+ static List<Map<String,Object>> read(Store store){
+  var status=Json.M.valueToTree(Ot.snapshot(store));JsonNode cell=status.path("cell"),telemetry=cell.path("telemetry"),model=telemetry.path("cell"),batch=model.path("batch"),outputs=telemetry.path("actuators"),faults=model.path("faults");var values=new LinkedHashMap<String,Object>();
+  boolean connected=status.path("mode").asText().equals("openplc")&&!status.path("stale").asBoolean()&&cell.path("error").isNull()&&cell.path("initialized").asBoolean();
+  values.put("run_id",status.path("run_id").asText());values.put("epoch",status.path("epoch").asText());values.put("simulation_time",cell.path("settled").asLong());values.put("connected",connected);values.put("connection",connected?"Connected":status.path("mode").asText().equals("disabled")?"OT disabled":"Stale or disconnected");
+  values.put("command","");values.put("work_order",cell.path("active_order").asText("Idle"));values.put("enabled",model.path("enabled").asBoolean());values.put("position",model.path("position").asInt());values.put("progress_seconds",model.path("progress_seconds").asInt());values.put("duration_seconds",batch.path("duration_seconds").asInt());values.put("good_quantity",model.path("good_quantity").asInt());values.put("scrap_quantity",model.path("scrap_quantity").asInt());
+  var faultNames=new ArrayList<String>();faults.forEach(f->faultNames.add(f.asText()));if(model.has("power_available")&&!model.path("power_available").asBoolean())faultNames.add("external_power_unavailable");boolean fault=model.path("latched").asBoolean()||outputs.path("fault").asBoolean();values.put("fault",fault);values.put("fault_reason",!faultNames.isEmpty()?String.join(", ",faultNames):fault?"Condition restored; acknowledge fault then Start":"No active faults");
+  values.put("guard_closed",!faultNames.contains("guard_open"));values.put("power_available",!faultNames.contains("power_loss")&&!faultNames.contains("external_power_unavailable"));values.put("part_present",batch.isObject()&&model.path("position").asInt()<4&&!faultNames.contains("sensor_failure"));values.put("positioned",batch.isObject()&&model.path("position").asInt()==2&&!faultNames.contains("sensor_failure"));values.put("clamped",model.path("clamped").asBoolean());values.put("conveyor",outputs.path("conveyor").asBoolean());values.put("cycle",outputs.path("cycle").asBoolean());values.put("cell_state",!connected?"Disconnected":fault?"Fault / acknowledgement required":telemetry.path("completion").isObject()?"Batch complete":model.path("enabled").asBoolean()?"Running":batch.isObject()?"Stopped / awaiting Start":"Idle");
+  for(String name:List.of("conveyor_jam","sensor_failure","guard_open","power_loss"))values.put(name,faultNames.contains(name));
+  var last=status.path("commands").path(0);values.put("last_command_id",last.path("id").asText(""));values.put("last_command_key",last.path("idempotency_key").asText(""));values.put("last_command_status",last.path("status").asText("No command"));values.put("last_command_reason",last.path("reason").asText(""));
+  values.put("heartbeat_ms",System.currentTimeMillis());var frame=new LinkedHashMap<String,Object>(values);frame.put("receipts",status.path("commands"));values.put("frame",Json.write(frame));
+  return values.entrySet().stream().map(e->Map.<String,Object>of("id",e.getKey(),"name",e.getKey(),"type",e.getValue() instanceof Boolean?"boolean":e.getValue() instanceof Number?"number":"string","value",e.getValue())).toList();
+ }
+ static Map<String,Object> write(Store store,JsonNode tags,Store.Audit audit){
+  if(!tags.isArray()||tags.size()!=1)throw new IllegalArgumentException("One command mailbox write required");var tag=tags.get(0);Policy.fields(tag,"id","value");if(!tag.path("id").asText().equals("command")||!tag.path("value").isTextual())throw new IllegalArgumentException("Only the string command mailbox is writable");
+  var command=Json.parse(tag.path("value").asText());Policy.fields(command,"command_id","run_id","epoch","action","fault","active");String key="fuxa:"+Policy.uuid(command.get("command_id"));var body=((com.fasterxml.jackson.databind.node.ObjectNode)command).deepCopy();body.remove("command_id");var attributed=new Store.Audit(audit.actor(),audit.role(),audit.requestId(),audit.action(),key,audit.peer(),audit.runId());return Ot.command(store,key,body,attributed);
+ }
+}

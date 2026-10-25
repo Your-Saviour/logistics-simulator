@@ -5,7 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 final class Settings {
  final Map<String,String> env;
- final String database,amqp,mode,role,run,epoch,federation;
+ final String database,amqp,mode,role,run,epoch,federation,otMode;
  final double quantum;
  final JsonNode providers,scenario,peers,outputs;
  final List<Account> accounts=new ArrayList<>();
@@ -13,6 +13,8 @@ final class Settings {
  Settings(Map<String,String> e){
   env=Map.copyOf(e);database=get("DATABASE_URL","");amqp=get("AMQP_URL","");mode=get("CLOCK_MODE","standalone");role=get("ROLE","api");run=get("FEDERATION_RUN_ID","");epoch=get("FEDERATION_EPOCH","");federation=get("FEDERATION_ID","");quantum=Double.parseDouble(get("HANDOFF_QUANTUM","1"));
   if(!get("SIMULATOR","manufacturing").equals("manufacturing")||!Set.of("standalone","helics").contains(mode)||!Set.of("api","worker","controller").contains(role)||!Double.isFinite(quantum)||quantum<1)throw new IllegalArgumentException("Invalid application/role/clock/quantum");
+  otMode=get("OT_MODE","disabled");if(!Set.of("disabled","openplc").contains(otMode))throw new IllegalArgumentException("Invalid OT_MODE");
+  if(otMode.equals("openplc")){if(quantum!=Math.floor(quantum))throw new IllegalArgumentException("OT requires whole-second HANDOFF_QUANTUM");if(get("OT_EQUIPMENT_TOKEN","").length()<16)throw new IllegalArgumentException("OT requires an equipment token of at least 16 characters");var uri=java.net.URI.create(get("OT_EQUIPMENT_URL",""));if(!Set.of("http","https").contains(uri.getScheme())||uri.getHost()==null||uri.getRawUserInfo()!=null)throw new IllegalArgumentException("OT requires an equipment HTTP URL without embedded credentials");}
   double fleetOffset=Double.parseDouble(get("FLEET_TIME_OFFSET","0"));if(!Double.isFinite(fleetOffset)||fleetOffset<0)throw new IllegalArgumentException("Finite nonnegative fleet time offset required");
   String fleet=get("FLEET_MODE","disabled");if(!Set.of("disabled","coordinated").contains(fleet))throw new IllegalArgumentException("Invalid FLEET_MODE");
   if(fleet.equals("coordinated")){for(String key:List.of("FLEET_URL","FLEET_TOKEN","FLEET_RUN_ID","FLEET_EPOCH"))if(get(key,"").isBlank())throw new IllegalArgumentException("Coordinated fleet requires "+key);UUID.fromString(get("FLEET_RUN_ID",""));UUID.fromString(get("FLEET_EPOCH",""));var uri=java.net.URI.create(get("FLEET_URL",""));if(!Set.of("http","https").contains(uri.getScheme())||uri.getHost()==null)throw new IllegalArgumentException("Fleet HTTP URL required");}
