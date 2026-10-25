@@ -24,6 +24,15 @@ local checks from remaining gates; it is not evidence of a hosted deployment.
 - The replacement scene replayed 500 synthetic recorded units with 64 robots,
   bounded its queue, avoided duplicate static/replay placements, froze on source
   hold, honored reduced motion, expired trails and made no business writes.
+- GPU-buffer inspection verifies manufacturing machine bases at their catalog
+  cell positions. Static batches preserve inherited group transforms; the full
+  two-test scene suite passed after correcting this placement bug.
+- `sh scripts/check_handling_upgrade.sh` passed native API startup and restart
+  against pre-handling-unit schemas for all four business departments. Old
+  migration checksums, held run/epoch and seeded Storage/Manufacturing aggregate
+  quantities survived. No handling units were implicitly created. This check
+  covers migration compatibility, not operator conversion or active custody
+  worker recovery. Its disposable volumes were removed afterward.
 - Five inspector browser checks cover keyboard navigation through lineage,
   unavailable WebGL, unknown/disputed/unobserved placement, source hold and
   disconnection, epoch replacement and missing handling extensions. Desktop and
@@ -100,19 +109,24 @@ Latest completed local measurement:
 | Renderer | ANGLE / Vulkan SwiftShader, LLVM 10.0.0; CPU software rendering |
 | Browser viewport | 1440 × 900 |
 | Drawing buffer | 831 × 538, DPR 1, single sample |
-| Measurement | 30.065 seconds, 477 actual draw frames |
+| Measurement | 30.016 seconds, 472 actual draw frames |
+| Browser animation frames | 472 |
 | Active journeys | Minimum 64, maximum 64 |
 | Units | Minimum 500, maximum 500 |
 | Maximum queue | 192 |
 | Maximum draw calls per frame | 72 |
-| p95 frame interval | **72.7 ms — fails the 33.4 ms target** |
+| p95 frame interval | **80.1 ms — fails the 33.4 ms target** |
 
 Batching static geometry reduced maximum draw calls from 434 to 72. Isolating
 software WebGL from Chromium's compositor and disabling multisampling improved
-the measured interval, but the target remains unmet. App preparation and render
-submission each measured below 7 ms in these runs; this is not a GPU-time or
-hardware-acceleration claim. Do not treat static screenshots or model tests as
-passing evidence for this budget.
+the measured interval, but the target remains unmet. The latest diagnostic
+recorded a maximum 20.3 ms before submission and 0.8 ms across draw submission;
+these are main-thread measurements, not GPU timings. Browser animation frames
+and drawn frames matched, ruling out idle animation frames as the missing work.
+A separate fullscreen-triangle control at the same 831 × 538 drawing-buffer
+size reached 1,801 frames with p95 19.9 ms in the same SwiftShader runtime. That
+control is diagnostic evidence, not a substitute for the 500-unit scene gate.
+Do not treat static screenshots or model tests as passing performance evidence.
 
 JSON results and intermediate baselines are retained locally under
 `.superpowers/sdd/2026-10-25-simu64-implementation/performance/`. The benchmark
