@@ -1,0 +1,20 @@
+// Compile the probe with the compiler pinned by OpenPLC Editor v4.3.2.
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+const { compile } = await import('/tmp/compiler/node_modules/strucpp/dist/index.js');
+const source = fs.readFileSync(process.env.PLC_SOURCE || '/probe/handshake.st', 'utf8');
+const md5 = crypto.createHash('md5').update(source).digest('hex');
+const result = compile(source, { debug: true, headerFileName: 'generated.hpp', fileName: 'handshake.st', md5 });
+if (!result.success) throw new Error(JSON.stringify(result.errors));
+for (const name of fs.readdirSync('/generated')) fs.rmSync(`/generated/${name}`, { recursive: true, force: true });
+fs.mkdirSync('/generated/conf', { recursive: true });
+fs.copyFileSync('/tmp/compiler/package-lock.json', '/generated/compiler-package-lock.json');
+for (const file of result.cppFiles) fs.writeFileSync(`/generated/${file.name}`, file.content);
+fs.writeFileSync('/generated/generated.hpp', result.headerCode);
+fs.writeFileSync('/generated/generated_debug.cpp', result.debugTableCpp);
+fs.writeFileSync('/generated/defines.h', `#pragma once\n#define PROGRAM_MD5 "${md5}"\n`);
+fs.writeFileSync('/generated/c_blocks.h', '// No custom C blocks.\n');
+fs.writeFileSync('/generated/program.st', source);
+fs.writeFileSync('/generated/conf/modbus_slave.json', JSON.stringify({ network_configuration: { host: '0.0.0.0', port: 502 }, buffer_mapping: { holding_registers: { qw_count: 1024, mw_count: 32, md_count: 0, ml_count: 0 } }, word_order: 'high_word_first' }));
+fs.cpSync('/tmp/compiler/node_modules/strucpp/src/runtime/include', '/generated/strucpp_runtime/include', { recursive: true });
+console.log('Compiled real IEC program with STruC++ 0.7.0');

@@ -1,0 +1,43 @@
+name: simu-54-ot-compatibility
+services:
+  openplc:
+    image: ghcr.io/autonomy-logic/openplc-runtime@sha256:2ca9fc611f25c3ad0471b996a4bf27507ac112612292426ca6d5ca4bf06e97e6
+    volumes: [runtime:/var/run/runtime]
+  compiler:
+    image: node@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53
+    profiles: [check]
+    volumes: [./:/probe:ro, ../plc:/plc:ro, generated:/generated]
+    command:
+      - sh
+      - -ec
+      - |
+        wget -q -O /tmp/strucpp.tgz https://github.com/Autonomy-Logic/STruCpp/releases/download/v0.7.0/strucpp-0.7.0.tgz
+        echo '8d78ae92d931b87c06145520222d1491206f424c147ec66ea84653cb8b0e1be5  /tmp/strucpp.tgz' | sha256sum -c -
+        mkdir -p /tmp/compiler
+        cp /probe/compiler-package-lock.json /tmp/compiler/package-lock.json
+        node -e 'const fs=require("fs");const lock=require("/tmp/compiler/package-lock.json");fs.writeFileSync("/tmp/compiler/package.json",JSON.stringify(lock.packages[""]));'
+        npm ci --prefix /tmp/compiler --ignore-scripts --no-audit --no-fund
+        node /probe/compile.mjs
+  bootstrap:
+    image: ghcr.io/autonomy-logic/openplc-runtime@sha256:2ca9fc611f25c3ad0471b996a4bf27507ac112612292426ca6d5ca4bf06e97e6
+    entrypoint: [python3, /probe/bootstrap.py]
+    volumes: [./:/probe:ro, generated:/generated:ro]
+    profiles: [check]
+    depends_on: [openplc]
+  live-tests:
+    image: ghcr.io/autonomy-logic/openplc-runtime@sha256:2ca9fc611f25c3ad0471b996a4bf27507ac112612292426ca6d5ca4bf06e97e6
+    entrypoint: [python3, -m, unittest, discover, -s, tests, -p, test_live_plc.py, -v]
+    working_dir: /equipment
+    environment: {PLC_HOST: openplc}
+    volumes: [../equipment:/equipment:ro]
+    profiles: [check]
+    depends_on: [openplc]
+  probe:
+    image: ghcr.io/autonomy-logic/openplc-runtime@sha256:2ca9fc611f25c3ad0471b996a4bf27507ac112612292426ca6d5ca4bf06e97e6
+    entrypoint: [python3, /probe/probe.py]
+    volumes: [./:/probe:ro]
+    profiles: [check]
+    depends_on: [openplc]
+volumes:
+  runtime:
+  generated:
