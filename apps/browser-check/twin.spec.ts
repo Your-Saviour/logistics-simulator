@@ -157,9 +157,8 @@ test("Twin renders selectable facility, quantities and correlated event history"
       },
     ],
   );
-  await page
-    .getByRole("button", { name: "Select production cell LINE-1" })
-    .click();
+  await page.locator(".asset-list summary").click();
+  await page.getByRole("button", { name: "production cell · LINE-1", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "LINE-1", exact: true }),
   ).toBeVisible();
@@ -184,7 +183,7 @@ test("Twin renders selectable facility, quantities and correlated event history"
     ),
   ).toBe(true);
   await page
-    .getByRole("button", { name: "Select production cell LINE-1" })
+    .getByRole("button", { name: "production cell · LINE-1", exact: true })
     .focus();
   await page.keyboard.press("Enter");
   await expect(
@@ -195,7 +194,7 @@ test("Twin renders selectable facility, quantities and correlated event history"
     fullPage: true,
   });
 });
-test("Twin labels estimated travel and preserves confirmed business state on stale hold", async ({
+test("Twin preserves recorded business state on stale hold without inventing unit journeys", async ({
   page,
 }) => {
   const logistics = {
@@ -218,8 +217,9 @@ test("Twin labels estimated travel and preserves confirmed business state on sta
     status: { run: { ...run, state: "held", granted: 25 } },
   };
   await open(page, [logistics]);
-  await expect(page.getByText("Estimated position · frozen")).toBeVisible();
-  await page.getByRole("button", { name: "Select vehicle TRUCK-1" }).click();
+  await page.locator(".asset-list summary").click();
+  await page.getByRole("button", { name: "vehicle · TRUCK-1", exact: true }).click();
+  await expect(page.locator(".facility-stage")).toHaveAttribute("data-active-journeys", "0");
   await expect(
     page.getByText("in_transit", { exact: true }).first(),
   ).toBeVisible();
@@ -263,7 +263,7 @@ test("Twin exposes only configured controls and waits for explicit acknowledgeme
   await page
     .getByRole("button", { name: "Request global pause", exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.getByRole("status").filter({ hasText: /^(Control |Awaiting acknowledgement:|Acknowledged:)/ })).toHaveText(
     "Awaiting acknowledgement: Global acknowledgement is pending.",
   );
   expect(body).toEqual({});
@@ -290,7 +290,7 @@ test("Twin hides unsafe website links and unavailable stock", async ({
   await expect(page.getByText("Disconnected", { exact: true })).toBeVisible();
 });
 
-test("Twin freezes a confirmed position on local hold and removes absent sources", async ({
+test("Twin retains recorded vehicle location on local hold and removes absent sources", async ({
   page,
 }) => {
   const logistics = source("logistics", {
@@ -307,13 +307,15 @@ test("Twin freezes a confirmed position on local hold and removes absent sources
   });
   const sources = [logistics];
   await open(page, sources);
-  const vehicle = page.getByRole("button", { name: "Select vehicle TRUCK-1" });
+  await page.locator(".asset-list summary").click();
+  const vehicle = page.getByRole("button", { name: "vehicle · TRUCK-1", exact: true });
   await expect(vehicle).toBeVisible();
-  const position = await vehicle.getAttribute("data-position");
-  expect(position).not.toBeNull();
+  await vehicle.click();
+  await expect(page.getByText("WAREHOUSE", { exact: true }).first()).toBeVisible();
   logistics.status = { run: { ...run, state: "held", granted: 19 } };
-  await expect(page.getByText("Estimated position · frozen")).toBeVisible();
-  expect(await vehicle.getAttribute("data-position")).toBe(position);
+  await expect(page.getByText("Local hold", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("WAREHOUSE", { exact: true }).first()).toBeVisible();
+  await expect(page.locator(".facility-stage")).toHaveAttribute("data-active-journeys", "0");
   sources.splice(0);
   await expect(
     page.getByRole("heading", { name: "No sources configured" }),
@@ -390,20 +392,20 @@ test("Twin retries uncertain controls with the original key and run fence", asyn
     ["status:read", "runs:control"],
   );
   await page.getByRole("button", { name: "Local hold", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("outcome is unknown");
+  await expect(page.getByRole("status").filter({ hasText: /^(Control |Awaiting acknowledgement:|Acknowledged:)/ })).toContainText("outcome is unknown");
   await expect(
     page.getByRole("button", { name: "Local resume", exact: true }),
   ).toBeDisabled();
   await page
     .getByRole("button", { name: "Retry pending control", exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.getByRole("status").filter({ hasText: /^(Control |Awaiting acknowledgement:|Acknowledged:)/ })).toHaveText(
     "Awaiting acknowledgement: Owner acknowledgement pending.",
   );
   await page
     .getByRole("button", { name: "Retry pending control", exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText(
+  await expect(page.getByRole("status").filter({ hasText: /^(Control |Awaiting acknowledgement:|Acknowledged:)/ })).toHaveText(
     "Acknowledged: Local hold acknowledged.",
   );
   expect(requests).toHaveLength(3);
@@ -415,7 +417,7 @@ test("Twin retries uncertain controls with the original key and run fence", asyn
   ).toHaveCount(0);
 });
 
-test("Twin marks overdue transport as awaiting arrival confirmation", async ({
+test("Twin keeps overdue transport unconfirmed until an actual arrival", async ({
   page,
 }) => {
   await open(page, [
@@ -435,10 +437,9 @@ test("Twin marks overdue transport as awaiting arrival confirmation", async ({
       status: { run: { ...run, granted: 25 } },
     },
   ]);
-  await expect(
-    page.getByText("Awaiting arrival confirmation", { exact: true }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Select vehicle TRUCK-1" }).click();
+  await page.locator(".asset-list summary").click();
+  await page.getByRole("button", { name: "vehicle · TRUCK-1", exact: true }).click();
+  await expect(page.locator(".facility-stage")).toHaveAttribute("data-active-journeys", "0");
   await expect(
     page.getByText("in_transit", { exact: true }).first(),
   ).toBeVisible();
