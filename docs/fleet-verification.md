@@ -25,7 +25,7 @@ fleet snapshot. Its verifier exited 0 with `OOMKilled=false`; log
 | Native fleet, Twin absent | Full factory check passed; 23 completed jobs, all four workflow categories, one observed traffic wait. | Local disposable HELICS deployment; sequential native cycles plus contended shelf jobs. |
 | Native fleet, Twin present | Full factory check passed in 836.31 s; 23 jobs complete and fresh observer snapshot. | Local disposable HELICS deployment; Twin adds no native federate. |
 | Native adapter loss | SIGKILL of Storage adapter with a carried native unit passed in 21.46 s. | Storage stalled; the other three departments remained running. Fleet retained load/claims and emitted no arrival. |
-| Fleet backend | 78 tests passed in 28.88 s, `final-phase-recovery-suite.log`. | Isolated Docker/PostgreSQL checks, not a completed native factory run. |
+| Fleet backend | 80 tests passed in 63.57 s, `merge-verification/audit-clock-green.log`. | Isolated Docker/PostgreSQL checks, not a completed native factory run. |
 | Twin backend | 66 backend tests passed. | Rendering performance is measured separately below. |
 | Storage | Earlier 455 checks passed; the latest per-unit batch/delivery and counter-limit regression run passed **503** PostgreSQL/RabbitMQ checks. | Native backend regression evidence, not cross-stack physical acceptance. |
 | Manufacturing | 80 Java tests and 7 frontend tests/build passed. | Local guarded evidence. |
@@ -249,3 +249,11 @@ factory, adapter-loss and browser acceptance evidence applies to the same
 implementation; these functional checks do not change the performance misses
 reported above. Smooth committed-state playback is tracked separately in
 [SIMU-76](https://ctfittwo.atlassian.net/browse/SIMU-76).
+
+The merged-result run exposed a wall-time cutoff in the connectivity audit under
+live-preview CPU contention. A deterministic clock-jump regression reproduced
+the incomplete search. Reachability now uses the finite directed-grid state
+count as its work bound and still rejects an actually disconnected endpoint.
+The complete corrected suite passed **80 tests in 63.57 s** on local main. This
+changes test-harness termination only; navigation, clearance, physical speeds and
+the separately reported performance results remain unchanged.

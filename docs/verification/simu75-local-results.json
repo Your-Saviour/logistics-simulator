@@ -187,8 +187,8 @@
   },
   "fleet_backend": {
     "status": "passed",
-    "tests": 78,
-    "wall_seconds": 28.88,
+    "tests": 80,
+    "wall_seconds": 63.57,
     "active_recovery_phases": [
       "approaching",
       "awaiting_departure",
@@ -197,6 +197,7 @@
       "placing",
       "awaiting_receipt",
       "returning"
-    ]
+    ],
+    "connectivity_bound": "finite directed grid states; independent of wall scheduling"
   }
 }

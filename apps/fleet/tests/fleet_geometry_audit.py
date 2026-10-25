@@ -119,15 +119,20 @@ def connectivity():
     targets = {snap(p) for p in goals.values() if nav._edge(snap(p), p, frozenset()) is not None}
     targets.update(snap(p) for p in parking)
     directions = ((0, -1), (1, 0), (0, 1), (-1, 0))
+    # Reachability is a finite geometric proof, not a wall-time performance
+    # budget. Shared-host contention must not turn an unfinished flood into
+    # an apparent disconnected endpoint. Bound work by the actual grid.
+    a, b, c, d = nav.bounds
+    state_bound = 4 * (math.floor(c / nav.cell) - math.ceil(a / nav.cell) + 1) * (math.floor(d / nav.cell) - math.ceil(b / nav.cell) + 1)
     results = []
     for reverse in (False, True):
-        deadline = time.perf_counter() + 10
+        started = time.perf_counter()
         exhausted_budget = False
         found = set(seeds)
         queue = deque(seeds)
         remaining = targets - found
         while queue and remaining:
-            if time.perf_counter() >= deadline:
+            if len(found) > state_bound:
                 exhausted_budget = True
                 break
             pose = queue.popleft()
@@ -153,6 +158,7 @@ def connectivity():
                 invalid.append(name)
         results.append({'direction': 'return_to_first_parking' if reverse else 'from_first_parking',
                         'states_visited': len(found), 'unreachable': invalid, 'budget_exhausted': exhausted_budget,
+                        'state_bound': state_bound, 'elapsed_wall_seconds': time.perf_counter() - started,
                         'unreachable_parking': [p for p in parking if snap(p) not in found]})
     print("CONNECTIVITY_REPORT " + json.dumps(results, sort_keys=True))
     return results

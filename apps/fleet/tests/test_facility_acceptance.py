@@ -33,7 +33,7 @@ def test_real_workflow_routes_are_available(fixed_floor):
 
 def test_every_endpoint_is_reachable_from_parking_and_can_return():
     for result in connectivity():
-        assert not result['budget_exhausted'], f'Connectivity audit exceeded10s search bound: {result}'
+        assert not result['budget_exhausted'], f'Connectivity audit exceeded the finite grid-state bound: {result}'
         assert not result['unreachable_parking'], result
         assert not result['unreachable'], (
             f"{result['direction']}: {len(result['unreachable'])}/800 unreachable; "
@@ -46,3 +46,37 @@ def test_all_fixed_load_placements_retain_clearance_and_avoid_machines(fixed_flo
     assert not fixed_floor['placement_conflicts'], fixed_floor['placement_conflicts'][:20]
     assert fixed_floor['minimum_load_gap'] >= .15-1e-8
     assert not fixed_floor['machine_load_conflicts'], fixed_floor['machine_load_conflicts']
+
+
+def small_connectivity_floor(monkeypatch, tmp_path, blocked=False):
+    import fleet_geometry_audit
+    topology = {'bounds': [0, 0, 6, 6], 'cell_size': .25, 'lanes': [],
+                'obstacles': [{'id': 'wall', 'bounds': [2.5, 0, 3.5, 6]}] if blocked else [],
+                'parking': [{'id': 'robot-01', 'pose': [1, 1, 0]}],
+                'service_poses': {'sample.endpoint': [4.5, 4, 0]}}
+    for path, value in [('fleet/v1/navigation.json', topology),
+                        ('handling/v1/facility.json', {'locations': [{'id': 'sample.endpoint'}]})]:
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(value))
+    monkeypatch.setattr(fleet_geometry_audit, 'ROOT', tmp_path)
+    return fleet_geometry_audit
+
+
+def test_connectivity_proof_does_not_depend_on_wall_clock_scheduling(monkeypatch, tmp_path):
+    from itertools import count
+    from types import SimpleNamespace
+    audit_module = small_connectivity_floor(monkeypatch, tmp_path)
+    ticks = count(0, 100)
+    monkeypatch.setattr(audit_module, 'time', SimpleNamespace(perf_counter=lambda: next(ticks)))
+    for result in audit_module.connectivity():
+        assert not result['budget_exhausted']
+        assert not result['unreachable']
+        assert not result['unreachable_parking']
+
+
+def test_connectivity_proof_still_rejects_an_actual_disconnected_endpoint(monkeypatch, tmp_path):
+    audit_module = small_connectivity_floor(monkeypatch, tmp_path, blocked=True)
+    for result in audit_module.connectivity():
+        assert not result['budget_exhausted']
+        assert result['unreachable'] == ['sample.endpoint']
