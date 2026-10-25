@@ -7,11 +7,11 @@ test.skip(!url,'No Twin scene target configured');
 test.use({video:{mode:'on',size:{width:1440,height:900}}});
 const catalog=JSON.parse(readFileSync(new URL('./facility.json',import.meta.url),'utf8'));
 
-async function heldFacility(page:Page){
+async function heldFacility(page:Page,motion?:{running:boolean;events:any[]}){
   const run={id:'cache-run',epoch:'cache-epoch',state:'held',granted:100,requested:100,committed:100};
   const units=catalog.locations.filter((row:any)=>row.kind==='shelf').slice(0,500).map((slot:any,index:number)=>({id:`cache-${index}`,barcode:`HU-CACHE-${index}`,run_id:run.id,epoch:run.epoch,category:slot.compatible[0],contents:[{sku:'CACHE-FIXTURE',quantity:1}],owner:'storage',state:'available',status:'confirmed',position:slot.id,connected:true,observations:[]}));
   await page.route('**/api/status',route=>route.fulfill({json:{identity:{username:'reader',scopes:['status:read']},heartbeats:[]}}));
-  await page.route('**/api/twin',route=>route.fulfill({json:{revision:Date.now(),mode:'live',sources:[{name:'storage',connected:true,stale:false,status:{run},snapshot:{config:{locations:[]}},cursor:'1',error:null}],events:[],aligned:null,controls:[],handling:{version:1,units,unsupported_sources:[]}}}));
+  await page.route('**/api/twin',route=>route.fulfill({json:{revision:Date.now(),mode:'live',sources:[{name:'storage',connected:true,stale:false,status:{run:{...run,state:motion?.running?'running':'held'}},snapshot:{config:{locations:[]}},cursor:'1',error:null}],events:motion?.events??[],aligned:null,controls:[],handling:{version:1,units,unsupported_sources:[]}}}));
   await page.setViewportSize({width:1440,height:900});await page.goto(url);
   await page.getByLabel('Username',{exact:true}).fill('reader');await page.getByLabel('Password',{exact:true}).fill('cache');await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await expect(page.locator('[data-recorded-units="500"]')).toBeVisible();
@@ -20,6 +20,18 @@ async function heldFacility(page:Page){
   copyFileSync(new URL('./fixtures/facility-held.png',import.meta.url),reference);
   return units;
 }
+
+test('unchanged facility pixels remain visible on cache hits and during robot motion',async({page})=>{
+  const motion={running:false,events:[] as any[]};const units=await heldFacility(page,motion),canvas=page.locator('canvas');
+  await expect(canvas).toHaveScreenshot('facility-held.png',{threshold:.02,maxDiffPixels:10});
+  const box=(await canvas.boundingBox())!,clip={x:box.x+600,y:box.y+320,width:90,height:60};
+  const path=test.info().snapshotPath('stationary-floor.png');mkdirSync(dirname(path),{recursive:true});writeFileSync(path,await page.screenshot({clip}));
+  await page.waitForTimeout(1300);
+  await expect(canvas).toHaveScreenshot('facility-held.png',{threshold:.02,maxDiffPixels:10});
+  motion.events=units.slice(0,64).map((unit:any,index:number)=>({id:`storage:unit-movement:cache-${index}`,source:'storage',run_id:'cache-run',epoch:'cache-epoch',payload:{id:`storage:unit-movement:cache-${index}`,unit_id:unit.id,run_id:'cache-run',epoch:'cache-epoch',sequence:1,action:'putaway',origin:units[index+64].position,destination:unit.position}}));motion.running=true;
+  await expect(page.locator('[data-active-journeys="64"]')).toBeVisible();await page.waitForTimeout(200);
+  expect(await page.screenshot({clip})).toMatchSnapshot('stationary-floor.png',{threshold:.02,maxDiffPixels:0});
+});
 
 test('facility pixels survive caching, camera changes, pointer selection, stock changes and context restoration',async({page})=>{
   const errors:string[]=[];page.on('pageerror',error=>errors.push(String(error)));

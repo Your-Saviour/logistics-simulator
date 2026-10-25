@@ -75,7 +75,12 @@ export function FacilityRenderCache(){
   try{
    if(resized||signature!==cache.signature){
     gl.autoClear=true;camera.layers.set(FACILITY_LAYER);gl.render(scene,camera);blit(false);cache.signature=signature;
-   }else blit(true);
+   }else{
+    // Consume the browser's deferred drawing-buffer clear before restoring it;
+    // otherwise the first robot draw can erase the copied facility pixels.
+    gl.state.buffers.color.setMask(true);gl.state.buffers.depth.setMask(true);gl.state.buffers.stencil.setMask(0xff);
+    gl.clear(true,true,true);blit(true);
+   }
    gl.autoClear=false;scene.background=null;camera.layers.set(0);gl.render(scene,camera);
   }finally{camera.layers.mask=mask;scene.background=background;gl.autoClear=autoClear;}
  },1);
