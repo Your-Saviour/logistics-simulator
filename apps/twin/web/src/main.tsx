@@ -1,3 +1,4 @@
+import HandlingInspector from './HandlingInspector';
 import type {RecordedUnit} from './facility';
 import {
   useEffect,
@@ -368,6 +369,7 @@ function App() {
   });
   const all = [...unitEntities, ...entities(twin?.sources ?? [])];
   const entity = all.find((e) => e.key === selected);
+  const selectedUnit=twin?.handling?.units.find(unit=>`unit:${unit.run_id}:${unit.epoch}:${unit.id}`===selected);
   const currentRecord =
     record && entity
       ? ([entity.row, ...entity.related].find(
@@ -674,6 +676,7 @@ function App() {
                           <span>Vehicles</span>
                           <span>Loading bays</span>
                         </div>
+                        {!!twin.handling?.unsupported_sources.length&&<p className="note">Handling data unavailable: {twin.handling.unsupported_sources.join(', ')}</p>}
                         <p className="note">
                           Units use recorded catalog positions. Empty slots are
                           facility capacity, not stock. Unknown or disputed
@@ -693,6 +696,7 @@ function App() {
                       </section>
                       <section
                         className="detail-panel"
+                        tabIndex={0}
                         aria-label="Selection details"
                       >
                         {entity ? (
@@ -715,6 +719,7 @@ function App() {
                             <span className="badge">
                               {lost ? "Connection lost" : health(entity.source)}
                             </span>
+                            {selectedUnit ? <HandlingInspector unit={selectedUnit} units={twin.handling?.units??[]} sources={twin.sources} events={twin.events} lost={lost} choose={unit=>choose({key:`unit:${unit.run_id}:${unit.epoch}:${unit.id}`})}/> : <>
                             <Record row={detail ?? {}} />
                             <h3>Related records</h3>
                             {entity.related.length ? (
@@ -775,15 +780,15 @@ function App() {
                             )}
                             <h3>Correlated event history</h3>
                             <History events={relatedEvents} />
+                            </>}
                           </>
                         ) : (
                           <>
                             <p className="eyebrow">Inspect operations</p>
                             <h2>Select an asset</h2>
                             <p>
-                              Choose a production cell, rack, vehicle or loading
-                              bay to inspect its source records and event
-                              history.
+                              Choose a handling unit or source asset to inspect
+                              its recorded state and source history.
                             </p>
                             <div className="selection-hint">
                               <strong>{all.length}</strong>

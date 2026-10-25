@@ -9,6 +9,7 @@ export type RecordedUnit = {
   id: string; barcode: string; run_id: string; epoch: string;
   category: string; contents: {sku: string; quantity: number}[];
   owner: string | null; state: string | null; status: string; position: string | null;
+  custody_generation?:number|null; conflicts?:Record<string,unknown>[];
   connected: boolean; observations: {source: string; unit: Record<string, unknown>}[];
 };
 export const facility = fixedCatalog as unknown as {

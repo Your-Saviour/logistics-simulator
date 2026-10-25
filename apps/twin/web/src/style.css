@@ -748,3 +748,18 @@ footer {
 .pending-control button {
   font-size: 11px;
 }
+
+.handling-inspector {min-width:0;}
+.handling-inspector code {overflow-wrap:anywhere;}
+.handling-inspector dd .note {display:block;margin-top:6px;}
+.handling-inspector table {width:100%;}
+.handling-records {padding-left:18px;}
+.handling-records li {margin:12px 0;overflow-wrap:anywhere;}
+.handling-records li > span,.handling-records li > small {display:block;margin-top:5px;}
+.handling-records code {font-size:10px;}
+.handling-lineage {padding:12px 0;border-top:1px solid var(--line);}
+.handling-lineage ul {padding-left:18px;}
+.handling-lineage button {margin:4px 0;max-width:100%;overflow-wrap:anywhere;}
+.detail-panel .section-heading {align-items:flex-start;}
+.detail-panel .section-heading h2 {min-width:0;overflow-wrap:anywhere;flex:1;}
+.detail-panel .section-heading button {flex:0 0 auto;}
