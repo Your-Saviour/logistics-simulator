@@ -23,7 +23,6 @@ fi
 if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then
 for app in storage manufacturing logistics shipping twin; do
  work compose -p "$project" -f "$manifest" build "$app-api"
- work builder prune --all --force --keep-storage 2GB
 done
 fi
 # Reuse the verified images in two fresh isolated epochs. Native finalization
@@ -48,6 +47,6 @@ for scenario in orderly loss; do
   work compose -p "$project" -f "$manifest" run --rm federation-verify python scripts/mixed_federation_check.py --phase adapter-loss
  fi
  # These volumes were allocated by this unique disposable verification project;
- # remove them only after success. Failure trap retains volumes for diagnosis.
+ # remove them after each scenario. The failure trap captures logs before cleanup.
  work compose -p "$project" -f "$manifest" down --volumes
 done
