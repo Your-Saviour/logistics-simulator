@@ -12,7 +12,7 @@ cleanup() {
   docker compose -p "$project" -f "$manifest" ps -a
   docker compose -p "$project" -f "$manifest" logs --tail 100
  fi
- docker compose -p "$project" -f "$manifest" down
+ docker compose -p "$project" -f "$manifest" down --volumes
 }
 trap cleanup EXIT HUP INT TERM
 if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then

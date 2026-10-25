@@ -27,7 +27,7 @@ BUILDS={
 }
 
 
-def generate(apps,connected=False,write=True):
+def generate(apps,connected=False,write=True,disposable=False):
     if connected and set(apps)!=set(APPS): raise ValueError('Mixed federation verification requires all five migrated images')
     out=ROOT/'deploy'/'generated';out.mkdir(parents=True,exist_ok=True)
     label='mixed' if connected else (apps[0] if len(apps)==1 else 'standalone-suite')
@@ -42,7 +42,7 @@ def generate(apps,connected=False,write=True):
         identity['shipping_key']='base64:'+base64.b64encode(secrets.token_bytes(32)).decode()
         identity_path.write_text(json.dumps(identity));identity_path.chmod(0o600)
     checkout=hashlib.sha256(str(ROOT).encode()).hexdigest()[:8]
-    result={'name':'simu-'+prefix+'-'+checkout,'services':{},'volumes':{}}
+    result={'name':'simu-'+prefix+'-'+checkout+('-'+uuid4().hex[:8] if disposable else ''),'services':{},'volumes':{}}
     services=result['services']
     for app in apps:
         password=identity['passwords'][app]
@@ -133,5 +133,6 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--app',choices=[*APPS,'all'],default='all')
     parser.add_argument('--connected',action='store_true')
+    parser.add_argument('--disposable',action='store_true',help='Use a fresh project for checks that remove their volumes')
     args=parser.parse_args()
-    generate(list(APPS) if args.app=='all' else [args.app],args.connected)
+    generate(list(APPS) if args.app=='all' else [args.app],args.connected,disposable=args.disposable)

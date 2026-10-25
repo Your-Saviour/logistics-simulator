@@ -8,7 +8,7 @@ scenario=orderly
 mkdir -p .superpowers/sdd/2026-10-24-simu-4-logistics-v1
 cleanup() {
  docker compose -p "$project" -f "$manifest" logs --no-color logistics-worker logistics-controller logistics-adapter transport-peer > ".superpowers/sdd/2026-10-24-simu-4-logistics-v1/connected-services-$scenario.log"
- docker compose -p "$project" -f "$manifest" down
+ docker compose -p "$project" -f "$manifest" down --volumes
 }
 trap cleanup EXIT HUP INT TERM
 work build -t logistics-simulator:logistics-v1-adapter -f apps/adapter/Dockerfile .

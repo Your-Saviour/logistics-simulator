@@ -13,15 +13,17 @@ storage)
  ;;
 manufacturing)
  manifest=apps/manufacturing/compose.test.yml
- cleanup() { docker compose -f "$manifest" down; }; trap cleanup EXIT HUP INT TERM
- work compose -f "$manifest" run --rm backend-test sh -c 'mvn -B -q verify dependency:tree -DoutputFile=/tmp/dependencies.actual && diff -u dependencies.lock /tmp/dependencies.actual'
- work compose -f "$manifest" run --rm frontend-test
+ project=simu-manufacturing-unit-$(date +%s)
+ cleanup() { docker compose -p "$project" -f "$manifest" down --volumes; }; trap cleanup EXIT HUP INT TERM
+ work compose -p "$project" -f "$manifest" run --rm backend-test sh -c 'mvn -B -q verify dependency:tree -DoutputFile=/tmp/dependencies.actual && diff -u dependencies.lock /tmp/dependencies.actual'
+ work compose -p "$project" -f "$manifest" run --rm frontend-test
  ;;
 logistics)
  manifest=apps/logistics/compose.test.yml
- cleanup() { docker compose -p logistics-go-test -f "$manifest" down; }; trap cleanup EXIT HUP INT TERM
- work compose -p logistics-go-test -f "$manifest" up -d --wait db broker
- work compose -p logistics-go-test -f "$manifest" run --rm test sh -c 'go vet -tags nomsgpack -p 1 ./... && go test -tags nomsgpack -p 1 -count=1 -timeout 120s ./...'
+ project=simu-logistics-unit-$(date +%s)
+ cleanup() { docker compose -p "$project" -f "$manifest" down --volumes; }; trap cleanup EXIT HUP INT TERM
+ work compose -p "$project" -f "$manifest" up -d --wait db broker
+ work compose -p "$project" -f "$manifest" run --rm test sh -c 'go vet -tags nomsgpack -p 1 ./... && go test -tags nomsgpack -p 1 -count=1 -timeout 120s ./...'
  ;;
 shipping)
  manifest=apps/shipping/compose.smoke.yml
@@ -33,8 +35,9 @@ shipping)
  ;;
 twin)
  manifest=apps/twin/test.compose.yml
- cleanup() { docker compose -f "$manifest" down; }; trap cleanup EXIT HUP INT TERM
- work compose -f "$manifest" run --build --rm tests
+ project=simu-twin-unit-$(date +%s)
+ cleanup() { docker compose -p "$project" -f "$manifest" down --volumes; }; trap cleanup EXIT HUP INT TERM
+ work compose -p "$project" -f "$manifest" run --build --rm tests
  ;;
 *) echo 'Expected storage, manufacturing, logistics, shipping or twin' >&2; exit 2;;
 esac

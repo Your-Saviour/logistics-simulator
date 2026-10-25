@@ -4,7 +4,7 @@ set -eu
 app=${1:-all}
 case "$app" in storage|manufacturing|logistics|shipping|twin|all) ;; *) echo 'Expected storage, manufacturing, logistics, shipping, twin or all' >&2; exit 2;; esac
 work() { python3 scripts/docker_guard.py --wait --minimum-gib "${SIMULATOR_MINIMUM_FREE_GIB:-20}" --label "stack-$app" -- docker "$@"; }
-python3 scripts/stacks_compose.py --app "$app"
+python3 scripts/stacks_compose.py --app "$app" --disposable
 if [ "$app" = all ]; then
  manifest=deploy/generated/migration-standalone-suite.json
  selected='storage manufacturing logistics shipping twin'
@@ -12,7 +12,7 @@ else
  manifest=deploy/generated/migration-$app.json
  selected=$app
 fi
-cleanup() { work compose -f "$manifest" down; }
+cleanup() { work compose -f "$manifest" down --volumes; }
 trap cleanup EXIT HUP INT TERM
 if [ "${STACK_REUSE_IMAGES:-0}" != 1 ]; then
 work build -t logistics-simulator:bootstrap .
@@ -20,7 +20,6 @@ work build -t logistics-simulator:bootstrap .
 for selected_app in $selected; do
  work compose -f "$manifest" build "$selected_app-api"
  if [ "$selected_app" != shipping ]; then work compose -f "$manifest" build "$selected_app-web"; fi
- work builder prune --all --force --keep-storage 2GB
 done
 work compose -f "$manifest" build browser-check
 fi
@@ -101,7 +100,7 @@ fi
 if [ "$app" = all ]; then
  # Also prove each image starts with only its own dependency graph. Reuse the
  # images just built; outage checks already ran above against those images.
- work compose -f "$manifest" down
+ work compose -f "$manifest" down --volumes
  for selected_app in $selected; do
   STACK_REUSE_IMAGES=1 STACK_STARTUP_ONLY=1 sh scripts/check_stacks.sh "$selected_app"
  done
