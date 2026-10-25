@@ -13,6 +13,25 @@ function nativeHandoff() {
   return {depart,receive:{...depart,id:'storage-receipt',source:'storage',sequence:5,action:'receive'}};
 }
 
+test('native Shipping load and Logistics receipt are one carried trip with recipient takeover',()=>{
+  const queue=new JourneyQueue(),sources=[{...running,name:'shipping'},{...running,name:'logistics'}];
+  const load={...movement('native-finished',12),source:'shipping',action:'load',custody_generation:4,
+    origin:'shipping.outbound.dock01',destination:'logistics.outbound.truck01.slot01'};
+  const receive={...load,id:'carrier-receipt',source:'logistics',sequence:13,action:'receive'};
+  queue.observe([load],sources,0);queue.tick(0);queue.tick(500);
+  queue.observe([load,receive],[{...sources[0],running:false},sources[1]],500);queue.tick(1000);
+  assert.equal(queue.active.length,1);assert.equal(queue.active[0].move.source,'logistics');
+  assert.equal(queue.active[0].elapsed,1000);assert.equal(queue.queued.length,0);
+  queue.tick(2001);assert.equal(queue.active.length,0);assert.equal(queue.trails.length,1);
+  const historical=new JourneyQueue();historical.observe([load,receive],sources,0);historical.tick(0);
+  assert.equal(historical.active.length,1);assert.equal(historical.queued.length,0);
+  const reversed=new JourneyQueue();reversed.observe([receive,load],sources,0);reversed.tick(0);
+  assert.equal(reversed.active.length,1);assert.equal(reversed.queued.length,0);
+  const completed=new JourneyQueue();completed.observe([load],sources,0);completed.tick(0);completed.tick(2001);
+  completed.observe([receive],sources,3000);completed.tick(3000);
+  assert.equal(completed.active.length,0);assert.equal(completed.queued.length,0);
+});
+
 test('native departure and receipt describe one physical handoff while subsequent putaway remains separate',()=>{
   const queue=new JourneyQueue(),{depart,receive}=nativeHandoff();
   const putaway={...receive,id:'putaway',sequence:6,action:'putaway',origin:receive.destination,destination:'storage.raw.r01.b01.l04'};

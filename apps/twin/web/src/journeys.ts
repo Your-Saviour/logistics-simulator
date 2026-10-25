@@ -61,7 +61,7 @@ export function poseAt(route: Route,progress: number) {
 const unitKey = (move: Movement) => `${move.run_id}/${move.epoch}/${move.unit_id}`;
 const eventKey = (move: Movement) => `${move.source}/${move.run_id}/${move.epoch}/${move.id}`;
 function handoffLegKey(move: Movement): string | null {
-  if (!['depart','receive'].includes(move.action)||!Number.isInteger(move.custody_generation)||move.custody_generation!<1) return null;
+  if (!['depart','load','receive'].includes(move.action)||!Number.isInteger(move.custody_generation)||move.custody_generation!<1) return null;
   const origin=endpoint(move.origin),destination=endpoint(move.destination);
   if (!origin||!destination||origin.owner===destination.owner) return null;
   return `${unitKey(move)}/${move.custody_generation}/${origin.id}/${destination.id}`;
@@ -114,7 +114,7 @@ export class JourneyQueue {
         // Departure and receipt are two durable observations of one physical
         // trip. A recipient confirmation can take over its existing estimate;
         // it must not send the unit back to the origin for a second trip.
-        if (move.action==='receive'&&this.handoffLegs.get(leg)==='depart') {
+        if (move.action==='receive'&&['depart','load'].includes(this.handoffLegs.get(leg)!)) {
           const active=this.active.find(journey=>handoffLegKey(journey.move)===leg);
           const queued=this.queued.find(journey=>handoffLegKey(journey.move)===leg);
           if (active) {active.move=move;this.sequences.set(unitKey(move),Math.max(move.sequence,this.sequences.get(unitKey(move))??0));}
