@@ -125,23 +125,30 @@ Latest completed local measurement:
 | Renderer | ANGLE / Vulkan SwiftShader, LLVM 10.0.0; CPU software rendering |
 | Browser viewport | 1440 × 900 |
 | Drawing buffer | 831 × 538, DPR 1, single sample |
-| Measurement | 30.016 seconds, 472 actual draw frames |
-| Browser animation frames | 472 |
+| Measurement | 30.025 seconds, 468 actual draw frames |
+| Browser animation frames | 468 |
 | Active journeys | Minimum 64, maximum 64 |
 | Units | Minimum 500, maximum 500 |
 | Maximum queue | 192 |
-| Maximum draw calls per frame | 72 |
-| p95 frame interval | **80.1 ms — fails the 33.4 ms target** |
+| Maximum draw calls per frame | 9 |
+| p95 frame interval | **82.0 ms — fails the 33.4 ms target** |
 
-Batching static geometry reduced maximum draw calls from 434 to 72. Isolating
+Batching static geometry and robot-child load transforms reduced maximum draw
+calls from 434 to 9. Isolating
 software WebGL from Chromium's compositor and disabling multisampling improved
 the measured interval, but the target remains unmet. The latest diagnostic
-recorded a maximum 20.3 ms before submission and 0.8 ms across draw submission;
+recorded a maximum 10.2 ms before submission and 0.5 ms across draw submission;
 these are main-thread measurements, not GPU timings. Browser animation frames
 and drawn frames matched, ruling out idle animation frames as the missing work.
 A separate fullscreen-triangle control at the same 831 × 538 drawing-buffer
 size reached 1,801 frames with p95 19.9 ms in the same SwiftShader runtime. That
 control is diagnostic evidence, not a substitute for the 500-unit scene gate.
+Replacing both shaders with minimal transforms and a constant color still
+measured p95 76.2 ms. With rasterization disabled, the same geometry processing
+reached 1,779 frames and p95 21.0 ms. These private-browser diagnostics suggest
+the remaining cost lies in rasterization rather than draw submission or shader
+complexity. Raster discard produces no visible scene and is not acceptance
+evidence or a production setting.
 Do not treat static screenshots or model tests as passing performance evidence.
 
 JSON results and intermediate baselines are retained locally under
@@ -150,12 +157,26 @@ fails with a nonzero exit status when the target is missed. It is opt-in during
 ordinary browser suites to avoid repeating a 30-second measurement in every
 application check.
 
+## Review and follow-on work
+
+A fresh read-only whole-branch review found one Important defect: native
+Shipping `load` and Logistics `receive` observations could replay the same trip
+twice. The fix passed the full 21-test frontend model suite, covering recipient
+takeover, receipt-first delivery and late receipt after completed replay. No
+Critical defects were established.
+The final production frontend also passed the captured-native Chromium replay
+again after the batching and coalescing fixes (one test, 20.7 seconds).
+
+Coordinated operational robot traffic is tracked separately in
+[SIMU-75](https://ctfittwo.atlassian.net/browse/SIMU-75), created at the user’s
+request. SIMU-64 generates visual estimates; it does not prevent robot-to-robot
+route overlap.
+
 ## Remaining acceptance gates
 
-- Final upgrade/drain/conversion and recovery evidence against the final branch.
 - Final renderer budget verification. The native truck/shelf recording is
   functional evidence and does not establish the busy-scene frame budget.
-- Fresh whole-branch review and resolution of required findings.
+
 
 The five websites remain separate. No push, PR, hosted deployment, Jira write or
 live data-volume cutover has been performed by these local checks.
