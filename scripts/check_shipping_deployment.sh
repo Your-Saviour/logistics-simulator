@@ -40,7 +40,7 @@ compose stop shipping-worker
 verify --phase queue
 compose start shipping-worker
 verify --phase recovered
-if ! docker image inspect logistics-simulator:browser-check >/dev/null 2>&1; then work build -t logistics-simulator:browser-check -f apps/browser-check/Dockerfile .; fi
+work build -t logistics-simulator:browser-check -f apps/browser-check/Dockerfile .
 work run --rm --network "${project}_default" --env-file "$envfile" -v "$root/apps/browser-check/shipping.spec.ts:/checks/shipping.spec.ts:ro" -v "$root/apps/browser-check/shipping.config.ts:/checks/shipping.config.ts:ro" -v "$artifacts:/artifacts" logistics-simulator:browser-check npx playwright test --config shipping.config.ts
 for service in shipping-api shipping-worker shipping-controller; do
  container=$(docker compose -p "$project" --env-file "$envfile" -f "$manifest" ps -q "$service")
