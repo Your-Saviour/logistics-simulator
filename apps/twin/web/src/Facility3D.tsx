@@ -4,12 +4,14 @@ import {Html} from '@react-three/drei/web/Html.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {Color, InstancedMesh, Object3D, OrthographicCamera} from 'three';
 import {facility, rackGroups, truckGroups, recordedPlacement, visibleUnits, type RecordedUnit, type Vec3} from './facility';
+import {JourneyQueue,type Movement} from './journeys';
+import {ReplayDriver,RobotFleet,replayUnitKey,type ReplayProps,type ReplayStats} from './RobotReplay';
 import type {SceneEntity} from './sceneState';
 import './facility3d.css';
 
 type Props = {
   entities: SceneEntity[]; selected: string; choose: (entity: SceneEntity) => void; lost: boolean;
-  units?: RecordedUnit[]; sources?: SceneEntity['source'][];
+  units?: RecordedUnit[]; sources?: SceneEntity['source'][]; movements?:Movement[];
 };
 const COLORS = {floor: '#303c40', steel: '#82999e', beam: '#d29c50', raw: '#c5a276', finished: '#82aa9d', selected: '#ffb800'};
 const racks = rackGroups();
@@ -69,12 +71,13 @@ function Trucks() {
   })}</group>;
 }
 
-function Units(props: Props) {
+function Units(props: Props & {replay:ReplayProps}) {
   const records = useMemo(() => visibleUnits(props.units ?? []), [props.units]);
   const ref = useRef<InstancedMesh>(null);
+  const temporary=useMemo(()=>new Object3D(),[]);
   useLayoutEffect(() => {
     if (!ref.current) return;
-    const object = new Object3D();
+    const object = temporary;
     records.forEach((unit,index) => {
       const position = recordedPlacement(unit)!;
       object.position.set(position[0],position[1]+.36,position[2]); object.updateMatrix();
@@ -83,7 +86,14 @@ function Units(props: Props) {
     });
     ref.current.instanceMatrix.needsUpdate = true;
     if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
-  },[records,props.selected]);
+  },[records,props.selected,temporary]);
+  useFrame(()=>{
+    if(!ref.current)return;
+    const active=new Set(props.replay.queue.active.map(journey=>`${journey.move.run_id}/${journey.move.epoch}/${journey.move.unit_id}`));
+    const object=temporary;
+    records.forEach((unit,index)=>{const position=recordedPlacement(unit)!;object.position.set(position[0],position[1]+.36,position[2]);object.scale.setScalar(active.has(replayUnitKey(unit))?0:1);object.updateMatrix();ref.current!.setMatrixAt(index,object.matrix);});
+    ref.current.instanceMatrix.needsUpdate=true;
+  });
   function choose(event: ThreeEvent<MouseEvent>) {
     if (event.instanceId === undefined) return;
     const unit = records[event.instanceId], source = props.sources?.find(source => source.name === unit.owner);
@@ -110,7 +120,7 @@ function Camera({reset}: {reset: number}) {
   useFrame(() => controls.update());
   return null;
 }
-function World(props: Props) {
+function World(props: Props & {replay:ReplayProps}) {
   return <>
     <Box at={[-1,-.22,1]} size={[91,.4,61]} color={COLORS.floor}/>
     <Box at={[-46,1,1]} size={[.18,2,61]} color="#7b9297"/>
@@ -122,7 +132,7 @@ function World(props: Props) {
       </group>;
     })}
     {racks.map(rack => <Rack key={rack.id} rack={rack}/>)}
-    <Markers/><Machines/><Trucks/><Units {...props}/>
+    <ReplayDriver {...props.replay}/><Markers/><Machines/><Trucks/><Units {...props}/><RobotFleet {...props.replay}/>
     {([{text:'Raw storage',at:[-18,7,-14]},{text:'Finished storage',at:[-18,7,12]},{text:'Manufacturing',at:[7,5,1]},{text:'Inbound',at:[-39,3,-22]},{text:'Outbound',at:[29,4,-22]}] as {text:string;at:Vec3}[]).map(label =>
       <Html key={label.text} center position={label.at} zIndexRange={[20,0]}><span className="facility-area-label">{label.text}</span></Html>)}
   </>;
@@ -134,16 +144,23 @@ class SceneBoundary extends Component<{children: ReactNode; onFailure: () => voi
   render() {return this.state.failed ? <p className="scene-unavailable">3D graphics are unavailable. Recorded units remain available in the asset list.</p> : this.props.children;}
 }
 export default function Facility3D(props: Props) {
+  const root=useRef<HTMLDivElement>(null),queue=useRef(new JourneyQueue());
+  const [reduced,setReduced]=useState(()=>matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(()=>{const query=matchMedia('(prefers-reduced-motion: reduce)'),update=()=>setReduced(query.matches);query.addEventListener('change',update);return()=>query.removeEventListener('change',update);},[]);
+  const [stats,setStats]=useState<ReplayStats>({active:0,queued:0,trails:0,skipped:0,unmapped:0,frozen:false});
+  const sources=useMemo(()=>(props.sources??[]).flatMap(source=>source.status ? [{name:source.name,run_id:source.status.run.id,epoch:source.status.run.epoch,running:source.status.run.state==='running',connected:source.connected&&!source.stale&&!props.lost}] : []),[props.sources,props.lost]);
+  const replay:ReplayProps={queue:queue.current,movements:props.movements??[],sources,reduced,units:props.units??[],root,onStats:setStats,selected:props.selected};
   const [reset,setReset]=useState(0),[ready,setReady]=useState(false),[failed,setFailed]=useState(false);
-  return <div className="facility-stage" role="group" aria-label="Selectable 3D facility" data-models-ready={ready} data-recorded-units={visibleUnits(props.units ?? []).length}>
+  return <div ref={root} className="facility-stage" role="group" aria-label="Selectable 3D facility" data-models-ready={ready} data-recorded-units={visibleUnits(props.units ?? []).length}>
     <div className="scene-controls"><span>Fixed catalog · Drag to orbit · Scroll to zoom</span><button type="button" onClick={()=>setReset(value=>value+1)}>Reset view</button></div>
     <SceneBoundary onFailure={()=>setFailed(true)}>
       <Canvas orthographic dpr={1} frameloop="demand" camera={{near:.1,far:300,zoom:6}} gl={{antialias:true,alpha:false}} onCreated={()=>setReady(true)}>
         <color attach="background" args={['#151d20']}/><hemisphereLight args={['#f3f1e2','#3b5058',2.3]}/>
         <directionalLight position={[-30,60,30]} intensity={2.5}/><directionalLight position={[40,15,-30]} intensity={.7}/>
-        <Camera reset={reset}/><World {...props}/>
+        <Camera reset={reset}/><World {...props} replay={replay}/>
       </Canvas>
     </SceneBoundary>
+    <div className="scene-replay" aria-label="Visual replay">{reduced?'Reduced motion · recorded positions':`Visual estimate · ${stats.active} robots · ${stats.queued} queued${stats.frozen?' · frozen':''}`}<span>Generated robots, routes and timing · {stats.skipped} movements coalesced{stats.unmapped?` · ${stats.unmapped} unmapped`:''}</span></div>
     {!ready&&!failed&&<p className="scene-loading" role="status">Loading 3D facility…</p>}
     {!props.units?.length&&<p className="scene-empty">No recorded handling units</p>}
   </div>;
