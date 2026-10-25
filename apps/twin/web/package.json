@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "dev": "vite --host 0.0.0.0",
-    "test:scene": "node --experimental-strip-types --test tests/scene.test.mjs"
+    "test:scene": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
     "@react-three/drei": "10.7.9",

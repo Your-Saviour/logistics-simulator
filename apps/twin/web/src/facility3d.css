@@ -11,3 +11,5 @@
 .scene-loading,.scene-unavailable,.scene-empty { position:absolute; inset:45% 16px auto; text-align:center; color:#d9e0d8; background:#172125eb; padding:12px; pointer-events:none; }
 .scene-unavailable { z-index:45; }
 @media(max-width:600px) { .facility-stage {height:480px;} .scene-controls {font-size:9px;} .scene-label button {font-size:9px; padding:5px; } }
+
+.facility-area-label { font-size:11px; color:#edf1e7; background:#172125ed; padding:5px 8px; white-space:nowrap; pointer-events:none; }

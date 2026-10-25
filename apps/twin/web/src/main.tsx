@@ -1,3 +1,4 @@
+import type {RecordedUnit} from './facility';
 import {
   useEffect,
   useState,
@@ -49,6 +50,7 @@ type Event = {
   payload: Row;
 };
 type Twin = {
+  handling?: {version: number; units: RecordedUnit[]; unsupported_sources: string[]};
   revision: number;
   mode: "live";
   sources: Source[];
@@ -357,7 +359,14 @@ function App() {
       setBusy(false);
     }
   }
-  const all = entities(twin?.sources ?? []);
+  const unitEntities: Entity[] = (twin?.handling?.units ?? []).flatMap(unit => {
+    const source = twin?.sources.find(source => source.name === unit.owner) ??
+      twin?.sources.find(source => source.name === unit.observations[0]?.source);
+    if (!source) return [];
+    return [{key:`unit:${unit.run_id}:${unit.epoch}:${unit.id}`,label:unit.barcode,kind:'handling unit',
+      source,row:unit as unknown as Row,related:[],x:0,y:0}];
+  });
+  const all = [...unitEntities, ...entities(twin?.sources ?? [])];
   const entity = all.find((e) => e.key === selected);
   const currentRecord =
     record && entity
@@ -648,10 +657,12 @@ function App() {
                       >
                         <div className="section-heading">
                           <h2>3D facility</h2>
-                          <span>Logical layout · not to scale</span>
+                          <span>Catalog coordinates · metres</span>
                         </div>
                         <Facility3D
                           entities={all}
+                          units={twin.handling?.units}
+                          sources={twin.sources}
                           selected={selected}
                           choose={choose}
                           lost={lost}
@@ -663,10 +674,9 @@ function App() {
                           <span>Loading bays</span>
                         </div>
                         <p className="note">
-                          The schematic shows up to nine assets per source.
-                          Positions are estimated from confirmed departure and
-                          planned arrival using source granted time. Delivery
-                          requires a confirmed source event.
+                          Units use recorded catalog positions. Empty slots are
+                          facility capacity, not stock. Unknown or disputed
+                          placements remain in the asset list without a 3D position.
                         </p>
                         <details className="asset-list">
                           <summary>All {all.length} source assets</summary>
