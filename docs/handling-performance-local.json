@@ -1,0 +1,38 @@
+{
+  "fixture": "synthetic rendering workload; no native acceptance claim",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "drawingBuffer": {
+    "width": 831,
+    "height": 538
+  },
+  "durationMs": 30064.79999999702,
+  "frameCount": 477,
+  "maxDrawCalls": 72,
+  "maxPreparationMs": 3.899999998509884,
+  "maxRenderSubmissionMs": 0.6000000014901161,
+  "p95Ms": 72.70000000298023,
+  "maxIntervalMs": 123.40000000596046,
+  "minActive": 64,
+  "maxActive": 64,
+  "maxQueued": 192,
+  "minUnits": 500,
+  "maxUnits": 500,
+  "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver)",
+  "browser": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36",
+  "host": {
+    "platform": "macOS-15.6.1-arm64-arm-64bit-Mach-O",
+    "machdep.cpu.brand_string": "Apple M1 Pro",
+    "hw.ncpu": "10",
+    "hw.memsize": "17179869184",
+    "hw.model": "MacBookPro18,1"
+  },
+  "container": {
+    "architecture": "arm64",
+    "cpu": "unknown",
+    "logicalCpus": 10,
+    "memoryBytes": 8218034176
+  }
+}

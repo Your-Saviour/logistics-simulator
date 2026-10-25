@@ -7,6 +7,7 @@ import {facility, rackGroups, truckGroups, recordedPlacement, visibleUnits, type
 import {JourneyQueue,type Movement} from './journeys';
 import {ReplayDriver,RobotFleet,replayUnitKey,type ReplayProps,type ReplayStats} from './RobotReplay';
 import type {SceneEntity} from './sceneState';
+import {StaticGeometry,StaticBox,StaticWheel} from './StaticGeometry';
 import './facility3d.css';
 
 type Props = {
@@ -15,9 +16,8 @@ type Props = {
 };
 const COLORS = {floor: '#303c40', steel: '#82999e', beam: '#d29c50', raw: '#c5a276', finished: '#82aa9d', selected: '#ffb800'};
 const racks = rackGroups();
-function Box({at, size, color}: {at: Vec3; size: Vec3; color: string}) {
-  return <mesh position={at}><boxGeometry args={size}/><meshStandardMaterial color={color} roughness={0.8}/></mesh>;
-}
+const Box=StaticBox;
+
 function Rack({rack}: {rack: typeof racks[number]}) {
   const x = rack.slots[0].position[0];
   const minimum = Math.min(...rack.slots.map(slot => slot.position[2])) - .7;
@@ -44,7 +44,7 @@ function Markers() {
     ref.current.instanceMatrix.needsUpdate = true;
     if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
   },[locations]);
-  return <instancedMesh ref={ref} args={[undefined,undefined,locations.length]}><boxGeometry args={[1.05,.12,1.05]}/><meshStandardMaterial roughness={.8}/></instancedMesh>;
+  return <instancedMesh ref={ref} args={[undefined,undefined,locations.length]}><boxGeometry args={[1.05,.12,1.05]}/><meshLambertMaterial/></instancedMesh>;
 }
 function Machines() {
   const cells = useMemo(() => facility.locations.filter(location => location.kind === 'cell_input' && location.id.endsWith('input01')), []);
@@ -66,7 +66,7 @@ function Trucks() {
       <Box at={[x-.78,1.1,(minimum+maximum)/2]} size={[.1,.85,maximum-minimum]} color="#adb9b6"/>
       <Box at={[x,1.1,minimum-.8]} size={[1.6,1.5,1.4]} color="#6f8d9b"/>
       <Box at={[x,1.65,minimum-1.51]} size={[1.1,.45,.04]} color="#263e46"/>
-      {[minimum+.7,maximum-.7,minimum-.8].flatMap(z => [-.72,.72].map(dx => <mesh key={`${z}:${dx}`} position={[x+dx,.37,z]} rotation={[0,0,Math.PI/2]}><cylinderGeometry args={[.32,.32,.18,12]}/><meshStandardMaterial color="#18262b"/></mesh>))}
+      {[minimum+.7,maximum-.7,minimum-.8].flatMap(z => [-.72,.72].map(dx => <StaticWheel key={`${z}:${dx}`} at={[x+dx,.37,z]}/>))}
     </group>;
   })}</group>;
 }
@@ -104,7 +104,7 @@ function Units(props: Props & {replay:ReplayProps}) {
   }
   if (!records.length) return null;
   return <instancedMesh ref={ref} args={[undefined,undefined,records.length]} onClick={choose}>
-    <boxGeometry args={[.8,.72,.86]}/><meshStandardMaterial roughness={.88}/>
+    <boxGeometry args={[.8,.72,.86]}/><meshLambertMaterial/>
   </instancedMesh>;
 }
 function Camera({reset}: {reset: number}) {
@@ -121,7 +121,7 @@ function Camera({reset}: {reset: number}) {
   return null;
 }
 function World(props: Props & {replay:ReplayProps}) {
-  return <>
+  return <StaticGeometry>
     <Box at={[-1,-.22,1]} size={[91,.4,61]} color={COLORS.floor}/>
     <Box at={[-46,1,1]} size={[.18,2,61]} color="#7b9297"/>
     <Box at={[-1,1,-29.5]} size={[91,2,.18]} color="#7b9297"/>
@@ -135,7 +135,7 @@ function World(props: Props & {replay:ReplayProps}) {
     <ReplayDriver {...props.replay}/><Markers/><Machines/><Trucks/><Units {...props}/><RobotFleet {...props.replay}/>
     {([{text:'Raw storage',at:[-18,7,-14]},{text:'Finished storage',at:[-18,7,12]},{text:'Manufacturing',at:[7,5,1]},{text:'Inbound',at:[-39,3,-22]},{text:'Outbound',at:[29,4,-22]}] as {text:string;at:Vec3}[]).map(label =>
       <Html key={label.text} center position={label.at} zIndexRange={[20,0]}><span className="facility-area-label">{label.text}</span></Html>)}
-  </>;
+  </StaticGeometry>;
 }
 class SceneBoundary extends Component<{children: ReactNode; onFailure: () => void}, {failed: boolean}> {
   state={failed:false};
@@ -154,7 +154,7 @@ export default function Facility3D(props: Props) {
   return <div ref={root} className="facility-stage" role="group" aria-label="Selectable 3D facility" data-models-ready={ready} data-recorded-units={visibleUnits(props.units ?? []).length}>
     <div className="scene-controls"><span>Fixed catalog · Drag to orbit · Scroll to zoom</span><button type="button" onClick={()=>setReset(value=>value+1)}>Reset view</button></div>
     <SceneBoundary onFailure={()=>setFailed(true)}>
-      <Canvas orthographic dpr={1} frameloop="demand" camera={{near:.1,far:300,zoom:6}} gl={{antialias:true,alpha:false}} onCreated={()=>setReady(true)}>
+      <Canvas orthographic dpr={1} frameloop="demand" camera={{near:.1,far:300,zoom:6}} gl={{antialias:false,alpha:false}} onCreated={()=>setReady(true)}>
         <color attach="background" args={['#151d20']}/><hemisphereLight args={['#f3f1e2','#3b5058',2.3]}/>
         <directionalLight position={[-30,60,30]} intensity={2.5}/><directionalLight position={[40,15,-30]} intensity={.7}/>
         <Camera reset={reset}/><World {...props} replay={replay}/>

@@ -68,3 +68,7 @@ clean-tests:
 	$(TEST_COMPOSE) down
 credentials:
 	python3 scripts/credentials.py $(APP)
+
+.PHONY: handling-performance-check
+handling-performance-check:
+	sh scripts/check_handling_performance.sh

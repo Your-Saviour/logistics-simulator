@@ -27,8 +27,16 @@ test('500 recorded units replay on at most 64 robots without duplicate placement
   await expect(stage).toHaveAttribute('data-active-journeys','64');
   const counts=await stage.evaluate(element=>({active:Number(element.getAttribute('data-active-journeys')),queued:Number(element.getAttribute('data-queued-journeys')),static:Number(element.getAttribute('data-static-units')),replay:Number(element.getAttribute('data-replay-units'))}));
   expect(counts.queued).toBeLessThanOrEqual(256);expect(counts.static+counts.replay).toBe(500);
+  await page.locator('.asset-list summary').click();
+  const firstUnit=page.getByRole('button',{name:'handling unit · '+units[0].barcode,exact:true});await firstUnit.focus();await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading',{name:units[0].barcode,exact:true})).toBeVisible();await expect(stage).toHaveAttribute('data-active-journeys','64');
+  await page.getByRole('button',{name:'Clear',exact:true}).click();await page.locator('.asset-list summary').click();
+  await expect(stage).toHaveAttribute('data-recorded-units','500');
   await expect(page.getByLabel('Visual replay')).toContainText('Visual estimate');
   await page.screenshot({path:test.info().outputPath('concurrent-desktop.png'),fullPage:true});
+  const replayNote=page.getByLabel('Visual replay').locator('span'),before=await replayNote.innerText();
+  events.push(...events.slice(0,500).map(event=>({...event,id:event.id+'-hold-check',payload:{...event.payload,id:event.payload.id+'-hold-check',sequence:2}})));
+  await expect(replayNote).not.toHaveText(before);await expect(stage).toHaveAttribute('data-active-journeys','64');
   source.status.run.state='held';
   await expect(stage).toHaveAttribute('data-replay-frozen','true');
   const first=await stage.locator('canvas').screenshot();await page.waitForTimeout(300);
@@ -40,7 +48,7 @@ test('500 recorded units replay on at most 64 robots without duplicate placement
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   await page.setViewportSize({width:1440,height:900});
   await page.emulateMedia({reducedMotion:'no-preference'});source.status.run.state='running';
-  events.push(...events.slice(0,64).map(event=>({...event,id:event.id+'-next',payload:{...event.payload,id:event.payload.id+'-next',sequence:2}})));
+  events.push(...events.slice(0,64).map(event=>({...event,id:event.id+'-next',payload:{...event.payload,id:event.payload.id+'-next',sequence:3}})));
   await expect(stage).toHaveAttribute('data-active-journeys','64');
   await expect(stage).toHaveAttribute('data-active-journeys','0',{timeout:15000});
   await expect(stage).toHaveAttribute('data-static-units','500');

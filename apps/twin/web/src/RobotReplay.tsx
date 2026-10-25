@@ -1,6 +1,6 @@
 import {useEffect,useLayoutEffect,useMemo,useRef,type RefObject} from 'react';
 import {useFrame,useThree} from '@react-three/fiber';
-import {BoxGeometry,Color,Group,InstancedMesh,Mesh,MeshStandardMaterial,Object3D} from 'three';
+import {BoxGeometry,Color,Group,InstancedMesh,Mesh,MeshLambertMaterial,Object3D} from 'three';
 import {JourneyQueue,LIMITS,poseAt,type Movement,type MotionSource} from './journeys';
 import {visibleUnits,type RecordedUnit,type Vec3} from './facility';
 export type ReplayStats={active:number;queued:number;trails:number;skipped:number;unmapped:number;frozen:boolean};
@@ -30,7 +30,7 @@ export function RobotFleet(props:ReplayProps) {
   const object=useMemo(()=>new Object3D(),[]);
   const units=useMemo(()=>new Map(props.units.map(unit=>[replayUnitKey(unit),unit])),[props.units]);
   const geometry=useMemo(()=>new BoxGeometry(.8,.72,.86),[]);
-  const materials=useMemo(()=>({raw:new MeshStandardMaterial({color:'#c5a276',roughness:.85}),finished:new MeshStandardMaterial({color:'#82aa9d',roughness:.85}),selected:new MeshStandardMaterial({color:'#ffb800',roughness:.85})}),[]);
+  const materials=useMemo(()=>({raw:new MeshLambertMaterial({color:'#c5a276'}),finished:new MeshLambertMaterial({color:'#82aa9d'}),selected:new MeshLambertMaterial({color:'#ffb800'})}),[]);
   useEffect(()=>()=>{geometry.dispose();Object.values(materials).forEach(material=>material.dispose());},[geometry,materials]);
   useLayoutEffect(()=>{if(trails.current){trails.current.setColorAt(0,new Color(1,1,1));trails.current.count=0;}},[]);
   const colors=['#d7b568','#607f88','#2c393e','#bbc7c4'];
@@ -83,7 +83,7 @@ export function RobotFleet(props:ReplayProps) {
     }
   },-1);
   return <>
-    {colors.map((color,index)=><instancedMesh key={color} ref={node=>{parts.current[index]=node;}} args={[undefined,undefined,LIMITS.active*(index===2?4:index===3?2:1)]} frustumCulled={false}><boxGeometry/><meshStandardMaterial color={color} roughness={.8}/></instancedMesh>)}
+    {colors.map((color,index)=><instancedMesh key={color} ref={node=>{parts.current[index]=node;}} args={[undefined,undefined,LIMITS.active*(index===2?4:index===3?2:1)]} frustumCulled={false}><boxGeometry/><meshLambertMaterial color={color}/></instancedMesh>)}
     {Array.from({length:LIMITS.active},(_,index)=><group key={index} name={`visual-robot-${index+1}`} ref={node=>{groups.current[index]=node;}} visible={false}><mesh name="carried-unit" geometry={geometry} material={materials.raw} dispose={null}/></group>)}
     <instancedMesh ref={trails} args={[undefined,undefined,LIMITS.queued*5]} frustumCulled={false}><boxGeometry/><shaderMaterial transparent depthWrite={false}
       vertexShader={'varying float fade; void main(){fade=instanceColor.r;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}'}
