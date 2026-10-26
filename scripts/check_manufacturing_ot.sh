@@ -22,7 +22,7 @@ import json,secrets,sys
 from pathlib import Path
 password=secrets.token_hex(24);hmi=secrets.token_hex(24)
 identities=[{'username':'employee','password':password,'role':'employee'},
- {'username':'fuxa','password':hmi,'role':'operator','scopes':['status:read','runs:control']}]
+ {'username':'fuxa','password':hmi,'role':'operator','scopes':['status:read','runs:control','scenarios:manage']}]
 p=Path(sys.argv[1]);p.chmod(0o600)
 p.write_text('MANUFACTURING_USERNAME=operator\nMANUFACTURING_PASSWORD='+password+'\nMANUFACTURING_IDENTITIES='+json.dumps(identities,separators=(',',':'))+'\nFUXA_API_PASSWORD='+hmi+'\nPLC_PASSWORD='+secrets.token_hex(24)+'\nOT_EQUIPMENT_TOKEN='+secrets.token_hex(24)+'\nMANUFACTURING_PORT=0\nFUXA_PORT=0\nSCENARIO_PRESET=pump-assembly\nAUTONOMOUS_PRODUCTION=false\n')
 PY
@@ -36,7 +36,11 @@ work run --rm --entrypoint python3 -w /tests -v "$PWD/apps/manufacturing/ot/comp
 compose up -d --no-build manufacturing-api manufacturing-worker manufacturing-controller manufacturing-web fuxa
 python_case /tests/client.py
 compose run --rm --no-deps ot-fuxa-bootstrap
+if [ "${OT_DASHBOARD_ONLY:-0}" != 1 ]; then
 work run --rm --network "${project}_default" --env-file "$envfile" --entrypoint node -v "$PWD/apps/manufacturing/ot/acceptance:/tests:ro" -v "$artifacts:/artifacts" logistics-simulator:simu54-browser /tests/workflow.mjs
+fi
+work run --rm --network "${project}_default" --env-file "$envfile" --entrypoint node -v "$PWD/apps/manufacturing/ot/acceptance:/tests:ro" -v "$artifacts:/artifacts" logistics-simulator:simu54-browser /tests/dashboard.mjs
+compose exec -T manufacturing-db psql -U manufacturing -d manufacturing -At -c "SELECT json_build_object('observation_rows',count(*),'history_bytes',pg_total_relation_size('ot_observations')) FROM ot_observations" > "$artifacts/history-storage.json"
 compose exec -T manufacturing-db psql -U manufacturing -d manufacturing -v ON_ERROR_STOP=1 < apps/manufacturing/ot/acceptance/steps.sql
 python_case /tests/recovery.py replay
 compose stop manufacturing-equipment

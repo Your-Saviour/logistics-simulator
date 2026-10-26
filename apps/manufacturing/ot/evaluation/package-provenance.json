@@ -1,0 +1,27 @@
+{
+  "package": "asyncua",
+  "version": "2.1.0",
+  "metadata": "https://pypi.org/pypi/asyncua/2.1.0/json",
+  "distributions": [
+    {
+      "filename": "asyncua-2.1.0-py3-none-any.whl",
+      "sha256": "81d0c66b93b2ffdf97f672572d1ac975cc0b86a62b4c4e67034485dc0a2a2994",
+      "uploaded_at": "2026-10-06T17:15:56.153396Z"
+    },
+    {
+      "filename": "asyncua-2.1.0.tar.gz",
+      "sha256": "d741f5e21f189ac0a45b8dda13539c2d49d8d992b9b62d2758efe1bfd3d1454c",
+      "uploaded_at": "2026-10-06T17:15:58.340920Z"
+    }
+  ],
+  "source_tag": {
+    "ref": "refs/tags/v2.1.0",
+    "node_id": "MDM6UmVmMTQzMjYwNjEzOnJlZnMvdGFncy92Mi4xLjA=",
+    "url": "https://api.github.com/repos/FreeOpcUa/opcua-asyncio/git/refs/tags/v2.1.0",
+    "object": {
+      "sha": "709d35b31e84d84673984225f2ea37c19735b1a4",
+      "type": "tag",
+      "url": "https://api.github.com/repos/FreeOpcUa/opcua-asyncio/git/tags/709d35b31e84d84673984225f2ea37c19735b1a4"
+    }
+  }
+}

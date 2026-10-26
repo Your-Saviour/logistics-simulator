@@ -38,3 +38,13 @@ test('material receipt retries preserve the explicit whole-unit identity and con
  const sent=JSON.parse(seen[0].body as string);assert.ok(Array.isArray(sent.units),'Receipt must send an explicit whole-unit manifest');assert.equal(sent.units.length,1);assert.equal(sent.units[0].quantity,6);assert.match(sent.units[0].id,/^[0-9a-f-]{36}$/);
  await pending.retry(api);assert.equal(seen[0].body,seen[1].body);assert.equal((seen[0].headers as Record<string,string>)['Idempotency-Key'],(seen[1].headers as Record<string,string>)['Idempotency-Key']);
 });
+test('command IDs and retries work on HTTP hosts without randomUUID',async()=>{
+ const own=Object.getOwnPropertyDescriptor(globalThis.crypto,'randomUUID');
+ Object.defineProperty(globalThis.crypto,'randomUUID',{value:undefined,configurable:true});
+ try{
+  const {PendingCommand}=await import('./api.ts');const command=new PendingCommand();
+  const api=new Api('operator','secret',async()=>new Response('{"status":"pending"}'));
+  await command.send(api,{action:'supply',quantity:4});
+  assert.equal(command.body,null);
+ }finally{if(own)Object.defineProperty(globalThis.crypto,'randomUUID',own);else delete (globalThis.crypto as any).randomUUID;}
+});

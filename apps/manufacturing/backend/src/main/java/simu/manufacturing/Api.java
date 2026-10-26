@@ -26,11 +26,13 @@ final class Api {
      case "/api/projection"->Projection.read(store);
      case "/api/production"->Production.snapshot(store);
      case "/api/ot"->Ot.snapshot(store);
+     case "/api/ot/insights"->OtInsights.snapshot(store);
      case "/api/ot/tags"->OtTags.read(store);
      case "/api/sources"->List.of();case "/api/audit"->store.audit();default->throw new HttpError(404,"Not found");
     };
-    else if(command&&path.equals("/api/ot/commands")){result=Ot.command(store,request.getHeader("Idempotency-Key"),Json.parse(body==null?"":body),audit);}
-    else if(command&&path.equals("/api/ot/tags")){result=OtTags.write(store,Json.parse(body==null?"":body),audit);}
+    else if(command&&path.equals("/api/ot/insights")){var input=Json.parse(body==null?"":body);if(input.path("action").asText().startsWith("scenario_")&&!account.scopes().contains("scenarios:manage"))throw new HttpError(403,"Scenario management permission required");result=OtInsights.control(store,request.getHeader("Idempotency-Key"),input,audit);}
+    else if(command&&path.equals("/api/ot/commands")){var input=Json.parse(body==null?"":body);if(input.path("action").asText().equals("fault")&&!account.scopes().contains("scenarios:manage"))throw new HttpError(403,"Scenario management permission required");result=Ot.command(store,request.getHeader("Idempotency-Key"),input,audit);}
+    else if(command&&path.equals("/api/ot/tags")){var input=Json.parse(body==null?"":body);if(input.isArray()&&input.size()==1&&input.path(0).path("value").isTextual()&&Json.parse(input.path(0).path("value").asText()).path("action").asText().equals("fault")&&!account.scopes().contains("scenarios:manage"))throw new HttpError(403,"Scenario management permission required");result=OtTags.write(store,input,audit);}
     else if(command&&path.equals("/api/production/commands")){result=Production.command(store,request.getHeader("Idempotency-Key"),Json.parse(body==null?"":body),audit);}
     else if(command&&path.equals("/api/jobs")){
      var json=Policy.job(Json.parse(body==null?"":body));String key=request.getHeader("Idempotency-Key");if(key==null||key.isEmpty()||key.length()>128)throw new IllegalArgumentException("Idempotency-Key of 1..128 characters required");if(key.startsWith("production:")||key.startsWith("synthetic:")||key.startsWith("boundary:")||key.startsWith("synthetic-sample:"))throw new Store.Conflict("This idempotency key namespace is reserved for internal providers");result=store.schedule(key,json.get("due_at").doubleValue(),json.get("quantity").intValue(),audit,null);

@@ -1,0 +1,14 @@
+# Isolated protocol evaluation only. No route or credentials to Manufacturing.
+services:
+  spike:
+    image: logistics-simulator:simu77-opcua-spike
+    build:
+      context: ../../../..
+      dockerfile: apps/manufacturing/ot/evaluation/Dockerfile
+    mem_limit: 384m
+    cpus: 1
+    network_mode: none
+    read_only: true
+    tmpfs: [/tmp:size=32m]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]

@@ -26,13 +26,13 @@ final class OtGateway {
    }
    if(System.nanoTime()-observed>1_000_000_000L){observe();observed=System.nanoTime();}
    return true;
-  }catch(java.io.IOException error){failure("OT equipment/PLC disconnected; awaiting the same durable operation");Thread.sleep(250);return false;}
+  }catch(java.io.IOException error){failure("PLC observation disconnected".equals(error.getMessage())?"PLC connection unavailable; equipment gateway responding":"OT equipment gateway unavailable; PLC state unknown; awaiting the same durable operation");Thread.sleep(250);return false;}
   catch(Conflict error){if(!store.run().get("epoch").equals(epoch))return false;throw error;}
  }
- void failure(String reason){store.tx(c->{var run=current(c);if(run.get("id").equals(runId)&&run.get("epoch").equals(epoch))sql(c,"UPDATE ot_cells SET error=? WHERE run_id=?",reason,runId);return null;});}
+ void failure(String reason){store.tx(c->{var run=current(c);if(run.get("id").equals(runId)&&run.get("epoch").equals(epoch))OtInsights.sourceLost(c,run,reason);return null;});}
  void observe()throws Exception{
   var reply=client.send(request("/v1/status").GET().build(),HttpResponse.BodyHandlers.ofString());if(reply.statusCode()!=200)throw new java.io.IOException("Equipment observation unavailable");var result=Json.parse(reply.body());
   if(result.path("recovery_required").asBoolean())throw new Conflict("OT equipment restarted or lost its PLC state; controlled recovery required");if(!result.path("connected").asBoolean())throw new java.io.IOException("PLC observation disconnected");var scope=result.path("scope");if(!result.path("version").asText().equals("1.0")||!scope.path("run_id").asText().equals(runId.toString())||!scope.path("epoch").asText().equals(epoch.toString())||!scope.path("session_id").asText().equals(session.toString()))throw new Conflict("Equipment observation scope mismatch");
-  store.tx(c->{var run=current(c);if(!run.get("id").equals(runId)||!run.get("epoch").equals(epoch))return null;var cell=one(c,"SELECT * FROM ot_cells WHERE run_id=?",runId);if(!cell.get("session_id").equals(session)||Policy.time(result.get("simulation_time"))!=number(cell,"settled"))throw new Conflict("Unsettled equipment observation");sql(c,"UPDATE ot_cells SET telemetry=?::jsonb,observed_at=clock_timestamp(),error=NULL WHERE run_id=?",Json.write(result),runId);return null;});
+  store.tx(c->{var run=current(c);if(!run.get("id").equals(runId)||!run.get("epoch").equals(epoch))return null;var cell=one(c,"SELECT * FROM ot_cells WHERE run_id=?",runId);if(!cell.get("session_id").equals(session)||Policy.time(result.get("simulation_time"))!=number(cell,"settled"))throw new Conflict("Unsettled equipment observation");OtInsights.sourceRestored(c,run);sql(c,"UPDATE ot_cells SET telemetry=?::jsonb,observed_at=clock_timestamp(),error=NULL WHERE run_id=?",Json.write(result),runId);return null;});
  }
 }

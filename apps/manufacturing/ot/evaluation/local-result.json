@@ -1,0 +1,23 @@
+{
+  "architecture": "aarch64",
+  "candidate": "asyncua==2.1.0",
+  "normal_samples": 100,
+  "devices": 1,
+  "target_rate_hz": 10,
+  "observed_rate_hz": 9.758366694455937,
+  "p95_observation_ms": 1.7819159984355792,
+  "mean_observation_ms": 0.9903950389707461,
+  "max_rss_kib": 137692,
+  "cpu_seconds": 4.421014,
+  "elapsed_seconds": 15.590687424002681,
+  "gates": {
+    "normal": "pass",
+    "degraded_quality": "pass",
+    "observer_write_denied": "pass",
+    "disconnect_reconnect": "pass",
+    "restart_identity": "pass",
+    "restart_value_persistence": "fail: resets to model default",
+    "helics_step_control": "not implemented",
+    "manufacturing_path": "not adopted"
+  }
+}

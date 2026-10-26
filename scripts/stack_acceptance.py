@@ -75,7 +75,9 @@ def verify(app,url):
         run=value['run'];UUID(run['id']);UUID(run['epoch'])
         assert {'requested','granted','committed','scenario'}<=run.keys()
         assert isinstance(run['granted'],(int,float)) and run['committed']<=run['granted']
-        assert set(value['identity']['scopes'])=={'status:read','jobs:write','runs:control','audit:read'}
+        expected_scopes={'status:read','jobs:write','runs:control','audit:read'}
+        if app=='manufacturing': expected_scopes.add('scenarios:manage')
+        assert set(value['identity']['scopes'])==expected_scopes
         assert 'password' not in json.dumps(value)
         employee_auth=(employee['username'],employee['password'])
         observer_auth=(observer['username'],observer['password'])

@@ -1,0 +1,17 @@
+{
+  "browser_input_response_ms": 61.13991700000042,
+  "observation_age_p95_ms": 324,
+  "devices": 8,
+  "synthetic_signals": 2,
+  "history_limit": 600,
+  "history_rows": 542,
+  "history_response_bytes": 829949,
+  "insight_api_p95_ms": 98.93037499999991,
+  "browser_load_ms": 118.59999999403954,
+  "desktop_width": 1440,
+  "tablet_width": 820,
+  "running_animations": 0,
+  "reduced_motion": true,
+  "keyboard_focus": true,
+  "browser_errors": []
+}

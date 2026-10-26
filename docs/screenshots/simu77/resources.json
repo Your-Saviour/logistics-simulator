@@ -1,0 +1,126 @@
+{
+  "note": "Single local Docker stats snapshot during acceptance; not peak measurements",
+  "services": [
+    {
+      "BlockIO": "139kB / 0B",
+      "CPUPerc": "0.00%",
+      "Container": "d650f4159800",
+      "ID": "d650f4159800",
+      "MemPerc": "0.13%",
+      "MemUsage": "10.01MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-ot-fuxa-bootstrap-run-0cb8bf764d7c",
+      "NetIO": "2.2kB / 25.6kB",
+      "PIDs": "1"
+    },
+    {
+      "BlockIO": "0B / 201kB",
+      "CPUPerc": "9.40%",
+      "Container": "6331e1414bf1",
+      "ID": "6331e1414bf1",
+      "MemPerc": "2.47%",
+      "MemUsage": "193.4MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-manufacturing-controller-1",
+      "NetIO": "14.6MB / 9.22MB",
+      "PIDs": "50"
+    },
+    {
+      "BlockIO": "0B / 1.12MB",
+      "CPUPerc": "0.77%",
+      "Container": "b5f3088bc197",
+      "ID": "b5f3088bc197",
+      "MemPerc": "1.21%",
+      "MemUsage": "94.87MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-fuxa-1",
+      "NetIO": "444kB / 24.2kB",
+      "PIDs": "23"
+    },
+    {
+      "BlockIO": "0B / 25MB",
+      "CPUPerc": "6.53%",
+      "Container": "6c689d79fa69",
+      "ID": "6c689d79fa69",
+      "MemPerc": "0.19%",
+      "MemUsage": "15.2MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-manufacturing-equipment-1",
+      "NetIO": "4.58MB / 6.89MB",
+      "PIDs": "1"
+    },
+    {
+      "BlockIO": "0B / 16.4kB",
+      "CPUPerc": "0.00%",
+      "Container": "f00528216338",
+      "ID": "f00528216338",
+      "MemPerc": "0.11%",
+      "MemUsage": "8.703MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-manufacturing-web-1",
+      "NetIO": "2.22kB / 126B",
+      "PIDs": "11"
+    },
+    {
+      "BlockIO": "0B / 0B",
+      "CPUPerc": "0.37%",
+      "Container": "c7e58b2be0e6",
+      "ID": "c7e58b2be0e6",
+      "MemPerc": "0.13%",
+      "MemUsage": "10.27MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-ot-hmi-proxy-1",
+      "NetIO": "117kB / 119kB",
+      "PIDs": "1"
+    },
+    {
+      "BlockIO": "0B / 193kB",
+      "CPUPerc": "2.62%",
+      "Container": "ad36b182b6ee",
+      "ID": "ad36b182b6ee",
+      "MemPerc": "2.03%",
+      "MemUsage": "159.3MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-manufacturing-worker-1",
+      "NetIO": "2.23MB / 1.58MB",
+      "PIDs": "49"
+    },
+    {
+      "BlockIO": "0B / 156kB",
+      "CPUPerc": "3.88%",
+      "Container": "d7d4f771e23d",
+      "ID": "d7d4f771e23d",
+      "MemPerc": "2.06%",
+      "MemUsage": "161.8MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-manufacturing-api-1",
+      "NetIO": "1.06MB / 1.42MB",
+      "PIDs": "45"
+    },
+    {
+      "BlockIO": "0B / 8.13MB",
+      "CPUPerc": "7.26%",
+      "Container": "dba6e43a1732",
+      "ID": "dba6e43a1732",
+      "MemPerc": "1.78%",
+      "MemUsage": "139.9MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-openplc-1",
+      "NetIO": "5.52MB / 3.8MB",
+      "PIDs": "17"
+    },
+    {
+      "BlockIO": "528kB / 147MB",
+      "CPUPerc": "6.45%",
+      "Container": "8c0cd1a6bb5e",
+      "ID": "8c0cd1a6bb5e",
+      "MemPerc": "0.95%",
+      "MemUsage": "74.59MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-manufacturing-db-1",
+      "NetIO": "10.2MB / 16.2MB",
+      "PIDs": "30"
+    },
+    {
+      "BlockIO": "49.2kB / 549kB",
+      "CPUPerc": "0.63%",
+      "Container": "18ff19d1ff8c",
+      "ID": "18ff19d1ff8c",
+      "MemPerc": "0.99%",
+      "MemUsage": "77.95MiB / 7.654GiB",
+      "Name": "simu-manufacturing-ot-1793005278-92540-manufacturing-rabbit-1",
+      "NetIO": "153kB / 95.8kB",
+      "PIDs": "28"
+    }
+  ]
+}

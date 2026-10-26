@@ -11,8 +11,8 @@ in the existing private adapter. Twin remains an optional observer.
 Use `apps/manufacturing/compose.v1.yaml` with `apps/manufacturing/compose.ot.yaml`
 for a **new independent deployment**. Copy `apps/manufacturing/ot.env.example`
 to an ignored private env file, replace credentials, and create the employee and
-FUXA identities in `MANUFACTURING_IDENTITIES`. Give FUXA only `status:read` and
-`runs:control`; the proxy supplies that identity server-side. Do not put credentials
+FUXA identities in `MANUFACTURING_IDENTITIES`. Give FUXA `status:read` and
+`runs:control`; add `scenarios:manage` only when its fault-injection tools are needed. the proxy supplies that identity server-side. Do not put credentials
 in the checked-in FUXA project. Existing standalone packaging is unchanged.
 
 Run from the repository root, using the same private env file/project for every
@@ -136,3 +136,11 @@ Outputs are read between two sequence reads to reject torn snapshots. PLC scans
 with unchanged request markers do not advance the model. See the private
 [HTTP contracts](../contracts/ot/v1/README.md) and
 [acceptance evidence](simu-54-acceptance.md).
+
+## Equipment workspace (SIMU-77)
+
+Manufacturing now includes an equipment dashboard with bounded signal history,
+alarm acknowledgement, durable named scenarios and guided recovery. See the
+[operator and deployment runbook](manufacturing-ot-v2.md),
+[simulator decision](manufacturing-simulator-evaluation.md) and
+[local acceptance record](simu-77-acceptance.md).

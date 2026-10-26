@@ -1,6 +1,8 @@
 export class Api {
  private username:string;private password:string;private transport:typeof fetch;
  constructor(username:string,password:string,transport:typeof fetch=globalThis.fetch.bind(globalThis)){this.username=username;this.password=password;this.transport=transport;}
+ /** Secure UUID v4 also on private HTTP hosts where randomUUID is unavailable. */
+ commandId(){const bytes=crypto.getRandomValues(new Uint8Array(16));bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const hex=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');return [hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');}
  async request(path:string,method='GET',body?:unknown,key?:string):Promise<any>{
   const bytes=new TextEncoder().encode(`${this.username}:${this.password}`);
   const headers:Record<string,string>={'Authorization':`Basic ${btoa(String.fromCharCode(...bytes))}`,'Content-Type':'application/json'};
@@ -19,8 +21,8 @@ export class PendingCommand {
  async send(api:Api,body:Record<string,unknown>){
   if(this.body)throw new Error('Retry or discard the pending command first.');
   this.body=structuredClone(body);
-  if(this.body['action']==='supply'&&!('units' in this.body))this.body['units']=[{id:crypto.randomUUID(),quantity:this.body['quantity']}];
-  this.key=crypto.randomUUID();return this.retry(api);
+  if(this.body['action']==='supply'&&!('units' in this.body))this.body['units']=[{id:api.commandId(),quantity:this.body['quantity']}];
+  this.key=api.commandId();return this.retry(api);
  }
  async retry(api:Api){
   if(!this.body)throw new Error('No pending command.');

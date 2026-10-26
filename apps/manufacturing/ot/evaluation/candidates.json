@@ -1,0 +1,205 @@
+[
+  {
+    "repository": "IBA-Group-IT/IoT-data-simulator",
+    "sha": "c392047d95791979aa6ede4b54dce9fde949ad8d",
+    "commit_date": "2020-02-21T16:49:44Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "archived": false,
+    "pushed_at": "2020-02-21T16:49:51Z",
+    "files": [
+      ".env",
+      ".gitattributes",
+      ".gitignore",
+      "CONTRIBUTING.md",
+      "LICENSE",
+      "README.md",
+      "data-sender",
+      "docker-compose.yml",
+      "rabbitmq",
+      "release",
+      "services",
+      "ui"
+    ]
+  },
+  {
+    "repository": "Open-Industry-Project/Open-Industry-Project",
+    "sha": "c4d9ba3a1a369e3faeb2698433932c768fde0dc0",
+    "commit_date": "2026-10-26T05:21:33Z",
+    "license": {
+      "key": "mit",
+      "name": "MIT License",
+      "spdx_id": "MIT",
+      "url": "https://api.github.com/licenses/mit",
+      "node_id": "MDc6TGljZW5zZTEz"
+    },
+    "archived": false,
+    "pushed_at": "2026-10-26T05:21:38Z",
+    "files": [
+      ".claude",
+      ".editorconfig",
+      ".env.example",
+      ".gitattributes",
+      ".github",
+      ".gitignore",
+      ".nvmrc",
+      "AGENTS.md",
+      "CHANGELOG.md",
+      "CLAUDE.md",
+      "CODE_OF_CONDUCT.md",
+      "CONTRIBUTING.md",
+      "LICENSE",
+      "README.md",
+      "SECURITY.md",
+      "THIRD_PARTY_NOTICES.md",
+      "app",
+      "apps",
+      "assets",
+      "docs",
+      "e2e",
+      "eslint.config.js",
+      "examples",
+      "guides",
+      "index.html",
+      "libraries",
+      "package-lock.json",
+      "package.json",
+      "packages",
+      "plc",
+      "privacy",
+      "public",
+      "scripts",
+      "server",
+      "src",
+      "test-corpus",
+      "tsconfig.base.json",
+      "tsconfig.json",
+      "vendor",
+      "vite.config.ts",
+      "workers"
+    ]
+  },
+  {
+    "repository": "massimocallisto/iot-simulator",
+    "sha": "d7b7d075b87fb775ec1cd9cca1dde722e63868ff",
+    "commit_date": "2023-11-14T09:46:33Z",
+    "license": {
+      "key": "apache-2.0",
+      "name": "Apache License 2.0",
+      "spdx_id": "Apache-2.0",
+      "url": "https://api.github.com/licenses/apache-2.0",
+      "node_id": "MDc6TGljZW5zZTI="
+    },
+    "archived": false,
+    "pushed_at": "2023-11-14T09:49:08Z",
+    "files": [
+      ".factorypath",
+      ".gitignore",
+      ".travis.yml",
+      "Dockerfile",
+      "Dockerfile-arm64",
+      "Frontend.7z",
+      "LICENSE",
+      "README.md",
+      "docker-compose",
+      "newtag.sh",
+      "pom.xml",
+      "run.sh",
+      "src"
+    ]
+  },
+  {
+    "repository": "FreeOpcUa/opcua-asyncio",
+    "sha": "c321a240e53d083fd6e167c67f795915d8f236fd",
+    "commit_date": "2026-10-10T18:15:09Z",
+    "license": {
+      "key": "lgpl-3.0",
+      "name": "GNU Lesser General Public License v3.0",
+      "spdx_id": "LGPL-3.0",
+      "url": "https://api.github.com/licenses/lgpl-3.0",
+      "node_id": "MDc6TGljZW5zZTEy"
+    },
+    "archived": false,
+    "pushed_at": "2026-10-10T18:15:09Z",
+    "files": [
+      ".git-blame-ignore-revs",
+      ".github",
+      ".gitignore",
+      ".gitmodules",
+      ".readthedocs.yml",
+      "COPYING",
+      "Dockerfile",
+      "README.md",
+      "agent.md",
+      "asyncua",
+      "docs",
+      "examples",
+      "make_deb.sh",
+      "nodeset",
+      "pyproject.toml",
+      "release.py",
+      "requirements.txt",
+      "schemas",
+      "setup.cfg",
+      "stdeb.cfg",
+      "test_external_server.py",
+      "tests",
+      "tools"
+    ]
+  },
+  {
+    "repository": "CEA-Leti/HENDRICS",
+    "sha": "d43a4c106bd5326fd96d03e480fd6918a595bd8a",
+    "commit_date": "2025-09-04T07:45:27Z",
+    "license": {
+      "key": "gpl-3.0",
+      "name": "GNU General Public License v3.0",
+      "spdx_id": "GPL-3.0",
+      "url": "https://api.github.com/licenses/gpl-3.0",
+      "node_id": "MDc6TGljZW5zZTk="
+    },
+    "archived": false,
+    "pushed_at": "2025-09-04T07:47:09Z",
+    "files": [
+      ".gitignore",
+      "LICENSE",
+      "README.md",
+      "attacks",
+      "embedded-device",
+      "images",
+      "servers"
+    ]
+  },
+  {
+    "name": "NodejsStarterApp",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+      "start": "node bin/www.js"
+    },
+    "dependencies": {
+      "body-parser": "1.17.1",
+      "cfenv": "1.0.x",
+      "compression": "1.6.2",
+      "dotenv": "4.0.0",
+      "express": "4.13.x",
+      "http-proxy-middleware": "0.17.4",
+      "qs": "6.4.0",
+      "socket.io": "2.0.3"
+    },
+    "repository": {},
+    "engines": {
+      "node": "8.x"
+    },
+    "devDependencies": {
+      "mkdirp": "0.5.1",
+      "node-cp": "0.1.1",
+      "rmdir": "1.2.0"
+    }
+  }
+]
